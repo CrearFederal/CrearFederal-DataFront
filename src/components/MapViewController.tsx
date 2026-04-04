@@ -54,7 +54,7 @@ function MapViewController({
   // -------- ROLE BASED VIEW --------
 
   useEffect(() => {
-    const roleKey = `${roleConfig.role}-${roleConfig.provinciaId}-${roleConfig.clubId}`;
+    const roleKey = `${roleConfig.role}-${roleConfig.provinciaId}-${roleConfig.municipioId}-${roleConfig.clubId}-${roleConfig.federationScope}`;
 
     if (roleKey === prevRoleRef.current) return;
     prevRoleRef.current = roleKey;
@@ -67,15 +67,30 @@ function MapViewController({
       return;
     }
 
-    // PROVINCE ROLE
+    // MUNICIPALITY ROLE — zoom to the municipality's clubs
+    if (roleConfig.role === "municipality" && roleConfig.municipioId) {
+      const clubs = getClubes({
+        provinciaId: roleConfig.provinciaId,
+        municipioId: roleConfig.municipioId,
+      });
+
+      if (clubs.length > 0) {
+        const bounds = L.latLngBounds(
+          clubs.map((c) => [c.lat, c.lng] as [number, number])
+        );
+        map.flyToBounds(bounds.pad(0.3), { duration: 1.2, maxZoom: 13 });
+      }
+      return;
+    }
+
+    // PROVINCE ROLE or PROVINCIAL FEDERATION
     if (
-      roleConfig.role === "province" &&
+      (roleConfig.role === "province" ||
+        (roleConfig.role === "federation" && roleConfig.federationScope === "provincial")) &&
       roleConfig.provinciaId
     ) {
       const feature = argentinaProvinces.features.find(
-        (f) =>
-          f.properties.id_provincia ===
-          roleConfig.provinciaId
+        (f) => f.properties.id_provincia === roleConfig.provinciaId
       );
 
       if (feature) {
