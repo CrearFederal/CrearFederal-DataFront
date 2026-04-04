@@ -9,15 +9,20 @@ import{
   Pie,
   Cell,
 } from "recharts";
-import type { TooltipProps } from "recharts";
 import type { ReactNode } from "react";
 
 // ---------------- CONSTANTS ----------------
 
-const BAR_COLOR = "#1a56db";
+const BAR_COLORS = [
+  "hsl(215, 100%, 45%)",
+  "hsl(215, 95%, 50%)",
+  "hsl(215, 90%, 48%)",
+  "hsl(215, 100%, 46%)",
+  "hsl(215, 100%, 44%)",
+];
 
 const GENDER_COLORS = {
-  male: "hsl(215, 70%, 50%)",
+  male: "hsl(215, 100%, 45%)",
   female: "hsl(340, 65%, 55%)",
 };
 
@@ -39,19 +44,64 @@ function ChartCard({ title, children }: ChartCardProps) {
   );
 }
 
-// ---------------- TOOLTIP ----------------
+// Custom Modern Tooltip
+function ModernTooltip(props: any) {
+  const { active, payload } = props;
+  if (!active || !payload?.length) return null;
+  
+  const data = payload[0].payload;
+  const label = data.sport || data.range || "N/A";
+  
+  return (
+    <div className="bg-white/95 backdrop-blur-sm border border-blue-200 rounded-lg px-3 py-2 shadow-lg">
+      <p className="text-xs font-semibold text-blue-900">{label}</p>
+      <p className="text-sm font-bold text-blue-600">{payload[0].value} ({data.sport ? 'atletas' : 'count'})</p>
+    </div>
+  );
+}
 
-const tooltipStyle: TooltipProps<any, any> = {
-  contentStyle: {
-    background: "hsl(220, 18%, 13%)",
-    border: "1px solid hsl(220, 15%, 20%)",
-    borderRadius: "8px",
-    fontSize: "12px",
-    color: "hsl(210, 20%, 92%)",
-  },
-};
+// 3D Bar Component for visual depth
+function Bar3D(props: any) {
+  const { x, y, width, height, fill } = props;
+  const depth = 8;
+  
+  return (
+    <g>
+      {/* 3D Back face */}
+      <rect
+        x={x + depth}
+        y={y - depth}
+        width={width}
+        height={height}
+        fill={fill}
+        opacity="0.3"
+      />
+      {/* 3D Top face */}
+      <polygon
+        points={`${x},${y} ${x + depth},${y - depth} ${x + width + depth},${y - depth} ${x + width},${y}`}
+        fill={fill}
+        opacity="0.5"
+      />
+      {/* 3D Right face */}
+      <polygon
+        points={`${x + width},${y} ${x + width + depth},${y - depth} ${x + width + depth},${y - depth + height} ${x + width},${y + height}`}
+        fill={fill}
+        opacity="0.4"
+      />
+      {/* Main front face */}
+      <rect
+        x={x}
+        y={y}
+        width={width}
+        height={height}
+        fill={fill}
+        rx="6"
+      />
+    </g>
+  );
+}
 
-// ---------------- ATHLETES PER SPORT ----------------
+// ---------------- ATHLETES PER SPORT - 3D MODERN ----------------
 
 interface AthletesPerSportChartProps {
   data: { sport: string; count: number }[];
@@ -62,38 +112,38 @@ export function AthletesPerSportChart({
 }: AthletesPerSportChartProps) {
   return (
     <ChartCard title="Atletas por Deporte">
-      <ResponsiveContainer width="100%" height={220}>
+      <ResponsiveContainer width="100%" height={350}>
         <BarChart
           data={data}
-          layout="vertical"
-          margin={{ left: 0, right: 10 }}
+          margin={{ left: 10, right: 10, top: 20, bottom: 60 }}
         >
           <XAxis
-            type="number"
-            tick={{ fontSize: 11, fill: "hsl(215, 15%, 55%)" }}
-            axisLine={false}
+            dataKey="sport"
+            tick={{ fontSize: 11, fill: "hsl(215, 30%, 40%)", fontWeight: 500 }}
+            axisLine={{ stroke: "hsl(215, 30%, 88%)" }}
             tickLine={false}
+            angle={-45}
+            textAnchor="end"
+            height={100}
           />
           <YAxis
-            type="category"
-            dataKey="sport"
-            width={80}
-            tick={{ fontSize: 11, fill: "hsl(210, 20%, 85%)" }}
-            axisLine={false}
+            tick={{ fontSize: 10, fill: "hsl(215, 30%, 60%)" }}
+            axisLine={{ stroke: "hsl(215, 30%, 88%)" }}
             tickLine={false}
           />
-          <Tooltip {...tooltipStyle} />
+          <Tooltip content={<ModernTooltip />} cursor={{ fill: "rgba(59, 130, 246, 0.1)" }} />
 
           <Bar
             dataKey="count"
-            radius={[0, 4, 4, 0]}
-            maxBarSize={18}
+            shape={<Bar3D />}
+            isAnimationActive={true}
+            animationDuration={800}
+            radius={[6, 6, 0, 0]}
           >
             {data.map((_, i) => (
               <Cell
                 key={i}
-                fill={BAR_COLOR}
-                fillOpacity={0.65 + (i % 3) * 0.12}
+                fill={BAR_COLORS[i % BAR_COLORS.length]}
               />
             ))}
           </Bar>
@@ -211,11 +261,11 @@ export function AgeDistributionChart({
             axisLine={false}
             tickLine={false}
           />
-          <Tooltip {...tooltipStyle} />
+          <Tooltip content={<ModernTooltip />} cursor={{ fill: "rgba(59, 130, 246, 0.1)" }} />
 
           <Bar
             dataKey="count"
-            fill={BAR_COLOR}
+            fill={BAR_COLORS[0]}
             radius={[4, 4, 0, 0]}
             maxBarSize={24}
           />

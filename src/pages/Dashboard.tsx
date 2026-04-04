@@ -2,13 +2,14 @@ import { useState, useEffect, useMemo } from "react";
 import type { Filters, NavigationState } from "../types/types";
 import {canClickProvince, getInitialNavigation, isNavigationAllowed } from "../data/roles";
 import type { UserRoleConfig } from "../data/roles";
-import { getClub } from "../data/dataUtils";
+import { getClub, getStats } from "../data/dataUtils";
 import BreadcrumbNav from "../components/BreadcrumbNav";
 import GlobalFilters from "../components/GlobalFilters";
 import LeafletMap from "../components/LeafletMap";
-import SidePanel from "../components/SidePanel";
 import ClubDetailPanel from "../components/ClubDetailPanel";
-import { BarChart3 } from "lucide-react";
+import KpiCard from "../components/KpiCard";
+import { AthletesPerSportChart, GenderDistributionChart } from "../components/Charts";
+import { BarChart3, Building2, Users, Trophy, Zap } from "lucide-react";
 
 const ROLE_OPTIONS: { label: string; config: UserRoleConfig }[] = [
   { label: "COA (Nacional)", config: { role: "coa" } },
@@ -97,6 +98,17 @@ function Dashboard() {
     return null;
   }, [roleConfig]);
 
+  // -------- STATS & LABELS --------
+  const scope = useMemo(
+    () => ({
+      provinciaId: navigation.provinciaId,
+      municipioId: navigation.municipioId,
+    }),
+    [navigation]
+  );
+
+  const stats = useMemo(() => getStats(filters, scope), [filters, scope]);
+
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* HEADER */}
@@ -148,17 +160,48 @@ function Dashboard() {
       </header>
 
       {/* MAIN */}
-      <div className="flex-1 flex flex-col p-4 gap-3">
-        {/* Filters */}
-        <GlobalFilters filters={filters} onChange={setFilters} />
+      <div className="flex-1 flex flex-col p-4 gap-3 bg-background">
+        {/* KPIs + Filters Row */}
+        <div className="flex gap-4">
+          {/* KPI Cards */}
+          <div className="grid grid-cols-5 gap-2.5 flex-1">
+            <KpiCard
+              title="Total Clubes"
+              value={stats.totalClubs}
+              icon={<Building2 className="h-5 w-5" />}
+            />
+            <KpiCard
+              title="Total Atletas"
+              value={stats.totalAthletes}
+              icon={<Users className="h-5 w-5" />}
+            />
+            <KpiCard
+              title="Deportes"
+              value={stats.totalSports}
+              icon={<Trophy className="h-5 w-5" />}
+            />
+            <KpiCard
+              title="Deporte Principal"
+              value={`${stats.mostPracticedSport} (${stats.mostPracticedCount})`}
+              icon={<Zap className="h-5 w-5" />}
+            />
+            <KpiCard
+              title="Club Top Atletas"
+              value={`${stats.clubWithMostAthletes} (${stats.clubWithMostAthletesCount})`}
+              icon={<Building2 className="h-5 w-5" />}
+            />
+          </div>
 
-        {/* Layout */}
-        <div
-          className="flex-1 grid grid-cols-1 lg:grid-cols-5 gap-4"
-          style={{ minHeight: "70vh" }}
-        >
-          {/* Map */}
-          <div className="lg:col-span-3 relative z-0">
+          {/* Filters (Right) */}
+          <div className="w-72">
+            <GlobalFilters filters={filters} onChange={setFilters} />
+          </div>
+        </div>
+
+        {/* Map + Chart Row */}
+        <div className="flex gap-3 flex-1" style={{ minHeight: "50vh" }}>
+          {/* Map - Left Side (70%) */}
+          <div className="flex-1 relative z-0 bg-card border border-border rounded-lg overflow-hidden">
             <LeafletMap
               filters={filters}
               navigation={navigation}
@@ -171,13 +214,15 @@ function Dashboard() {
             />
           </div>
 
-          {/* Side panel */}
-          <div
-            className="lg:col-span-2 overflow-y-auto scrollbar-dark"
-            style={{ maxHeight: "75vh" }}
-          >
-            <SidePanel navigation={navigation} filters={filters} />
+          {/* Athletes Chart - Right Side (30%) */}
+          <div className="w-96 bg-card border border-border rounded-lg overflow-hidden">
+            <AthletesPerSportChart data={stats.athletesPerSport} />
           </div>
+        </div>
+
+        {/* Gender Distribution Chart - Full Width Below */}
+        <div className="bg-card border border-border rounded-lg p-4" style={{ minHeight: "25vh" }}>
+          <GenderDistributionChart data={stats.genderDistribution} />
         </div>
       </div>
 

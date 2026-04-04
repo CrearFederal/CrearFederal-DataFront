@@ -50,6 +50,7 @@ function LeafletMap({
   onClubClick,
   onNavigateCountry,
 }: LeafletMapProps) {
+
   // -------- DATA --------
 
   const provStats = useMemo(
@@ -119,22 +120,26 @@ function LeafletMap({
       const isSelected =
         navigation.provinciaId === provId;
 
+      const dimmed = !!navigation.provinciaId;
+
       if (isSelected) {
         return {
           fillColor: "hsl(215, 70%, 50%)",
-          fillOpacity: 0.2,
-          color: "hsl(215, 70%, 50%)",
+          fillOpacity: 0.55,
+          color: "hsl(215, 75%, 55%)",
           weight: 2.5,
+          opacity: 1,
         };
       }
 
       return {
-        fillColor: `hsl(215, 30%, ${
-          90 - intensity * 25
-        }%)`,
-        fillOpacity: 0.35 + intensity * 0.3,
-        color: "white",
-        weight: 0.8,
+        fillColor: `hsl(215, 30%, ${90 - intensity * 25}%)`,
+        fillOpacity: dimmed
+          ? 0.15
+          : 0.35 + intensity * 0.3,
+        color: "rgba(255,255,255,0.7)",
+        weight: 1,
+        opacity: dimmed ? 0.4 : 0.8,
       };
     },
     [provStats, maxClubs, navigation.provinciaId]
@@ -159,37 +164,32 @@ function LeafletMap({
       );
 
       (layer as L.Path).on({
+        mouseover: (e) => {
+          if (!provinceClickable) return;
+
+          const target = e.target as L.Path;
+          target.setStyle({
+            fillColor: "hsl(215, 50%, 65%)",
+            fillOpacity: 0.5,
+            weight: 3,
+            color: "hsl(215, 70%, 50%)",
+          });
+          target.bringToFront();
+        },
+
+        mouseout: (e) => {
+          const target = e.target as L.Path;
+          target.setStyle(getProvinceStyle(feature));
+        },
+
         click: () => {
           if (provinceClickable) {
             onProvinceClick(props.id_provincia);
           }
         },
-        mouseover: () => {
-          const path = layer as L.Path;
-          path.bringToFront();
-          path.setStyle({
-            color: "hsl(215, 70%, 50%)",
-            weight: 2,
-            fillColor: "hsl(215, 70%, 50%)",
-            fillOpacity: 0.28,
-          });
-        },
-        mouseout: () => {
-          (layer as any).setStyle(getProvinceStyle(feature));
-        },
       });
     },
-    [provStats, onProvinceClick, provinceClickable, getProvinceStyle]
-  );
-
-  // -------- GEOJSON KEY --------
-
-  const geoJsonKey = useMemo(
-    () =>
-      `prov-${navigation.provinciaId}-${provStats
-        .map((p) => p.totalClubs)
-        .join(",")}`,
-    [navigation.provinciaId, provStats]
+    [provStats, onProvinceClick, getProvinceStyle, provinceClickable]
   );
 
   // -------- TITLE --------
@@ -231,24 +231,53 @@ function LeafletMap({
       {/* MAP */}
       <MapContainer
         center={[-38.5, -63.5]}
-        zoom={1}
-        minZoom={1}
+        zoom={5}
+        minZoom={4}
         maxZoom={18}
-        maxBounds={[[-56, -83], [-21, -52]]}
+        maxBounds={[[-56, -76], [-20, -52]]}
+        attributionControl={false}
         className="h-full w-full"
         style={{ minHeight: "65vh" }}
       >
         <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
 
+        {/* PROVINCIAS BASE */}
         {showProvinces && (
           <GeoJSON
-            key={geoJsonKey}
             data={argentinaProvinces}
             style={getProvinceStyle}
             onEachFeature={handleProvince}
           />
         )}
 
+        {/* 🔥 OVERLAY PROVINCIA SELECCIONADA */}
+        {navigation.provinciaId &&
+          navigation.level !== "country" && (() => {
+            const selectedProvince = {
+              type: "FeatureCollection" as const,
+              features: argentinaProvinces.features.filter(
+                (f) =>
+                  f.properties.id_provincia ===
+                  navigation.provinciaId
+              ),
+            };
+
+            return (
+              <GeoJSON
+                key={`selected-${navigation.provinciaId}`}
+                data={selectedProvince as any}
+                style={{
+                  fillColor: "hsl(215, 70%, 50%)",
+                  fillOpacity: 0.08,
+                  color: "hsl(215, 70%, 50%)",
+                  weight: 3,
+                  dashArray: "6, 4",
+                }}
+              />
+            );
+          })()}
+
+        {/* MARKERS */}
         {showClubMarkers && (
           <MarkerClusterGroup
             markers={clubMarkers}

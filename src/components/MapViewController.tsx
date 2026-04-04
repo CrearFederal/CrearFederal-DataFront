@@ -39,7 +39,7 @@ function MapViewController({
     if (!onNavigateCountry || roleConfig.role !== "coa") return;
 
     const handleZoomEnd = () => {
-      if (navigation.level !== "country" && map.getZoom() <= 2) {
+      if (navigation.level !== "country" && map.getZoom() <= 4) {
         onNavigateCountry();
       }
     };
