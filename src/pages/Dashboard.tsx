@@ -203,12 +203,8 @@ function Dashboard() {
 
           {/* Right charts — 50% stacked */}
           <div className="flex flex-col gap-3 flex-1 min-w-0">
-            <div className="flex-1 min-h-0">
-              <AthletesPerSportChart data={stats.athletesPerSport} />
-            </div>
-            <div className="shrink-0">
-              <GenderDistributionChart data={stats.genderDistribution} />
-            </div>
+            <AthletesPerSportChart data={stats.athletesPerSport} />
+            <GenderDistributionChart data={stats.genderDistribution} />
           </div>
         </div>
 

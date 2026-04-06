@@ -1,38 +1,31 @@
-import {
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  ResponsiveContainer,
-  PieChart,
-  Pie,
-  Cell,
-  AreaChart,
-  Area,
-  CartesianGrid,
-  LabelList,
-} from "recharts";
+import { BarChart } from "@mui/x-charts/BarChart";
+import { PieChart } from "@mui/x-charts/PieChart";
+import { LineChart } from "@mui/x-charts/LineChart";
 
 // ---------------- DESIGN TOKENS ----------------
 
-const C_BLUE_MAIN   = "hsl(215, 85%, 52%)";
-const C_BLUE_LIGHT  = "hsl(218, 80%, 68%)";
-const C_FEMALE      = "hsl(330, 65%, 58%)";
-const C_MALE        = "hsl(215, 85%, 52%)";
-const C_GRID        = "hsl(215, 30%, 92%)";
-const C_AXIS        = "hsl(215, 20%, 60%)";
+const C_BLUE_MAIN  = "hsl(215, 85%, 52%)";
+const C_BLUE_LIGHT = "hsl(218, 80%, 68%)";
+const C_FEMALE     = "hsl(330, 65%, 58%)";
+const C_MALE       = "hsl(215, 85%, 52%)";
+const C_AXIS       = "hsl(215, 20%, 55%)";
 
 const SPORT_COLORS = [
   "hsl(215, 85%, 52%)",
-  "hsl(220, 80%, 56%)",
-  "hsl(225, 75%, 60%)",
-  "hsl(230, 70%, 63%)",
-  "hsl(210, 85%, 55%)",
-  "hsl(205, 80%, 56%)",
-  "hsl(215, 75%, 58%)",
-  "hsl(218, 82%, 54%)",
+  "hsl(220, 78%, 56%)",
+  "hsl(226, 72%, 61%)",
+  "hsl(232, 66%, 64%)",
+  "hsl(209, 83%, 55%)",
+  "hsl(203, 78%, 57%)",
+  "hsl(197, 74%, 59%)",
+  "hsl(190, 70%, 56%)",
 ];
+
+// shared axis/text styles
+const axisStyle = {
+  tickLabelStyle: { fontSize: 10, fill: C_AXIS, fontFamily: "inherit" },
+  labelStyle:     { fontSize: 10, fill: C_AXIS, fontFamily: "inherit" },
+};
 
 // ---------------- SHARED ----------------
 
@@ -55,31 +48,6 @@ function ChartCard({ title, subtitle, children, className = "" }: ChartCardProps
   );
 }
 
-function ChartTooltip({ active, payload, label }: any) {
-  if (!active || !payload?.length) return null;
-  return (
-    <div className="bg-white/95 backdrop-blur-sm border border-border rounded-xl px-3.5 py-2.5 shadow-lg">
-      {label && (
-        <p className="text-xs font-semibold text-foreground mb-1.5">{label}</p>
-      )}
-      {payload.map((p: any, i: number) => (
-        <div key={i} className="flex items-center gap-2">
-          <div
-            className="h-2 w-2 rounded-full shrink-0"
-            style={{ background: p.color || p.fill }}
-          />
-          <p className="text-xs text-muted-foreground">
-            {p.name ? `${p.name}: ` : ""}
-            <span className="font-bold text-foreground">
-              {p.value?.toLocaleString("es-AR")}
-            </span>
-          </p>
-        </div>
-      ))}
-    </div>
-  );
-}
-
 // ---------------- ATHLETES PER SPORT — horizontal bar ----------------
 
 interface AthletesPerSportChartProps {
@@ -88,58 +56,41 @@ interface AthletesPerSportChartProps {
 
 export function AthletesPerSportChart({ data }: AthletesPerSportChartProps) {
   const sorted = [...data].sort((a, b) => b.count - a.count).slice(0, 8);
-  const max = sorted[0]?.count || 1;
 
   return (
     <ChartCard
       title="Atletas por Deporte"
       subtitle="Distribución según disciplina registrada"
-      className="flex-1"
     >
-      <div className="flex-1" style={{ minHeight: 0 }}>
-        <ResponsiveContainer width="100%" height="100%">
-          <BarChart
-            data={sorted}
-            layout="vertical"
-            margin={{ left: 4, right: 36, top: 2, bottom: 2 }}
-            barCategoryGap="30%"
-          >
-            <defs>
-              <linearGradient id="barSport" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stopColor={C_BLUE_MAIN} />
-                <stop offset="100%" stopColor={C_BLUE_LIGHT} />
-              </linearGradient>
-            </defs>
-
-            <XAxis type="number" hide domain={[0, max * 1.12]} />
-            <YAxis
-              type="category"
-              dataKey="sport"
-              width={72}
-              tick={{ fontSize: 11, fill: C_AXIS, fontWeight: 500 }}
-              axisLine={false}
-              tickLine={false}
-            />
-            <Tooltip content={<ChartTooltip />} cursor={{ fill: "hsl(215, 50%, 97%)" }} />
-
-            <Bar
-              dataKey="count"
-              radius={[0, 6, 6, 0]}
-              maxBarSize={16}
-            >
-              <LabelList
-                dataKey="count"
-                position="right"
-                style={{ fontSize: 10, fill: C_AXIS, fontWeight: 600 }}
-                formatter={(v: any) => v?.toLocaleString("es-AR")}
-              />
-              {sorted.map((_, i) => (
-                <Cell key={i} fill={SPORT_COLORS[i % SPORT_COLORS.length]} />
-              ))}
-            </Bar>
-          </BarChart>
-        </ResponsiveContainer>
-      </div>
+      <BarChart
+        layout="horizontal"
+        height={210}
+        series={[{
+          data: sorted.map((d) => d.count),
+          color: C_BLUE_MAIN,
+          valueFormatter: (v) => (v ?? 0).toLocaleString("es-AR"),
+        }]}
+        yAxis={[{
+          data: sorted.map((d) => d.sport),
+          scaleType: "band",
+          width: 90,
+          ...axisStyle,
+          colorMap: {
+            type: "ordinal",
+            colors: SPORT_COLORS,
+          },
+        }]}
+        xAxis={[{ ...axisStyle, tickNumber: 4 }]}
+        borderRadius={6}
+        margin={{ left: 4, right: 12, top: 4, bottom: 20 }}
+        sx={{
+          "& .MuiChartsAxis-line": { display: "none" },
+          "& .MuiChartsAxis-tick": { display: "none" },
+          "& .MuiChartsLegend-root": { display: "none" },
+        }}
+        tooltip={{ trigger: "item" }}
+        slotProps={{ legend: { hidden: true } }}
+      />
     </ChartCard>
   );
 }
@@ -157,40 +108,37 @@ interface GenderDistributionChartProps {
 
 export function GenderDistributionChart({ data }: GenderDistributionChartProps) {
   const pieData = [
-    { name: "Masculino", value: data.male },
-    { name: "Femenino", value: data.female },
+    { id: 0, value: data.male,   label: "Masculino", color: C_MALE   },
+    { id: 1, value: data.female, label: "Femenino",  color: C_FEMALE },
   ];
 
   return (
     <ChartCard title="Distribución por Género" subtitle="Total de deportistas activos">
-      <div className="flex items-center gap-5">
+      <div className="flex items-center gap-4">
         {/* Donut */}
         <div className="shrink-0">
-          <ResponsiveContainer width={110} height={110}>
-            <PieChart>
-              <Pie
-                data={pieData}
-                dataKey="value"
-                cx="50%"
-                cy="50%"
-                innerRadius={32}
-                outerRadius={50}
-                startAngle={90}
-                endAngle={-270}
-                strokeWidth={0}
-                paddingAngle={3}
-              >
-                <Cell fill={C_MALE} />
-                <Cell fill={C_FEMALE} />
-              </Pie>
-            </PieChart>
-          </ResponsiveContainer>
+          <PieChart
+            width={110}
+            height={110}
+            series={[{
+              data: pieData,
+              innerRadius: 30,
+              outerRadius: 50,
+              paddingAngle: 3,
+              startAngle: 90,
+              endAngle: 450,
+              valueFormatter: (v) => v.value.toLocaleString("es-AR"),
+            }]}
+            margin={{ top: 0, bottom: 0, left: 0, right: 0 }}
+            slotProps={{ legend: { hidden: true } }}
+            tooltip={{ trigger: "item" }}
+          />
         </div>
 
         {/* Stats */}
         <div className="flex-1 space-y-3">
           {[
-            { label: "Masculino", color: C_MALE, pct: data.malePercent, count: data.male },
+            { label: "Masculino", color: C_MALE,   pct: data.malePercent,   count: data.male   },
             { label: "Femenino",  color: C_FEMALE, pct: data.femalePercent, count: data.female },
           ].map((g) => (
             <div key={g.label}>
@@ -203,10 +151,7 @@ export function GenderDistributionChart({ data }: GenderDistributionChartProps) 
                   <span className="text-xs text-muted-foreground">
                     {g.count.toLocaleString("es-AR")}
                   </span>
-                  <span
-                    className="text-sm font-bold font-mono"
-                    style={{ color: g.color }}
-                  >
+                  <span className="text-sm font-bold font-mono" style={{ color: g.color }}>
                     {g.pct}%
                   </span>
                 </div>
@@ -234,43 +179,37 @@ interface AgeDistributionChartProps {
 export function AgeDistributionChart({ data }: AgeDistributionChartProps) {
   return (
     <ChartCard title="Distribución por Edad" subtitle="Pirámide etaria de deportistas">
-      <ResponsiveContainer width="100%" height={160}>
-        <AreaChart data={data} margin={{ left: -8, right: 8, top: 8, bottom: 0 }}>
-          <defs>
-            <linearGradient id="ageGrad" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="5%"  stopColor={C_BLUE_MAIN} stopOpacity={0.35} />
-              <stop offset="95%" stopColor={C_BLUE_MAIN} stopOpacity={0.02} />
-            </linearGradient>
-          </defs>
-          <CartesianGrid
-            strokeDasharray="3 3"
-            stroke={C_GRID}
-            vertical={false}
-          />
-          <XAxis
-            dataKey="range"
-            tick={{ fontSize: 10, fill: C_AXIS }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <YAxis
-            tick={{ fontSize: 10, fill: C_AXIS }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip content={<ChartTooltip />} cursor={{ stroke: C_BLUE_MAIN, strokeWidth: 1, strokeDasharray: "3 3" }} />
-          <Area
-            type="monotone"
-            dataKey="count"
-            name="Deportistas"
-            stroke={C_BLUE_MAIN}
-            strokeWidth={2.5}
-            fill="url(#ageGrad)"
-            dot={{ r: 3, fill: C_BLUE_MAIN, strokeWidth: 0 }}
-            activeDot={{ r: 5, fill: C_BLUE_MAIN, strokeWidth: 0 }}
-          />
-        </AreaChart>
-      </ResponsiveContainer>
+      <LineChart
+        height={160}
+        series={[{
+          data: data.map((d) => d.count),
+          area: true,
+          color: C_BLUE_MAIN,
+          showMark: true,
+          valueFormatter: (v) => (v ?? 0).toLocaleString("es-AR"),
+        }]}
+        xAxis={[{
+          data: data.map((d) => d.range),
+          scaleType: "band",
+          ...axisStyle,
+        }]}
+        yAxis={[{ ...axisStyle }]}
+        margin={{ left: 40, right: 8, top: 12, bottom: 28 }}
+        sx={{
+          "& .MuiAreaElement-root": {
+            fill: C_BLUE_MAIN,
+            fillOpacity: 0.15,
+          },
+          "& .MuiLineElement-root": { strokeWidth: 2.5 },
+          "& .MuiChartsAxis-line": { stroke: "hsl(215, 30%, 88%)" },
+          "& .MuiChartsAxis-tick": { display: "none" },
+          "& .MuiChartsGrid-line": { stroke: "hsl(215, 30%, 92%)" },
+          "& .MuiChartsLegend-root": { display: "none" },
+        }}
+        grid={{ horizontal: true }}
+        tooltip={{ trigger: "item" }}
+        slotProps={{ legend: { hidden: true } }}
+      />
     </ChartCard>
   );
 }
@@ -285,43 +224,34 @@ export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
   const top8 = [...data]
     .sort((a, b) => b.totalAthletes - a.totalAthletes)
     .slice(0, 8);
-  const max = top8[0]?.totalAthletes || 1;
 
   return (
     <ChartCard title="Top Provincias" subtitle="Por cantidad de atletas registrados">
-      <ResponsiveContainer width="100%" height={160}>
-        <BarChart
-          data={top8}
-          layout="vertical"
-          margin={{ left: 4, right: 36, top: 2, bottom: 2 }}
-          barCategoryGap="28%"
-        >
-          <defs>
-            <linearGradient id="barProv" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="hsl(215, 85%, 50%)" />
-              <stop offset="100%" stopColor="hsl(200, 80%, 65%)" />
-            </linearGradient>
-          </defs>
-          <XAxis type="number" hide domain={[0, max * 1.12]} />
-          <YAxis
-            type="category"
-            dataKey="nombre"
-            width={80}
-            tick={{ fontSize: 10, fill: C_AXIS, fontWeight: 500 }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip content={<ChartTooltip />} cursor={{ fill: "hsl(215, 50%, 97%)" }} />
-          <Bar dataKey="totalAthletes" name="Atletas" fill="url(#barProv)" radius={[0, 6, 6, 0]} maxBarSize={14}>
-            <LabelList
-              dataKey="totalAthletes"
-              position="right"
-              style={{ fontSize: 10, fill: C_AXIS, fontWeight: 600 }}
-              formatter={(v: any) => v?.toLocaleString("es-AR")}
-            />
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+      <BarChart
+        layout="horizontal"
+        height={190}
+        series={[{
+          data: top8.map((d) => d.totalAthletes),
+          color: C_BLUE_LIGHT,
+          valueFormatter: (v) => (v ?? 0).toLocaleString("es-AR"),
+        }]}
+        yAxis={[{
+          data: top8.map((d) => d.nombre),
+          scaleType: "band",
+          width: 120,
+          ...axisStyle,
+        }]}
+        xAxis={[{ ...axisStyle, tickNumber: 4 }]}
+        borderRadius={6}
+        margin={{ left: 4, right: 12, top: 4, bottom: 20 }}
+        sx={{
+          "& .MuiChartsAxis-line": { display: "none" },
+          "& .MuiChartsAxis-tick": { display: "none" },
+          "& .MuiChartsLegend-root": { display: "none" },
+        }}
+        tooltip={{ trigger: "item" }}
+        slotProps={{ legend: { hidden: true } }}
+      />
     </ChartCard>
   );
 }
@@ -337,27 +267,54 @@ export function GenderPerSportChart({ data }: GenderPerSportChartProps) {
 
   return (
     <ChartCard title="Género por Deporte" subtitle="Distribución masculino / femenino">
-      <ResponsiveContainer width="100%" height={200}>
-        <BarChart
-          data={sorted}
-          layout="vertical"
-          margin={{ left: 4, right: 8, top: 2, bottom: 2 }}
-          barCategoryGap="28%"
-        >
-          <XAxis type="number" hide />
-          <YAxis
-            type="category"
-            dataKey="sport"
-            width={72}
-            tick={{ fontSize: 11, fill: C_AXIS, fontWeight: 500 }}
-            axisLine={false}
-            tickLine={false}
-          />
-          <Tooltip content={<ChartTooltip />} cursor={{ fill: "hsl(215, 50%, 97%)" }} />
-          <Bar dataKey="male"   name="Masculino" stackId="a" fill={C_MALE}   radius={[0, 0, 0, 0]} maxBarSize={14} />
-          <Bar dataKey="female" name="Femenino"  stackId="a" fill={C_FEMALE} radius={[0, 6, 6, 0]} maxBarSize={14} />
-        </BarChart>
-      </ResponsiveContainer>
+      <BarChart
+        layout="horizontal"
+        height={200}
+        series={[
+          {
+            data: sorted.map((d) => d.male),
+            label: "Masculino",
+            stack: "total",
+            color: C_MALE,
+            valueFormatter: (v) => (v ?? 0).toLocaleString("es-AR"),
+          },
+          {
+            data: sorted.map((d) => d.female),
+            label: "Femenino",
+            stack: "total",
+            color: C_FEMALE,
+            valueFormatter: (v) => (v ?? 0).toLocaleString("es-AR"),
+          },
+        ]}
+        yAxis={[{
+          data: sorted.map((d) => d.sport),
+          scaleType: "band",
+          width: 90,
+          ...axisStyle,
+        }]}
+        xAxis={[{ ...axisStyle, tickNumber: 3 }]}
+        borderRadius={4}
+        margin={{ left: 4, right: 8, top: 4, bottom: 24 }}
+        sx={{
+          "& .MuiChartsAxis-line": { display: "none" },
+          "& .MuiChartsAxis-tick": { display: "none" },
+          "& .MuiChartsLegend-root": {
+            fontSize: "10px",
+          },
+        }}
+        tooltip={{ trigger: "item" }}
+        slotProps={{
+          legend: {
+            direction: "row",
+            position: { vertical: "bottom", horizontal: "middle" },
+            itemMarkWidth: 8,
+            itemMarkHeight: 8,
+            markGap: 4,
+            itemGap: 12,
+            labelStyle: { fontSize: 10, fill: C_AXIS, fontFamily: "inherit" },
+          },
+        }}
+      />
     </ChartCard>
   );
 }
