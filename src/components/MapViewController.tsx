@@ -1,27 +1,21 @@
 import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
-
 import L from "leaflet";
-
 import type { NavigationState, Club } from "../types/types";
 import type { UserRoleConfig } from "../data/roles";
-import {
-  argentinaProvinces,
-  provinceCenters,
-} from "../data/argentinaGeoJson";
+import { argentinaProvinces, provinceCenters } from "../data/argentinaGeoJson";
 import { getClubes } from "../data/dataUtils";
 
-// ---------------- TYPES ----------------
-
+// --------- Type
 interface MapViewControllerProps {
-  navigation: NavigationState;
-  roleConfig: UserRoleConfig;
-  clubForRole?: Club | null;
-  onNavigateCountry?: () => void;
+  navigation: NavigationState;      // Estado actual de navegación 
+  roleConfig: UserRoleConfig;       // Configuración del rol del usuario
+  clubForRole?: Club | null;        // Datos del club si el usuario es de rol "club"
+  onNavigateCountry?: () => void;   // Callback para volver a vista de país
 }
 
-// ---------------- COMPONENT ----------------
-
+// ------- Componente controlador de vista del mapa
+// Maneja la animación y posicionamiento del mapa según el rol del usuario y navegación
 function MapViewController({
   navigation,
   roleConfig,
@@ -30,11 +24,10 @@ function MapViewController({
 }: MapViewControllerProps) {
   const map = useMap();
 
-  const prevNavRef = useRef<string>("");
-  const prevRoleRef = useRef<string>("");
+  const prevNavRef = useRef<string>("");      // Rastrea navegación anterior para evitar re-cálculos innecesarios
+  const prevRoleRef = useRef<string>("");     // Rastrea configuración de rol anterior para evitar re-animaciones
 
-  // -------- AUTO RESET (zoom out → country) --------
-
+  // -------- Auto Reset a vista país para usuarios con rol COA
   useEffect(() => {
     if (!onNavigateCountry || roleConfig.role !== "coa") return;
 
@@ -51,15 +44,15 @@ function MapViewController({
     };
   }, [map, navigation.level, onNavigateCountry, roleConfig.role]);
 
-  // -------- ROLE BASED VIEW --------
-
+  // -------- Posición de vista inicial según rol del usuario
+  // Se ejecuta cuando cambia el rol. Define la "zona permitida" para el usuario.
   useEffect(() => {
     const roleKey = `${roleConfig.role}-${roleConfig.provinciaId}-${roleConfig.municipioId}-${roleConfig.clubId}-${roleConfig.federationScope}`;
 
     if (roleKey === prevRoleRef.current) return;
     prevRoleRef.current = roleKey;
 
-    // CLUB ROLE
+    // CLUB ROLE — Vuela al club específico
     if (roleConfig.role === "club" && clubForRole) {
       map.flyTo([clubForRole.lat, clubForRole.lng], 14, {
         duration: 1.2,
@@ -67,7 +60,7 @@ function MapViewController({
       return;
     }
 
-    // MUNICIPALITY ROLE — zoom to the municipality's clubs
+    // MUNICIPALITY ROLE — Ajusta a los clubes del municipio
     if (roleConfig.role === "municipality" && roleConfig.municipioId) {
       const clubs = getClubes({
         provinciaId: roleConfig.provinciaId,
@@ -83,7 +76,7 @@ function MapViewController({
       return;
     }
 
-    // PROVINCE ROLE or PROVINCIAL FEDERATION
+    // PROVINCE ROLE or PROVINCIAL FEDERATION — Ajusta a toda la provincia
     if (
       (roleConfig.role === "province" ||
         (roleConfig.role === "federation" && roleConfig.federationScope === "provincial")) &&
@@ -102,24 +95,25 @@ function MapViewController({
     }
   }, [map, roleConfig, clubForRole]);
 
-  // -------- NAVIGATION VIEW --------
-
+  // -------- Movimiento dentro de la "zona permitida"
+  // Se ejecuta cuando el usuario NAVEGA dentro de su rol.
+  // Es lo que el usuario elige ver dentro de sus límites de rol (actualizar vista, zoom).
   useEffect(() => {
     const navKey = `${navigation.level}-${navigation.provinciaId}-${navigation.municipioId}`;
 
     if (navKey === prevNavRef.current) return;
     prevNavRef.current = navKey;
 
-    // Skip for club role
+    // Skip para usuarios con rol club (manejado por ROLE BASED VIEW)
     if (roleConfig.role === "club") return;
 
-    // COUNTRY
+    // COUNTRY — Vista nacional
     if (navigation.level === "country") {
       map.flyTo([-38.5, -63.5], 4, { duration: 2 });
       return;
     }
 
-    // PROVINCE
+    // PROVINCE — Vuela a los límites de la provincia
     if (
       navigation.level === "province" &&
       navigation.provinciaId
@@ -138,6 +132,7 @@ function MapViewController({
         return;
       }
 
+      // Fallback: usa centros predefinidos de provincias si GeoJSON no está disponible
       const center = provinceCenters[navigation.provinciaId];
 
       if (center) {
@@ -151,7 +146,7 @@ function MapViewController({
       return;
     }
 
-    // CITY
+    // CITY — Ajusta a los clubes del municipio
     if (
       navigation.level === "city" &&
       navigation.municipioId
@@ -174,6 +169,7 @@ function MapViewController({
     }
   }, [map, navigation, roleConfig.role]);
 
+  // No renderiza nada visible — componente solo controla estado del mapa
   return null;
 }
 
