@@ -1,12 +1,6 @@
 import { useState, useEffect, useMemo } from "react";
 import type { Filters, NavigationState } from "../types/types";
-import {
-  canClickProvince,
-  canClickMunicipio,
-  getInitialNavigation,
-  isNavigationAllowed,
-  getRoleLabel,
-} from "../data/roles";
+import { canClickProvince, canClickMunicipio, getInitialNavigation, isNavigationAllowed, getRoleLabel } from "../data/roles";
 import type { UserRoleConfig } from "../data/roles";
 import { getClub, getStats, getProvinciaStats } from "../data/dataUtils";
 import BreadcrumbNav from "../components/BreadcrumbNav";
@@ -14,14 +8,8 @@ import GlobalFilters from "../components/GlobalFilters";
 import LeafletMap from "../components/LeafletMap";
 import ClubDetailPanel from "../components/ClubDetailPanel";
 import KpiCard from "../components/KpiCard";
-import {
-  AthletesPerSportChart,
-  GenderDistributionChart,
-  AgeDistributionChart,
-  ProvinceRankingChart,
-  GenderPerSportChart,
-} from "../components/Charts";
-import { BarChart3, Building2, Users, Trophy, Zap, TrendingUp } from "lucide-react";
+import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, GenderPerSportChart } from "../components/Charts";
+import { BarChart3, Building2, Users, Axis3d , Medal } from "lucide-react";
 
 // ---------------- ROLE OPTIONS ----------------
 
@@ -100,9 +88,6 @@ function Dashboard() {
 
   const provStats = useMemo(() => getProvinciaStats(filters), [filters]);
 
-  // female pct for KPI
-  const femPct = stats.genderDistribution.femalePercent;
-
   // -------- RENDER --------
 
   return (
@@ -147,44 +132,41 @@ function Dashboard() {
       {/* MAIN */}
       <div className="flex-1 flex flex-col p-4 gap-3">
 
-        {/* ROW 1 — KPIs + Filters */}
-        <div className="flex gap-3 items-stretch">
-          <div className="grid grid-cols-5 gap-2.5 flex-1">
-            <KpiCard
-              title="Total Clubes"
-              value={stats.totalClubs}
-              icon={<Building2 className="h-5 w-5" />}
-            />
-            <KpiCard
-              title="Total Atletas"
-              value={stats.totalAthletes}
-              icon={<Users className="h-5 w-5" />}
-            />
-            <KpiCard
-              title="Deportes activos"
-              value={stats.totalSports}
-              icon={<Trophy className="h-5 w-5" />}
-            />
-            <KpiCard
-              title="Deporte líder"
-              value={stats.mostPracticedSport}
-              subtitle={`${stats.mostPracticedCount.toLocaleString()} atletas`}
-              icon={<Zap className="h-5 w-5" />}
-            />
-            <KpiCard
-              title="Participación femenina"
-              value={`${femPct}%`}
-              subtitle={`${stats.genderDistribution.female.toLocaleString()} deportistas`}
-              icon={<TrendingUp className="h-5 w-5" />}
-            />
-          </div>
-
-          <div className="w-64 shrink-0">
-            <GlobalFilters filters={filters} onChange={setFilters} />
-          </div>
+        {/* ROW 1 — Filters */}
+        <div className="bg-card border border-border rounded-lg p-4">
+          <h3 className="text-sm font-semibold text-foreground mb-3">Filtros</h3>
+          <GlobalFilters filters={filters} onChange={setFilters} />
         </div>
 
-        {/* ROW 2 — Map + Charts stack */}
+        {/* ROW 2 — KPIs */}
+        <div className="grid grid-cols-4 gap-2.5">
+          <KpiCard
+            title="Total de Clubes"
+            value={stats.totalClubs}
+            subtitle={`Club con más deportistas: ${stats.clubWithMostAthletes}`}
+            icon={<Building2 className="h-5 w-5" />}
+          />
+          <KpiCard
+            title="Total de Atletas"
+            value={stats.totalAthletes}
+            subtitle={`En ${stats.totalSports.toLocaleString()} deportes`}
+            icon={<Users className="h-5 w-5" />}
+          />
+          <KpiCard
+            title="Promedio de Edad"
+            value={`${stats.averageAge.toFixed(1)} años`}
+            subtitle="Edad promedio de deportistas"
+            icon={<Axis3d  className="h-5 w-5" />}
+          />
+          <KpiCard
+            title="Deporte líder"
+            value={stats.mostPracticedSport}
+            subtitle={`Con un total de ${stats.mostPracticedCount.toLocaleString()} deportistas`}
+            icon={<Medal className="h-5 w-5" />}
+          />
+        </div>
+
+        {/* ROW 3 — Map + Charts stack */}
         <div className="flex gap-3" style={{ minHeight: "52vh" }}>
 
           {/* Map — 50% */}
@@ -203,16 +185,16 @@ function Dashboard() {
 
           {/* Right charts — 50% stacked */}
           <div className="flex flex-col gap-3 flex-1 min-w-0">
-            <AthletesPerSportChart data={stats.athletesPerSport} />
+            <AthletesPerSportChart data={stats.genderPerSport} />
             <GenderDistributionChart data={stats.genderDistribution} />
           </div>
         </div>
 
-        {/* ROW 3 — Age + Province + Gender per Sport */}
+        {/* ROW 4 — Age + Province + Gender per Sport */}
         <div className="grid grid-cols-3 gap-3">
           <AgeDistributionChart data={stats.ageDistribution} />
           <ProvinceRankingChart data={provStats} />
-          <GenderPerSportChart data={stats.genderPerSport} />
+          <GenderPerSportChart data={stats.athletesPerSport} />
         </div>
 
       </div>

@@ -201,7 +201,7 @@ function LeafletMap({
 
     switch (navigation.level) {
       case "country":
-        return "Argentina — Clubes por Provincia";
+        return "Argentina — Clubes y Deportistas por Provincia";
       case "province":
         return "Vista Provincia — Clubes";
       case "city":
@@ -214,7 +214,7 @@ function LeafletMap({
   // -------- RENDER --------
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div className="rounded-xl border border-border bg-card overflow-hidden h-full flex flex-col min-h-0">
       {/* HEADER */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h3 className="text-sm font-semibold">
@@ -236,8 +236,8 @@ function LeafletMap({
         maxZoom={18}
         maxBounds={[[-56, -76], [-20, -52]]}
         attributionControl={false}
-        className="h-full w-full"
-        style={{ minHeight: "65vh" }}
+        className="w-full flex-1 min-h-0"
+        style={{ height: "100%" }}
       >
         <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
 

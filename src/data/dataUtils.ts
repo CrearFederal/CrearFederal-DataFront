@@ -96,8 +96,10 @@ export const getStats = (filters: Filters, scope?: { provinciaId?: number; munic
 
   // Age distribution
   const ageBuckets: Record<string, number> = { '< 15': 0, '15-20': 0, '21-25': 0, '26-30': 0, '31-35': 0, '36-40': 0, '40+': 0 };
+  let ageSum = 0;
   for (const a of athletes) {
     const age = getAge(a.fecha_nac);
+    ageSum += age;
     if (age < 15) ageBuckets['< 15']++;
     else if (age <= 20) ageBuckets['15-20']++;
     else if (age <= 25) ageBuckets['21-25']++;
@@ -107,6 +109,7 @@ export const getStats = (filters: Filters, scope?: { provinciaId?: number; munic
     else ageBuckets['40+']++;
   }
   const ageDistribution = Object.entries(ageBuckets).map(([range, count]) => ({ range, count }));
+  const averageAge = athletes.length > 0 ? Math.round((ageSum / athletes.length) * 10) / 10 : 0;
 
   // Clubs in scope
   const scopedClubs = getClubes(scope);
@@ -143,6 +146,7 @@ export const getStats = (filters: Filters, scope?: { provinciaId?: number; munic
     genderDistribution,
     genderPerSport,
     ageDistribution,
+    averageAge,
   };
 };
 
