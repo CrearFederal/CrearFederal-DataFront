@@ -3,6 +3,8 @@ import type { Filters, NavigationState } from "../types/types";
 import { canClickProvince, canClickMunicipio, getInitialNavigation, isNavigationAllowed, getRoleLabel } from "../data/roles";
 import type { UserRoleConfig } from "../data/roles";
 import { getClub, getStats, getProvinciaStats } from "../data/dataUtils";
+import { getClubesTotales } from "../data/clubesApi";
+import { getDeportistasTotales } from "../data/deportistasApi";
 import BreadcrumbNav from "../components/BreadcrumbNav";
 import GlobalFilters from "../components/GlobalFilters";
 import LeafletMap from "../components/LeafletMap";
@@ -10,6 +12,8 @@ import ClubDetailPanel from "../components/ClubDetailPanel";
 import KpiCard from "../components/KpiCard";
 import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, GenderPerSportChart } from "../components/Charts";
 import { BarChart3, Building2, Users, Axis3d , Medal } from "lucide-react";
+import type { ClubesTotalesResponse } from "../types/Clubes";
+import type { DeportistasTotalesResponse } from "../types/Deportistas";
 
 // ---------------- ROLE OPTIONS ----------------
 
@@ -29,6 +33,8 @@ function Dashboard() {
   const [navigation, setNavigation] = useState<NavigationState>({ level: "country" });
   const [filters, setFilters] = useState<Filters>({ sports: [], gender: [], ageRange: [6, 60] });
   const [selectedClubId, setSelectedClubId] = useState<number | null>(null);
+  const [clubesTotales, setClubesTotales] = useState<ClubesTotalesResponse | null>(null);
+  const [deportistasTotales, setDeportistasTotales] = useState<DeportistasTotalesResponse | null>(null);
 
   useEffect(() => {
     setNavigation(getInitialNavigation(roleConfig));
@@ -43,6 +49,48 @@ function Dashboard() {
       setFilters((prev) => ({ ...prev, sports: [] }));
     }
   }, [roleConfig]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadClubesTotales = async () => {
+      try {
+        const data = await getClubesTotales(controller.signal);
+        if (!controller.signal.aborted) {
+          setClubesTotales(data);
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setClubesTotales(null);
+        }
+      }
+    };
+
+    void loadClubesTotales();
+
+    return () => controller.abort();
+  }, []);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadDeportistasTotales = async () => {
+      try {
+        const data = await getDeportistasTotales(controller.signal);
+        if (!controller.signal.aborted) {
+          setDeportistasTotales(data);
+        }
+      } catch {
+        if (!controller.signal.aborted) {
+          setDeportistasTotales(null);
+        }
+      }
+    };
+
+    void loadDeportistasTotales();
+
+    return () => controller.abort();
+  }, []);
 
   // -------- HANDLERS --------
 
@@ -142,14 +190,16 @@ function Dashboard() {
         <div className="grid grid-cols-4 gap-2.5">
           <KpiCard
             title="Total de Clubes"
-            value={stats.totalClubs}
-            subtitle={`Club con más deportistas: ${stats.clubWithMostAthletes}`}
+            value={clubesTotales?.totalClubes ?? stats.totalClubs}
+            subtitle={clubesTotales
+              ? `Club con mas deportistas: ${clubesTotales.clubConMasDeportistas.nombre} (${clubesTotales.clubConMasDeportistas.totalDeportistas})`
+              : `Club con mas deportistas: ${stats.clubWithMostAthletes} (${stats.clubWithMostAthletesCount})`}
             icon={<Building2 className="h-5 w-5" />}
           />
           <KpiCard
             title="Total de Atletas"
-            value={stats.totalAthletes}
-            subtitle={`En ${stats.totalSports.toLocaleString()} deportes`}
+            value={deportistasTotales?.deportistas ?? stats.totalAthletes}
+            subtitle={`En ${(deportistasTotales?.deportes ?? stats.totalSports).toLocaleString()} deportes`}
             icon={<Users className="h-5 w-5" />}
           />
           <KpiCard
