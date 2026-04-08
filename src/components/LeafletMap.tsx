@@ -1,33 +1,18 @@
 import { useMemo, useCallback } from "react";
-import {
-  MapContainer,
-  TileLayer,
-  GeoJSON,
-} from "react-leaflet";
-
+import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
 import L from "leaflet";
-
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
-
 import type { NavigationState, Filters, Club } from "../types/types";
 import type { UserRoleConfig } from "../data/roles";
 import { canClickProvince } from "../data/roles";
-import {
-  getProvinciaStats,
-  getClubes,
-} from "../data/dataUtils";
-
-import {
-  argentinaProvinces,
-} from "../data/argentinaGeoJson";
-
-import MarkerClusterGroup from "./MarkerClusterGroup";
+import { getProvinciaStats, getClubes } from "../data/dataUtils";
+import { argentinaProvinces } from "../data/argentinaGeoJson";
+import MarkerClusterGroup from "./ClusterGroup";
 import MapViewController from "./MapViewController";
 
-// ---------------- TYPES ----------------
-
+// --------- Type
 interface LeafletMapProps {
   filters: Filters;
   navigation: NavigationState;
@@ -39,8 +24,7 @@ interface LeafletMapProps {
   onNavigateCountry?: () => void;
 }
 
-// ---------------- COMPONENT ----------------
-
+// ------- Componente de mapa con Leaflet
 function LeafletMap({
   filters,
   navigation,
@@ -51,8 +35,7 @@ function LeafletMap({
   onNavigateCountry,
 }: LeafletMapProps) {
 
-  // -------- DATA --------
-
+  // -------- Data
   const provStats = useMemo(
     () => getProvinciaStats(filters),
     [filters]
@@ -92,8 +75,7 @@ function LeafletMap({
     [clubs]
   );
 
-  // -------- FLAGS --------
-
+  // -------- Flags por rol y nivel de navegación
   const isClubRole = roleConfig.role === "club";
   const showProvinces =
     !isClubRole && navigation.level === "country";
@@ -102,8 +84,7 @@ function LeafletMap({
 
   const provinceClickable = canClickProvince(roleConfig);
 
-  // -------- STYLES --------
-
+  // -------- Styles
   const getProvinceStyle = useCallback(
     (feature: any) => {
       if (!feature?.properties) return {};
@@ -145,8 +126,7 @@ function LeafletMap({
     [provStats, maxClubs, navigation.provinciaId]
   );
 
-  // -------- EVENTS --------
-
+  // -------- Eventos para cada provincia tooltip + hover + click
   const handleProvince = useCallback(
     (feature: any, layer: L.Layer) => {
       const props = feature.properties;
@@ -192,8 +172,7 @@ function LeafletMap({
     [provStats, onProvinceClick, getProvinceStyle, provinceClickable]
   );
 
-  // -------- TITLE --------
-
+  // -------- Titulo de mapa según nivel de navegación
   const mapTitle = useMemo(() => {
     if (isClubRole) {
       return `Club: ${clubForRole?.nombre || ""}`;
@@ -201,7 +180,7 @@ function LeafletMap({
 
     switch (navigation.level) {
       case "country":
-        return "Argentina — Clubes por Provincia";
+        return "Argentina — Clubes y Deportistas por Provincia";
       case "province":
         return "Vista Provincia — Clubes";
       case "city":
@@ -211,11 +190,9 @@ function LeafletMap({
     }
   }, [navigation.level, isClubRole, clubForRole]);
 
-  // -------- RENDER --------
-
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
-      {/* HEADER */}
+    <div className="rounded-xl border border-border bg-card overflow-hidden h-full flex flex-col min-h-0">
+      {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h3 className="text-sm font-semibold">
           {mapTitle}
@@ -228,7 +205,7 @@ function LeafletMap({
         )}
       </div>
 
-      {/* MAP */}
+      {/* Mapa */}
       <MapContainer
         center={[-38.5, -63.5]}
         zoom={5}
@@ -236,12 +213,12 @@ function LeafletMap({
         maxZoom={18}
         maxBounds={[[-56, -76], [-20, -52]]}
         attributionControl={false}
-        className="h-full w-full"
-        style={{ minHeight: "65vh" }}
+        className="w-full flex-1 min-h-0"
+        style={{ height: "100%" }}
       >
         <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
 
-        {/* PROVINCIAS BASE */}
+        {/* Provincias*/}
         {showProvinces && (
           <GeoJSON
             data={argentinaProvinces}
@@ -250,7 +227,7 @@ function LeafletMap({
           />
         )}
 
-        {/* 🔥 OVERLAY PROVINCIA SELECCIONADA */}
+        {/* Provincia Seleccionada */}
         {navigation.provinciaId &&
           navigation.level !== "country" && (() => {
             const selectedProvince = {
@@ -277,7 +254,7 @@ function LeafletMap({
             );
           })()}
 
-        {/* MARKERS */}
+        {/* Marcadores */}
         {showClubMarkers && (
           <MarkerClusterGroup
             markers={clubMarkers}

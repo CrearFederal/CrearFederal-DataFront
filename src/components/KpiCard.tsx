@@ -1,8 +1,6 @@
 import { useMemo } from "react";
 import type { ReactNode } from "react";
 
-// ---------------- TYPES ----------------
-
 interface KpiCardProps {
   title: string;
   value: number | string;
@@ -10,55 +8,38 @@ interface KpiCardProps {
   subtitle?: string;
 }
 
-// ---------------- HELPERS ----------------
-
 function formatValue(value: number | string): string {
-  if (typeof value === "number") {
-    return value.toLocaleString();
-  }
+  if (typeof value === "number") return value.toLocaleString("es-AR");
   return value;
 }
 
-// ---------------- COMPONENT ----------------
-
-function KpiCard({
-  title,
-  value,
-  icon,
-  subtitle,
-}: KpiCardProps) {
-  const formattedValue = useMemo(
-    () => formatValue(value),
-    [value]
-  );
+function KpiCard({ title, value, icon, subtitle }: KpiCardProps) {
+  const formattedValue = useMemo(() => formatValue(value), [value]);
 
   return (
-    <div className="kpi-card fade-up">
-      <div className="flex items-start justify-between">
-        {/* TEXT */}
-        <div>
-          <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+    <div className="kpi-card fade-up group">
+      {/* Accent bar */}
+      <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-primary/60 transition-all duration-300 group-hover:bg-primary" />
+
+      <div className="flex items-start justify-between gap-2 pl-2">
+        {/* Text */}
+        <div className="min-w-0 flex-1">
+          <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
             {title}
           </p>
-
           <p
-            className="mt-2 font-mono font-bold text-foreground"
-            style={{
-              fontSize: "clamp(16px, 2vw, 24px)",
-            }}
+            className="mt-1.5 font-mono font-bold text-foreground leading-none truncate"
+            style={{ fontSize: "clamp(15px, 1.8vw, 22px)" }}
           >
             {formattedValue}
           </p>
-
           {subtitle && (
-            <p className="mt-1 text-xs text-muted-foreground">
-              {subtitle}
-            </p>
+            <p className="mt-1 text-[10px] text-muted-foreground truncate">{subtitle}</p>
           )}
         </div>
 
-        {/* ICON */}
-        <div className="rounded-lg bg-primary/10 p-2.5 text-primary">
+        {/* Icon */}
+        <div className="rounded-lg bg-primary/10 p-2 text-primary shrink-0 transition-colors group-hover:bg-primary/15">
           {icon}
         </div>
       </div>
