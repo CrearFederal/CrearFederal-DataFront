@@ -1,6 +1,4 @@
 import { BarChart } from "@mui/x-charts/BarChart";
-import { PieChart } from "@mui/x-charts/PieChart";
-import { LineChart } from "@mui/x-charts/LineChart";
 import * as echarts from 'echarts';
 import 'echarts-gl';
 import { useEffect, useRef } from 'react';
@@ -301,9 +299,9 @@ export function GenderDistributionChart({ data }: GenderDistributionChartProps) 
         formatter: (params: any) => {
           const color = params.data.itemStyle.color;
           return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px;"></span>
-            <span style="font-weight:600;color:#0f172a;">${params.name}</span><br/>
-            <span style="color:${C_AXIS};padding-left:14px;">Cantidad: </span>
-            <span style="font-weight:700;color:${color};">${params.value.toLocaleString("es-AR")}</span>`;
+            <span style="font-weight:400;color:#0f172a;font-size:12px;">${params.name}</span><br/>
+            <span style="color:${C_AXIS};padding-left:14px;font-size:11px;">Cantidad: </span>
+            <span style="font-weight:900;color:${color};font-size:15px;">${params.value.toLocaleString("es-AR")}</span>`;
         },
       },
       legend: {
@@ -323,11 +321,11 @@ export function GenderDistributionChart({ data }: GenderDistributionChartProps) 
           itemStyle: { borderRadius: 6 },
           label: {
             show: true,
-            fontSize: 12,
-            fontWeight: 700,
+            fontSize: 26,
+            fontWeight: 800,
             fontFamily: "inherit",
             formatter: "{d}%",
-            color: "#0f172a",
+            color: (params: any) => params.dataIndex === 0 ? C_MALE : C_FEMALE,
           },
           labelLine: {
             length: 10,
@@ -337,7 +335,7 @@ export function GenderDistributionChart({ data }: GenderDistributionChartProps) 
           emphasis: {
             scale: true,
             scaleSize: 6,
-            label: { fontSize: 14 },
+            label: { fontSize: 18 },
             itemStyle: { shadowBlur: 12, shadowColor: "rgba(0,0,0,0.15)" },
           },
           data: [
@@ -361,7 +359,7 @@ export function GenderDistributionChart({ data }: GenderDistributionChartProps) 
 
   return (
     <ChartCard title="Distribución por Género" subtitle="Total de deportistas activos por género">
-      <div ref={chartRef} style={{ width: "100%", height: "190px" }} />
+      <div ref={chartRef} style={{ width: "100%", height: "320px" }} />
     </ChartCard>
   );
 }

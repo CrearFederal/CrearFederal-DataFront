@@ -34,7 +34,7 @@ function KpiCard({ title, value, icon, subtitle }: KpiCardProps) {
             {formattedValue}
           </p>
           {subtitle && (
-            <p className="mt-1 text-[10px] text-muted-foreground truncate">{subtitle}</p>
+            <p className="mt-1 text-xs text-muted-foreground truncate">{subtitle}</p>
           )}
         </div>
 
