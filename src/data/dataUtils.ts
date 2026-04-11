@@ -125,11 +125,13 @@ export const getStats = (filters: Filters, scope?: { provinciaId?: number; munic
   for (const p of relevantPerfiles) {
     clubAthleteCount[p.id_club] = (clubAthleteCount[p.id_club] || 0) + 1;
   }
-  const clubWithMostAthletes = filteredClubs.reduce((maxClub, club) => {
-    const count = clubAthleteCount[club.id_club] || 0;
-    const maxCount = clubAthleteCount[maxClub.id_club] || 0;
-    return count > maxCount ? club : maxClub;
-  });
+  const clubWithMostAthletes = filteredClubs.length > 0
+    ? filteredClubs.reduce((maxClub, club) => {
+        const count = clubAthleteCount[club.id_club] || 0;
+        const maxCount = clubAthleteCount[maxClub.id_club] || 0;
+        return count > maxCount ? club : maxClub;
+      })
+    : null;
 
   // Unique sports count
   const uniqueSports = new Set(relevantPerfiles.map(p => p.id_deporte)).size;
@@ -140,8 +142,8 @@ export const getStats = (filters: Filters, scope?: { provinciaId?: number; munic
     totalSports: uniqueSports,
     mostPracticedSport: mostPracticed,
     mostPracticedCount,
-    clubWithMostAthletes: clubWithMostAthletes?.nombre || 'N/A',
-    clubWithMostAthletesCount: clubAthleteCount[clubWithMostAthletes?.id_club || 0] || 0,
+    clubWithMostAthletes: clubWithMostAthletes?.nombre ?? 'N/A',
+    clubWithMostAthletesCount: clubWithMostAthletes ? (clubAthleteCount[clubWithMostAthletes.id_club] || 0) : 0,
     athletesPerSport,
     genderDistribution,
     genderPerSport,

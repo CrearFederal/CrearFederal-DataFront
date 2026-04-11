@@ -109,7 +109,7 @@ function MapViewController({
 
     // COUNTRY — Vista nacional
     if (navigation.level === "country") {
-      map.flyTo([-38.5, -63.5], 4, { duration: 2 });
+      map.flyTo([-38.5, -63.5], 5, { duration: 2 });
       return;
     }
 

@@ -97,10 +97,7 @@ function GlobalFilters({ filters, onChange }: GlobalFiltersProps) {
   // -------- HANDLERS --------
 
   const toggleSport = (id: number) => {
-    const updatedSports = filters.sports.includes(id)
-      ? filters.sports.filter((s) => s !== id)
-      : [...filters.sports, id];
-
+    const updatedSports = filters.sports.includes(id) ? [] : [id];
     onChange({ ...filters, sports: updatedSports });
   };
 

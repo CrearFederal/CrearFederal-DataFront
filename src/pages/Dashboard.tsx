@@ -1,42 +1,81 @@
 import { useState, useEffect, useMemo } from "react";
 import type { Filters, NavigationState } from "../types/types";
-import { canClickProvince, canClickMunicipio, getInitialNavigation, isNavigationAllowed, getRoleLabel } from "../data/roles";
+import { canClickProvince, canClickMunicipio, getInitialNavigation, isNavigationAllowed } from "../data/roles";
 import type { UserRoleConfig } from "../data/roles";
 import { getClub, getStats, getProvinciaStats } from "../data/dataUtils";
 import { getClubesTotales } from "../data/clubesApi";
 import { getDeportistasTotales } from "../data/deportistasApi";
+import { authBootstrap, getAuthMe, sendLogoutOnPageClose } from "../api/session";
+import type { AuthScope } from "../types/auth";
 import BreadcrumbNav from "../components/BreadcrumbNav";
 import GlobalFilters from "../components/GlobalFilters";
 import LeafletMap from "../components/LeafletMap";
 import ClubDetailPanel from "../components/ClubDetailPanel";
 import KpiCard from "../components/KpiCard";
 import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, GenderPerSportChart } from "../components/Charts";
-import { BarChart3, Building2, Users, Axis3d , Medal } from "lucide-react";
+import { BarChart3, Building2, Users, Medal } from "lucide-react";
 import type { ClubesTotalesResponse } from "../types/Clubes";
 import type { DeportistasTotalesResponse } from "../types/Deportistas";
 
-// ---------------- ROLE OPTIONS ----------------
-
-const ROLE_OPTIONS: { label: string; config: UserRoleConfig }[] = [
-  { label: "COA (Nacional)",                     config: { role: "coa" } },
-  { label: "Provincia (Buenos Aires)",           config: { role: "province", provinciaId: 1 } },
-  { label: "Municipio (La Plata)",               config: { role: "municipality", provinciaId: 1, municipioId: 1 } },
-  { label: "Federación Nacional (Fútbol)",       config: { role: "federation", federationScope: "national", deporteId: 1, federationId: 1 } },
-  { label: "Federación Prov. (Básquetbol - Córdoba)", config: { role: "federation", federationScope: "provincial", provinciaId: 2, deporteId: 2, federationId: 2 } },
-  { label: "Club (Club #1)",                     config: { role: "club", clubId: 1 } },
-];
+const mapScopeToRoleConfig = (scope: AuthScope): UserRoleConfig => {
+  switch (scope.role) {
+    case "coa":
+      return { role: "coa" };
+    case "province":
+      return {
+        role: "province",
+        provinciaId: scope.provinciaId ?? undefined,
+      };
+    case "municipality":
+      return {
+        role: "municipality",
+        provinciaId: scope.provinciaId ?? undefined,
+        municipioId: scope.municipioId ?? undefined,
+      };
+    case "club":
+      return {
+        role: "club",
+        clubId: scope.clubId ?? undefined,
+      };
+    case "federation":
+      return {
+        role: "federation",
+        federationScope: scope.federationScope ?? undefined,
+        provinciaId: scope.provinciaId ?? undefined,
+        deporteId: scope.deporteId ?? undefined,
+      };
+    default:
+      return { role: "coa" };
+  }
+};
 
 // ---------------- COMPONENT ----------------
 
 function Dashboard() {
-  const [roleConfig, setRoleConfig] = useState<UserRoleConfig>({ role: "coa" });
+  const [roleConfig, setRoleConfig] = useState<UserRoleConfig | null>(null);
   const [navigation, setNavigation] = useState<NavigationState>({ level: "country" });
   const [filters, setFilters] = useState<Filters>({ sports: [], gender: [], ageRange: [6, 60] });
   const [selectedClubId, setSelectedClubId] = useState<number | null>(null);
   const [clubesTotales, setClubesTotales] = useState<ClubesTotalesResponse | null>(null);
   const [deportistasTotales, setDeportistasTotales] = useState<DeportistasTotalesResponse | null>(null);
+  const [authStatus, setAuthStatus] = useState<"loading" | "ready" | "error">("loading");
+
+  const isAbortError = (error: unknown): boolean => {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return true;
+    }
+
+    if (typeof error === "object" && error !== null) {
+      const err = error as { name?: string; code?: string };
+      return err.name === "CanceledError" || err.code === "ERR_CANCELED";
+    }
+
+    return false;
+  };
 
   useEffect(() => {
+    if (!roleConfig) return;
+
     setNavigation(getInitialNavigation(roleConfig));
     setSelectedClubId(null);
 
@@ -51,6 +90,62 @@ function Dashboard() {
   }, [roleConfig]);
 
   useEffect(() => {
+    const controller = new AbortController();
+    let active = true;
+
+    const cleanupLoginParam = () => {
+      const url = new URL(window.location.href);
+      if (!url.searchParams.has("login")) return;
+
+      url.searchParams.delete("login");
+      const nextUrl = `${url.pathname}${url.search}${url.hash}`;
+      window.history.replaceState({}, document.title, nextUrl || "/");
+    };
+
+    const initializeAuth = async () => {
+      const login = new URLSearchParams(window.location.search).get("login")?.trim();
+
+      if (login) {
+        try {
+          const boot = await authBootstrap(login, controller.signal);
+          if (!active) return;
+
+          setRoleConfig(mapScopeToRoleConfig(boot.scope));
+          cleanupLoginParam();
+          setAuthStatus("ready");
+          return;
+        } catch (error) {
+          if (!active || isAbortError(error)) return;
+          setAuthStatus("error");
+          return;
+        }
+      }
+
+      try {
+        const me = await getAuthMe(controller.signal);
+        if (!active) return;
+
+        setRoleConfig(mapScopeToRoleConfig(me.scope));
+        cleanupLoginParam();
+        setAuthStatus("ready");
+        return;
+      } catch (error) {
+        if (!active || isAbortError(error)) return;
+        setAuthStatus("error");
+      }
+    };
+
+    void initializeAuth();
+
+    return () => {
+      active = false;
+      controller.abort();
+    };
+  }, []);
+
+  useEffect(() => {
+    if (authStatus !== "ready") return;
+
     const controller = new AbortController();
 
     const loadClubesTotales = async () => {
@@ -69,9 +164,11 @@ function Dashboard() {
     void loadClubesTotales();
 
     return () => controller.abort();
-  }, []);
+  }, [authStatus]);
 
   useEffect(() => {
+    if (authStatus !== "ready") return;
+
     const controller = new AbortController();
 
     const loadDeportistasTotales = async () => {
@@ -90,7 +187,54 @@ function Dashboard() {
     void loadDeportistasTotales();
 
     return () => controller.abort();
-  }, []);
+  }, [authStatus]);
+
+  useEffect(() => {
+    if (authStatus !== "ready") return;
+
+    const handlePageHide = () => {
+      sendLogoutOnPageClose();
+    };
+
+    window.addEventListener("pagehide", handlePageHide);
+
+    return () => {
+      window.removeEventListener("pagehide", handlePageHide);
+    };
+  }, [authStatus]);
+
+  const clubForRole = useMemo(() => {
+    if (roleConfig?.role === "club" && roleConfig.clubId) {
+      return getClub(roleConfig.clubId);
+    }
+
+    return null;
+  }, [roleConfig]);
+
+  const scope = useMemo(
+    () => ({ provinciaId: navigation.provinciaId, municipioId: navigation.municipioId }),
+    [navigation]
+  );
+
+  const stats = useMemo(() => getStats(filters, scope), [filters, scope]);
+
+  const provStats = useMemo(() => getProvinciaStats(filters), [filters]);
+
+  if (authStatus === "loading") {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-sm text-muted-foreground">Inicializando sesión...</p>
+      </div>
+    );
+  }
+
+  if (authStatus === "error" || !roleConfig) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-sm text-destructive">No se pudo inicializar la sesión.</p>
+      </div>
+    );
+  }
 
   // -------- HANDLERS --------
 
@@ -120,65 +264,16 @@ function Dashboard() {
     setSelectedClubId(null);
   };
 
-  const clubForRole = useMemo(() => {
-    if (roleConfig.role === "club" && roleConfig.clubId) return getClub(roleConfig.clubId);
-    return null;
-  }, [roleConfig]);
-
-  // -------- DATA --------
-
-  const scope = useMemo(
-    () => ({ provinciaId: navigation.provinciaId, municipioId: navigation.municipioId }),
-    [navigation]
-  );
-
-  const stats = useMemo(() => getStats(filters, scope), [filters, scope]);
-
-  const provStats = useMemo(() => getProvinciaStats(filters), [filters]);
-
   // -------- RENDER --------
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
 
-      {/* HEADER */}
-      <header className="sticky top-0 z-40 border-b border-border bg-background/95 backdrop-blur-sm">
-        <div className="flex items-center justify-between px-6 py-2.5">
-          {/* Left */}
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-primary/10 p-2">
-              <BarChart3 className="h-5 w-5 text-primary" />
-            </div>
-            <div>
-              <h1 className="text-lg font-bold text-foreground">Análisis Deportivo</h1>
-              <p className="text-xs text-muted-foreground">{getRoleLabel(roleConfig)}</p>
-            </div>
-          </div>
-
-          {/* Right */}
-          <div className="flex items-center gap-3">
-            <select
-              value={ROLE_OPTIONS.findIndex(
-                (opt) =>
-                  opt.config.role === roleConfig.role &&
-                  opt.config.provinciaId === roleConfig.provinciaId &&
-                  opt.config.clubId === roleConfig.clubId
-              )}
-              onChange={(e) => setRoleConfig(ROLE_OPTIONS[Number(e.target.value)].config)}
-              className="rounded-lg border border-border bg-secondary px-3 py-1.5 text-xs font-medium text-secondary-foreground focus:outline-none focus:ring-1 focus:ring-ring"
-            >
-              {ROLE_OPTIONS.map((option, index) => (
-                <option key={index} value={index}>{option.label}</option>
-              ))}
-            </select>
-
-            <BreadcrumbNav navigation={navigation} onNavigate={handleNavigate} roleConfig={roleConfig} />
-          </div>
-        </div>
-      </header>
-
       {/* MAIN */}
       <div className="flex-1 flex flex-col p-4 gap-3">
+        <div className="flex items-center justify-end">
+          <BreadcrumbNav navigation={navigation} onNavigate={handleNavigate} roleConfig={roleConfig} />
+        </div>
 
         {/* ROW 1 — Filters */}
         <div className="bg-card border border-border rounded-lg p-4">
@@ -192,21 +287,21 @@ function Dashboard() {
             title="Total de Clubes"
             value={clubesTotales?.totalClubes ?? stats.totalClubs}
             subtitle={clubesTotales
-              ? `Club con mas deportistas: ${clubesTotales.clubConMasDeportistas.nombre} (${clubesTotales.clubConMasDeportistas.totalDeportistas})`
-              : `Club con mas deportistas: ${stats.clubWithMostAthletes} (${stats.clubWithMostAthletesCount})`}
+              ? `Mas deportistas en: ${clubesTotales.clubConMasDeportistas.nombre} (${clubesTotales.clubConMasDeportistas.totalDeportistas})`
+              : `Mas deportistas en: ${stats.clubWithMostAthletes} (${stats.clubWithMostAthletesCount})`}
             icon={<Building2 className="h-5 w-5" />}
           />
           <KpiCard
-            title="Total de Atletas"
+            title="Total de Deportistas"
             value={deportistasTotales?.deportistas ?? stats.totalAthletes}
             subtitle={`En ${(deportistasTotales?.deportes ?? stats.totalSports).toLocaleString()} deportes`}
             icon={<Users className="h-5 w-5" />}
           />
           <KpiCard
-            title="Promedio de Edad"
-            value={`${stats.averageAge.toFixed(1)} años`}
-            subtitle="Edad promedio de deportistas"
-            icon={<Axis3d  className="h-5 w-5" />}
+            title="Cantidad de Deportes"
+            value={deportistasTotales?.deportes ?? stats.totalSports}
+            subtitle="Disciplinas con deportistas activos"
+            icon={<BarChart3 className="h-5 w-5" />}
           />
           <KpiCard
             title="Deporte líder"
@@ -236,13 +331,13 @@ function Dashboard() {
           {/* Right charts — 50% stacked */}
           <div className="flex flex-col gap-3 flex-1 min-w-0">
             <AthletesPerSportChart data={stats.genderPerSport} />
-            <GenderDistributionChart data={stats.genderDistribution} />
+            <AgeDistributionChart data={stats.ageDistribution} />
           </div>
         </div>
 
-        {/* ROW 4 — Age + Province + Gender per Sport */}
+        {/* ROW 4 — Gender + Province + Gender per Sport */}
         <div className="grid grid-cols-3 gap-3">
-          <AgeDistributionChart data={stats.ageDistribution} />
+          <GenderDistributionChart data={stats.genderDistribution} />
           <ProvinceRankingChart data={provStats} />
           <GenderPerSportChart data={stats.athletesPerSport} />
         </div>

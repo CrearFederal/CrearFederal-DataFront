@@ -208,7 +208,7 @@ function LeafletMap({
       {/* Mapa */}
       <MapContainer
         center={[-38.5, -63.5]}
-        zoom={5}
+        zoom={6}
         minZoom={4}
         maxZoom={18}
         maxBounds={[[-56, -76], [-20, -52]]}
