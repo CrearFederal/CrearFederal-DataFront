@@ -11,7 +11,7 @@ import LeafletMap from "../components/LeafletMap";
 import ClubDetailPanel from "../components/ClubDetailPanel";
 import KpiCard from "../components/KpiCard";
 import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, GenderPerSportChart } from "../components/Charts";
-import { BarChart3, Building2, Users, Axis3d , Medal } from "lucide-react";
+import { BarChart3, Building2, Users, Medal } from "lucide-react";
 import type { ClubesTotalesResponse } from "../types/Clubes";
 import type { DeportistasTotalesResponse } from "../types/Deportistas";
 
@@ -203,10 +203,10 @@ function Dashboard() {
             icon={<Users className="h-5 w-5" />}
           />
           <KpiCard
-            title="Promedio de Edad"
-            value={`${stats.averageAge.toFixed(1)} años`}
-            subtitle="Edad promedio de deportistas"
-            icon={<Axis3d  className="h-5 w-5" />}
+            title="Cantidad de Deportes"
+            value={deportistasTotales?.deportes ?? stats.totalSports}
+            subtitle="Disciplinas con deportistas activos"
+            icon={<BarChart3 className="h-5 w-5" />}
           />
           <KpiCard
             title="Deporte líder"

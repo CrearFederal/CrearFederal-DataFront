@@ -271,7 +271,7 @@ export function AthletesPerSportChart({ data }: AthletesPerSportChartProps) {
   );
 }
 
-// ---------------- GENDER DISTRIBUTION — donut + bars ----------------
+// ---------------- GENDER DISTRIBUTION — donut ----------------
 
 interface GenderDistributionChartProps {
   data: {
@@ -283,105 +283,197 @@ interface GenderDistributionChartProps {
 }
 
 export function GenderDistributionChart({ data }: GenderDistributionChartProps) {
-  const pieData = [
-    { id: 0, value: data.male, label: "Masculino", color: C_MALE },
-    { id: 1, value: data.female, label: "Femenino", color: C_FEMALE },
-  ];
+  const chartRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!chartRef.current) return;
+
+    const chart = echarts.init(chartRef.current, "light");
+
+    const option = {
+      backgroundColor: "transparent",
+      tooltip: {
+        trigger: "item",
+        backgroundColor: "rgba(255, 255, 255, 0.98)",
+        borderColor: "rgba(148, 163, 184, 0.35)",
+        borderWidth: 1,
+        textStyle: { fontSize: 12, color: "#0f172a" },
+        formatter: (params: any) => {
+          const color = params.data.itemStyle.color;
+          return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px;"></span>
+            <span style="font-weight:600;color:#0f172a;">${params.name}</span><br/>
+            <span style="color:${C_AXIS};padding-left:14px;">Cantidad: </span>
+            <span style="font-weight:700;color:${color};">${params.value.toLocaleString("es-AR")}</span>`;
+        },
+      },
+      legend: {
+        bottom: 0,
+        left: "center",
+        itemWidth: 10,
+        itemHeight: 10,
+        borderRadius: 50,
+        textStyle: { fontSize: 11, color: C_AXIS, fontFamily: "inherit" },
+      },
+      series: [
+        {
+          type: "pie",
+          radius: ["42%", "70%"],
+          center: ["50%", "46%"],
+          padAngle: 3,
+          itemStyle: { borderRadius: 6 },
+          label: {
+            show: true,
+            fontSize: 12,
+            fontWeight: 700,
+            fontFamily: "inherit",
+            formatter: "{d}%",
+            color: "#0f172a",
+          },
+          labelLine: {
+            length: 10,
+            length2: 8,
+            lineStyle: { color: "rgba(148, 163, 184, 0.6)", width: 1.5 },
+          },
+          emphasis: {
+            scale: true,
+            scaleSize: 6,
+            label: { fontSize: 14 },
+            itemStyle: { shadowBlur: 12, shadowColor: "rgba(0,0,0,0.15)" },
+          },
+          data: [
+            { name: "Masculino", value: data.male, itemStyle: { color: C_MALE } },
+            { name: "Femenino",  value: data.female, itemStyle: { color: C_FEMALE } },
+          ],
+        },
+      ],
+    };
+
+    chart.setOption(option, true);
+
+    const handleResize = () => chart.resize();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chart.dispose();
+    };
+  }, [data]);
 
   return (
-    <ChartCard title="Distribución por Género" subtitle="Total de deportistas activos por genero">
-      <div className="flex items-center gap-4">
-        {/* Donut */}
-        <div className="shrink-0">
-          <PieChart
-            width={110}
-            height={110}
-            series={[{
-              data: pieData,
-              innerRadius: 30,
-              outerRadius: 50,
-              paddingAngle: 3,
-              startAngle: 90,
-              endAngle: 450,
-              valueFormatter: (v) => v.value.toLocaleString("es-AR"),
-            }]}
-            margin={{ top: 0, bottom: 0, left: 0, right: 0 }}
-          />
-        </div>
-
-        {/* Stats */}
-        <div className="flex-1 space-y-3">
-          {[
-            { label: "Masculino", color: C_MALE, pct: data.malePercent, count: data.male },
-            { label: "Femenino", color: C_FEMALE, pct: data.femalePercent, count: data.female },
-          ].map((g) => (
-            <div key={g.label}>
-              <div className="flex items-center justify-between mb-1">
-                <div className="flex items-center gap-1.5">
-                  <div className="h-2 w-2 rounded-full" style={{ background: g.color }} />
-                  <span className="text-xs text-muted-foreground">{g.label}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-muted-foreground">
-                    {g.count.toLocaleString("es-AR")}
-                  </span>
-                  <span className="text-sm font-bold font-mono" style={{ color: g.color }}>
-                    {g.pct}%
-                  </span>
-                </div>
-              </div>
-              <div className="h-1.5 w-full rounded-full bg-secondary overflow-hidden">
-                <div
-                  className="h-full rounded-full transition-all duration-700"
-                  style={{ width: `${g.pct}%`, background: g.color }}
-                />
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
+    <ChartCard title="Distribución por Género" subtitle="Total de deportistas activos por género">
+      <div ref={chartRef} style={{ width: "100%", height: "190px" }} />
     </ChartCard>
   );
 }
 
-// ---------------- AGE DISTRIBUTION — area ----------------
+// ---------------- AGE DISTRIBUTION — histogram ----------------
 
 interface AgeDistributionChartProps {
   data: { range: string; count: number }[];
 }
 
 export function AgeDistributionChart({ data }: AgeDistributionChartProps) {
+  const chartRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!chartRef.current || !data || data.length === 0) return;
+
+    const chart = echarts.init(chartRef.current, "light");
+
+    const maxCount = Math.max(...data.map((d) => d.count));
+
+    const option = {
+      backgroundColor: "transparent",
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "none" },
+        backgroundColor: "rgba(255, 255, 255, 0.98)",
+        borderColor: "rgba(148, 163, 184, 0.35)",
+        borderWidth: 1,
+        textStyle: { fontSize: 12, color: "#0f172a" },
+        formatter: (params: any[]) => {
+          const p = params[0];
+          return `<span style="font-weight:600;color:#0f172a;">${p.name}</span><br/>
+            <span style="color:${C_AXIS};">Deportistas: </span>
+            <span style="font-weight:700;color:${C_BLUE_MAIN};">${p.value.toLocaleString("es-AR")}</span>`;
+        },
+      },
+      grid: { left: 40, right: 16, top: 28, bottom: 32 },
+      xAxis: {
+        type: "category",
+        data: data.map((d) => d.range),
+        axisLine: { lineStyle: { color: "hsl(215, 30%, 88%)" } },
+        axisTick: { show: false },
+        axisLabel: {
+          fontSize: 10,
+          color: C_AXIS,
+          fontFamily: "inherit",
+          interval: 0,
+        },
+      },
+      yAxis: {
+        type: "value",
+        splitLine: { lineStyle: { color: "hsl(215, 30%, 93%)", type: "dashed" } },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          fontSize: 10,
+          color: C_AXIS,
+          fontFamily: "inherit",
+          formatter: (v: number) =>
+            v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v),
+        },
+      },
+      series: [
+        {
+          type: "bar",
+          data: data.map((d) => ({
+            value: d.count,
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
+                { offset: 0, color: C_BLUE_MAIN },
+                { offset: 1, color: "hsl(215, 85%, 76%)" },
+              ]),
+              borderRadius: [5, 5, 0, 0],
+              opacity: d.count === maxCount ? 1 : 0.82,
+            },
+          })),
+          barMaxWidth: 36,
+          label: {
+            show: true,
+            position: "top",
+            fontSize: 10,
+            fontWeight: 600,
+            color: C_AXIS,
+            fontFamily: "inherit",
+            formatter: (params: any) =>
+              params.value > 0 ? params.value.toLocaleString("es-AR") : "",
+          },
+          emphasis: {
+            itemStyle: {
+              opacity: 1,
+              shadowBlur: 8,
+              shadowColor: "rgba(37, 99, 235, 0.25)",
+            },
+          },
+        },
+      ],
+    };
+
+    chart.setOption(option, true);
+
+    const handleResize = () => chart.resize();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chart.dispose();
+    };
+  }, [data]);
+
   return (
     <ChartCard title="Distribución por Edad" subtitle="Pirámide etaria de deportistas">
-      <LineChart
-        height={160}
-        series={[{
-          data: data.map((d) => d.count),
-          area: true,
-          color: C_BLUE_MAIN,
-          showMark: true,
-          valueFormatter: (v) => (v ?? 0).toLocaleString("es-AR"),
-        }]}
-        xAxis={[{
-          data: data.map((d) => d.range),
-          scaleType: "band",
-          ...axisStyle,
-        }]}
-        yAxis={[{ ...axisStyle }]}
-        margin={{ left: 40, right: 8, top: 12, bottom: 28 }}
-        sx={{
-          "& .MuiAreaElement-root": {
-            fill: C_BLUE_MAIN,
-            fillOpacity: 0.15,
-          },
-          "& .MuiLineElement-root": { strokeWidth: 2.5 },
-          "& .MuiChartsAxis-line": { stroke: "hsl(215, 30%, 88%)" },
-          "& .MuiChartsAxis-tick": { display: "none" },
-          "& .MuiChartsGrid-line": { stroke: "hsl(215, 30%, 92%)" },
-          "& .MuiChartsLegend-root": { display: "none" },
-        }}
-        grid={{ horizontal: true }}
-      />
+      <div ref={chartRef} style={{ width: "100%", height: "190px" }} />
     </ChartCard>
   );
 }

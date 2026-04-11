@@ -9,6 +9,7 @@ export const getDeportistasTotales = async (signal?: AbortSignal): Promise<Depor
 
 	try {
 		const { data } = await instanceAxios.get<DeportistasTotalesResponse>("/deportistas/totales", { signal });
+		console.log("Respuesta de la API:", data);
 		return data;
 	} catch (error: unknown) {
 		if (isAxiosError<{ message?: string }>(error)) {
