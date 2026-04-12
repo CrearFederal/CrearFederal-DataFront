@@ -294,7 +294,9 @@ function Dashboard() {
           <KpiCard
             title="Total de Deportistas"
             value={deportistasTotales?.deportistas ?? stats.totalAthletes}
-            subtitle={`En ${(deportistasTotales?.deportes ?? stats.totalSports).toLocaleString()} deportes`}
+            subtitle={deportistasTotales
+              ? `${deportistasTotales.porcentaje.toLocaleString("es-AR")}% de ${deportistasTotales.provinciaLider}`
+              : `En ${stats.totalSports.toLocaleString()} deportes`}
             icon={<Users className="h-5 w-5" />}
           />
           <KpiCard
@@ -305,8 +307,8 @@ function Dashboard() {
           />
           <KpiCard
             title="Deporte líder"
-            value={stats.mostPracticedSport}
-            subtitle={`Con un total de ${stats.mostPracticedCount.toLocaleString()} deportistas`}
+            value={deportistasTotales?.deporteLider ?? stats.mostPracticedSport}
+            subtitle={`Con un total de ${(deportistasTotales?.cantidadDeportistas ?? stats.mostPracticedCount).toLocaleString()} deportistas`}
             icon={<Medal className="h-5 w-5" />}
           />
         </div>
