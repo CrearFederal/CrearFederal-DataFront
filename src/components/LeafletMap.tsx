@@ -1,4 +1,4 @@
-import { useMemo, useCallback } from "react";
+import { useMemo, useCallback, useEffect, useState } from "react";
 import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
@@ -7,7 +7,7 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import type { NavigationState, Filters, Club } from "../types/types";
 import type { UserRoleConfig } from "../data/roles";
 import { canClickProvince } from "../data/roles";
-import { getProvinciaStats, getClubes } from "../data/dataUtils";
+import { getMapaClubes, getMapaProvinciasResumen } from "../data/mapaApi";
 import { argentinaProvinces } from "../data/argentinaGeoJson";
 import MarkerClusterGroup from "./ClusterGroup";
 import MapViewController from "./MapViewController";
@@ -34,33 +34,80 @@ function LeafletMap({
   onClubClick,
   onNavigateCountry,
 }: LeafletMapProps) {
+  const [provStats, setProvStats] = useState<
+    Array<{ id_provincia: number; totalClubs: number; totalAthletes: number }>
+  >([]);
+  const [clubs, setClubs] = useState<Club[]>([]);
+
+  const isAbortError = (error: unknown): boolean => {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      return true;
+    }
+
+    if (typeof error === "object" && error !== null) {
+      const err = error as { name?: string; code?: string };
+      return err.name === "CanceledError" || err.code === "ERR_CANCELED";
+    }
+
+    return false;
+  };
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadData = async () => {
+      try {
+        const [provinceSummary, clubesRaw] = await Promise.all([
+          getMapaProvinciasResumen(filters, controller.signal),
+          getMapaClubes(filters, controller.signal),
+        ]);
+
+        if (controller.signal.aborted) return;
+
+        const scopedClubs = clubesRaw
+          .filter((club) => (navigation.provinciaId ? club.id_provincia === navigation.provinciaId : true))
+          .filter((club) => (navigation.municipioId ? club.id_municipio === navigation.municipioId : true))
+          // Evita marcadores en 0,0 o coordenadas inválidas.
+          .filter((club) => club.lat !== 0 && club.lng !== 0)
+          .map((club) => ({
+            ...club,
+            lat: Number(club.lat),
+            lng: Number(club.lng),
+          }));
+
+        setProvStats(
+          provinceSummary.map((item) => ({
+            id_provincia: item.id_provincia,
+            totalClubs: item.totalClubs,
+            totalAthletes: item.totalAthletes,
+          }))
+        );
+
+        if (roleConfig.role === "club" && roleConfig.clubId) {
+          setClubs(scopedClubs.filter((club) => club.id_club === roleConfig.clubId));
+          return;
+        }
+
+        setClubs(scopedClubs);
+      } catch (error) {
+        if (!isAbortError(error)) {
+          setProvStats([]);
+          setClubs([]);
+        }
+      }
+    };
+
+    void loadData();
+
+    return () => controller.abort();
+  }, [filters, navigation.provinciaId, navigation.municipioId, roleConfig.role, roleConfig.clubId]);
 
   // -------- Data
-  const provStats = useMemo(
-    () => getProvinciaStats(filters),
-    [filters]
-  );
 
   const maxClubs = useMemo(
     () => Math.max(...provStats.map((p) => p.totalClubs), 1),
     [provStats]
   );
-
-  const clubs = useMemo(() => {
-    if (roleConfig.role === "club" && clubForRole) {
-      return [clubForRole];
-    }
-
-    return getClubes({
-      provinciaId: navigation.provinciaId,
-      municipioId: navigation.municipioId,
-    });
-  }, [
-    navigation.provinciaId,
-    navigation.municipioId,
-    roleConfig.role,
-    clubForRole,
-  ]);
 
   const clubMarkers = useMemo(
     () =>
@@ -221,6 +268,7 @@ function LeafletMap({
         {/* Provincias*/}
         {showProvinces && (
           <GeoJSON
+            key={`provinces-${provStats.length}`}
             data={argentinaProvinces}
             style={getProvinceStyle}
             onEachFeature={handleProvince}
