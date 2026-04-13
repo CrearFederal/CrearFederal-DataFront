@@ -100,7 +100,7 @@ function SidePanel({ navigation, filters }: SidePanelProps) {
       </div>
 
       {/* CHARTS */}
-      <AthletesPerSportChart data={stats.athletesPerSport} />
+      <AthletesPerSportChart data={stats.genderPerSport} />
       <GenderDistributionChart data={stats.genderDistribution} />
     </div>
   );

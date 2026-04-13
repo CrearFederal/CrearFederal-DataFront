@@ -16,6 +16,8 @@ import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, P
 import { BarChart3, Building2, Users, Medal } from "lucide-react";
 import type { ClubesTotalesResponse } from "../types/Clubes";
 import type { DeportistasTotalesResponse } from "../types/Deportistas";
+import { getTopDeportes } from "../data/statsApi";
+import type { TopDeporteItem } from "../data/statsApi";
 
 const mapScopeToRoleConfig = (scope: AuthScope): UserRoleConfig => {
   switch (scope.role) {
@@ -59,7 +61,8 @@ function Dashboard() {
   const [clubesTotales, setClubesTotales] = useState<ClubesTotalesResponse | null>(null);
   const [deportistasTotales, setDeportistasTotales] = useState<DeportistasTotalesResponse | null>(null);
   const [authStatus, setAuthStatus] = useState<"loading" | "ready" | "error">("loading");
-
+  const [topDeportes, setTopDeportes] = useState<TopDeporteItem[] | null>(null);
+ 
   const isAbortError = (error: unknown): boolean => {
     if (error instanceof DOMException && error.name === "AbortError") {
       return true;
@@ -203,6 +206,25 @@ function Dashboard() {
     };
   }, [authStatus]);
 
+  useEffect(() => {
+    if (authStatus !== "ready") return;
+
+    const controller = new AbortController();
+
+    const loadTopDeportes = async () => {
+      try {
+        const data = await getTopDeportes(controller.signal);
+        if (!controller.signal.aborted) setTopDeportes(data);
+      } catch {
+        if (!controller.signal.aborted) setTopDeportes(null);
+      }
+    };
+
+    void loadTopDeportes();
+
+    return () => controller.abort();
+  }, [authStatus]);
+
   const clubForRole = useMemo(() => {
     if (roleConfig?.role === "club" && roleConfig.clubId) {
       return getClub(roleConfig.clubId);
@@ -332,7 +354,7 @@ function Dashboard() {
 
           {/* Right charts — 50% stacked */}
           <div className="flex flex-col gap-3 flex-1 min-w-0">
-            <AthletesPerSportChart data={stats.genderPerSport} />
+            <AthletesPerSportChart data={topDeportes ?? stats.genderPerSport} />
             <AgeDistributionChart data={stats.ageDistribution} />
           </div>
         </div>

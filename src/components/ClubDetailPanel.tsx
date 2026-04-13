@@ -128,7 +128,7 @@ function ClubDetailPanel({
 
             {/* CHARTS */}
             <AthletesPerSportChart
-              data={stats.athletesPerSport}
+              data={stats.genderPerSport}
             />
             <GenderDistributionChart
               data={stats.genderDistribution}
