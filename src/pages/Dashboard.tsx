@@ -18,6 +18,8 @@ import type { ClubesTotalesResponse } from "../types/Clubes";
 import type { DeportistasTotalesResponse } from "../types/Deportistas";
 import { getTopDeportes } from "../data/statsApi";
 import type { TopDeporteItem } from "../data/statsApi";
+import { getMapaProvinciasResumen } from "../data/mapaApi";
+import type { ProvinciaResumen } from "../types/Mapa";
 
 const mapScopeToRoleConfig = (scope: AuthScope): UserRoleConfig => {
   switch (scope.role) {
@@ -62,7 +64,8 @@ function Dashboard() {
   const [deportistasTotales, setDeportistasTotales] = useState<DeportistasTotalesResponse | null>(null);
   const [authStatus, setAuthStatus] = useState<"loading" | "ready" | "error">("loading");
   const [topDeportes, setTopDeportes] = useState<TopDeporteItem[] | null>(null);
- 
+   const [provinciasResumen, setProvinciasResumen] = useState<ProvinciaResumen[] | null>(null);
+
   const isAbortError = (error: unknown): boolean => {
     if (error instanceof DOMException && error.name === "AbortError") {
       return true;
@@ -242,6 +245,36 @@ function Dashboard() {
 
   const provStats = useMemo(() => getProvinciaStats(filters), [filters]);
 
+  useEffect(() => {
+    if (authStatus !== "ready") return;
+    const controller = new AbortController();
+
+    const load = async () => {
+      try {
+        const data = await getMapaProvinciasResumen(filters, controller.signal);
+        if (!controller.signal.aborted) setProvinciasResumen(data);
+      } catch {
+        if (!controller.signal.aborted) setProvinciasResumen(null);
+      }
+    };
+
+    void load();
+    return () => controller.abort();
+  }, [authStatus, filters]);
+
+  const genderDistribution = useMemo(() => {
+    if (!provinciasResumen) return stats.genderDistribution;
+    const male   = provinciasResumen.reduce((s, p) => s + p.totalHombres, 0);
+    const female = provinciasResumen.reduce((s, p) => s + p.totalMujeres, 0);
+    const total  = male + female || 1;
+    return {
+      male,
+      female,
+      malePercent:   Math.round(male   * 100 / total),
+      femalePercent: Math.round(female * 100 / total),
+    };
+  }, [provinciasResumen, stats.genderDistribution]);
+
   if (authStatus === "loading") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -361,7 +394,7 @@ function Dashboard() {
 
         {/* ROW 4 — Gender + Province + Gender per Sport */}
         <div className="grid grid-cols-3 gap-3">
-          <GenderDistributionChart data={stats.genderDistribution} />
+          <GenderDistributionChart data={genderDistribution} />
           <ProvinceRankingChart data={provStats} />
           <GenderPerSportChart data={stats.athletesPerSport} />
         </div>
