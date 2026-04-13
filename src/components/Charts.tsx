@@ -321,11 +321,26 @@ export function GenderDistributionChart({ data }: GenderDistributionChartProps) 
           itemStyle: { borderRadius: 6 },
           label: {
             show: true,
-            fontSize: 26,
-            fontWeight: 800,
-            fontFamily: "inherit",
-            formatter: "{d}%",
-            color: (params: any) => params.dataIndex === 0 ? C_MALE : C_FEMALE,
+            formatter: (params: any) => {
+              const pct = Math.round(params.percent ?? 0);
+              return params.dataIndex === 0
+                ? `{male|${pct}%}`
+                : `{female|${pct}%}`;
+            },
+            rich: {
+              male: {
+                color: C_MALE,
+                fontSize: 26,
+                fontWeight: 800,
+                fontFamily: "inherit",
+              },
+              female: {
+                color: C_FEMALE,
+                fontSize: 26,
+                fontWeight: 800,
+                fontFamily: "inherit",
+              },
+            },
           },
           labelLine: {
             length: 10,
