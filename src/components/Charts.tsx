@@ -1,4 +1,3 @@
-import { BarChart } from "@mui/x-charts/BarChart";
 import * as echarts from 'echarts';
 import 'echarts-gl';
 import { useEffect, useRef } from 'react';
@@ -6,17 +5,9 @@ import { useEffect, useRef } from 'react';
 // ---------------- DESIGN TOKENS ----------------
 
 const C_BLUE_MAIN = "hsl(215, 85%, 52%)";
-const C_BLUE_LIGHT = "hsl(218, 80%, 68%)";
 const C_FEMALE = "hsl(330, 65%, 58%)";
 const C_MALE = "hsl(215, 85%, 52%)";
 const C_AXIS = "hsl(215, 20%, 55%)";
-
-
-// shared axis/text styles
-const axisStyle = {
-  tickLabelStyle: { fontSize: 10, fill: C_AXIS, fontFamily: "inherit" },
-  labelStyle: { fontSize: 10, fill: C_AXIS, fontFamily: "inherit" },
-};
 
 // ---------------- SHARED ----------------
 
@@ -381,19 +372,36 @@ export function GenderDistributionChart({ data }: GenderDistributionChartProps) 
 
 // ---------------- AGE DISTRIBUTION — histogram ----------------
 
-interface AgeDistributionChartProps {
-  data: { range: string; count: number }[];
+const BIN_WIDTH = 5;
+
+function buildHistogramBins(ages: number[]): { label: string; count: number }[] {
+  if (ages.length === 0) return [];
+  const minAge = Math.floor(Math.min(...ages) / BIN_WIDTH) * BIN_WIDTH;
+  const maxAge = Math.floor(Math.max(...ages) / BIN_WIDTH) * BIN_WIDTH;
+  const bins: { label: string; count: number }[] = [];
+  for (let lo = minAge; lo <= maxAge; lo += BIN_WIDTH) {
+    const hi = lo + BIN_WIDTH - 1;
+    bins.push({ label: `${lo}-${hi}`, count: 0 });
+  }
+  for (const age of ages) {
+    const idx = Math.floor((age - minAge) / BIN_WIDTH);
+    if (idx >= 0 && idx < bins.length) bins[idx].count++;
+  }
+  return bins;
 }
 
-export function AgeDistributionChart({ data }: AgeDistributionChartProps) {
+interface AgeDistributionChartProps {
+  ages: number[];
+}
+
+export function AgeDistributionChart({ ages }: AgeDistributionChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
+  const bins = buildHistogramBins(ages);
 
   useEffect(() => {
-    if (!chartRef.current || !data || data.length === 0) return;
+    if (!chartRef.current || bins.length === 0) return;
 
     const chart = echarts.init(chartRef.current, "light");
-
-    const maxCount = Math.max(...data.map((d) => d.count));
 
     const option = {
       backgroundColor: "transparent",
@@ -406,7 +414,7 @@ export function AgeDistributionChart({ data }: AgeDistributionChartProps) {
         textStyle: { fontSize: 12, color: "#0f172a" },
         formatter: (params: any[]) => {
           const p = params[0];
-          return `<span style="font-weight:600;color:#0f172a;">${p.name}</span><br/>
+          return `<span style="font-weight:600;color:#0f172a;">${p.name} años</span><br/>
             <span style="color:${C_AXIS};">Deportistas: </span>
             <span style="font-weight:700;color:${C_BLUE_MAIN};">${p.value.toLocaleString("es-AR")}</span>`;
         },
@@ -414,19 +422,14 @@ export function AgeDistributionChart({ data }: AgeDistributionChartProps) {
       grid: { left: 40, right: 16, top: 28, bottom: 32 },
       xAxis: {
         type: "category",
-        data: data.map((d) => d.range),
+        data: bins.map((b) => b.label),
         axisLine: { lineStyle: { color: "hsl(215, 30%, 88%)" } },
         axisTick: { show: false },
-        axisLabel: {
-          fontSize: 10,
-          color: C_AXIS,
-          fontFamily: "inherit",
-          interval: 0,
-        },
+        axisLabel: { fontSize: 10, color: C_AXIS, fontFamily: "inherit", interval: 0 },
       },
       yAxis: {
         type: "value",
-        splitLine: { lineStyle: { color: "hsl(215, 30%, 93%)", type: "dashed" } },
+        splitLine: { lineStyle: { color: "hsl(215, 20%, 85%)", type: "dashed" } },
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: {
@@ -440,35 +443,20 @@ export function AgeDistributionChart({ data }: AgeDistributionChartProps) {
       series: [
         {
           type: "bar",
-          data: data.map((d) => ({
-            value: d.count,
-            itemStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-                { offset: 0, color: C_BLUE_MAIN },
-                { offset: 1, color: "hsl(215, 85%, 76%)" },
-              ]),
-              borderRadius: [5, 5, 0, 0],
-              opacity: d.count === maxCount ? 1 : 0.82,
-            },
-          })),
-          barMaxWidth: 36,
+          data: bins.map((b) => ({ value: b.count })),
+          barCategoryGap: "1%",
+          itemStyle: { color: C_BLUE_MAIN },
           label: {
             show: true,
-            position: "top",
+            position: "inside",
             fontSize: 10,
             fontWeight: 600,
-            color: C_AXIS,
+            color: "#ffffff",
             fontFamily: "inherit",
             formatter: (params: any) =>
               params.value > 0 ? params.value.toLocaleString("es-AR") : "",
           },
-          emphasis: {
-            itemStyle: {
-              opacity: 1,
-              shadowBlur: 8,
-              shadowColor: "rgba(37, 99, 235, 0.25)",
-            },
-          },
+          emphasis: { itemStyle: { opacity: 0.85 } },
         },
       ],
     };
@@ -482,19 +470,19 @@ export function AgeDistributionChart({ data }: AgeDistributionChartProps) {
       window.removeEventListener("resize", handleResize);
       chart.dispose();
     };
-  }, [data]);
+  }, [bins]);
 
   return (
-    <ChartCard title="Distribución por Edad" subtitle="Pirámide etaria de deportistas">
+    <ChartCard title="Distribución por Edad" subtitle="Histograma etario · intervalos de 5 años">
       <div ref={chartRef} style={{ width: "100%", height: "190px" }} />
     </ChartCard>
   );
 }
 
-// ---------------- PROVINCE RANKING — modern horizontal bar ----------------
+// ---------------- PROVINCE RANKING — stacked horizontal bar (M/F) ----------------
 
 interface ProvinceRankingChartProps {
-  data: { id: number; nombre: string; totalAthletes: number; totalClubs: number }[];
+  data: { id: number; nombre: string; totalAthletes: number; totalClubs: number; male?: number; female?: number }[];
 }
 
 export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
@@ -505,14 +493,36 @@ export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
     .reverse();
 
   useEffect(() => {
-    if (!chartRef.current || !top10 || top10.length === 0) return;
+    if (!chartRef.current || top10.length === 0) return;
 
     const chart = echarts.init(chartRef.current, "light");
 
-    const maxValue = Math.max(...top10.map((d) => d.totalAthletes));
+    const labels = top10.map((d) => d.nombre);
+    const maleData = top10.map((d) => d.male ?? 0);
+    const femaleData = top10.map((d) => d.female ?? 0);
+
+    const insideLabel = () => ({
+      show: true,
+      position: "inside" as const,
+      fontSize: 10,
+      fontWeight: 600,
+      color: "#ffffff",
+      fontFamily: "inherit",
+      overflow: "truncate" as const,
+      formatter: (params: any) =>
+        params.value > 0 ? params.value.toLocaleString("es-AR") : "",
+    });
 
     const option = {
       backgroundColor: "transparent",
+      legend: {
+        bottom: 0,
+        left: "center",
+        itemWidth: 10,
+        itemHeight: 10,
+        textStyle: { fontSize: 11, color: C_AXIS, fontFamily: "inherit" },
+        data: ["Masculino", "Femenino"],
+      },
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "none" },
@@ -521,20 +531,25 @@ export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
         borderWidth: 1,
         textStyle: { fontSize: 12, color: "#0f172a" },
         formatter: (params: any[]) => {
-          const p = params[0];
-          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">${p.name}</span><br/>
-            <span style="color:${C_AXIS};font-size:11px;">Deportistas: </span>
-            <span style="font-weight:900;color:${C_BLUE_MAIN};font-size:14px;">${p.value.toLocaleString("es-AR")}</span><br/>
-            <span style="color:${C_AXIS};font-size:10px;margin-top:4px;display:inline-block;">Clubes: </span>
-            <span style="font-weight:600;color:${C_AXIS};font-size:12px;">${top10.find(d => d.nombre === p.name)?.totalClubs.toLocaleString("es-AR") || "N/A"}</span>`;
+          const name = params[0].name;
+          const item = top10.find((d) => d.nombre === name);
+          if (!item) return "";
+          const total = (item.male ?? 0) + (item.female ?? 0);
+          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">${name}</span><br/>
+            <span style="color:${C_AXIS};font-size:11px;">Total: </span>
+            <span style="font-weight:900;color:#0f172a;font-size:14px;">${total.toLocaleString("es-AR")}</span><br/>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${C_MALE};margin-right:5px;"></span>
+            <span style="color:${C_AXIS};font-size:11px;">Masculino: </span>
+            <span style="font-weight:700;color:${C_MALE};">${(item.male ?? 0).toLocaleString("es-AR")}</span><br/>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${C_FEMALE};margin-right:5px;"></span>
+            <span style="color:${C_AXIS};font-size:11px;">Femenino: </span>
+            <span style="font-weight:700;color:${C_FEMALE};">${(item.female ?? 0).toLocaleString("es-AR")}</span>`;
         },
       },
-      grid: { left: 120, right: 32, top: 12, bottom: 28 },
+      grid: { left: 120, right: 32, top: 12, bottom: 36 },
       xAxis: {
         type: "value",
-        splitLine: {
-          lineStyle: { color: "hsl(215, 30%, 93%)", type: "dashed" },
-        },
+        splitLine: { lineStyle: { color: "hsl(215, 20%, 85%)", type: "dashed" } },
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: {
@@ -547,59 +562,33 @@ export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
       },
       yAxis: {
         type: "category",
-        data: top10.map((d) => d.nombre),
+        data: labels,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: {
-          fontSize: 11,
-          color: "#0f172a",
-          fontWeight: 500,
-          fontFamily: "inherit",
-        },
+        axisLabel: { fontSize: 11, color: "#0f172a", fontWeight: 500, fontFamily: "inherit" },
       },
       series: [
         {
+          name: "Masculino",
           type: "bar",
-          data: top10.map((item, idx) => ({
-            value: item.totalAthletes,
-            itemStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-                { offset: 0, color: "hsl(215, 85%, 52%)" },
-                { offset: 1, color: "hsl(215, 85%, 68%)" },
-              ]),
-              borderRadius: [0, 8, 8, 0],
-              opacity: 0.9,
-              shadowBlur: 8,
-              shadowColor: "rgba(37, 99, 235, 0.2)",
-              shadowOffsetX: 2,
-              shadowOffsetY: 2,
-            },
-          })),
-          barHeight: 28,
-          barGap: "35%",
-          label: {
-            show: true,
-            position: "right",
-            fontSize: 11,
-            fontWeight: 700,
-            color: C_AXIS,
-            fontFamily: "inherit",
-            padding: [0, 8, 0, 0],
-            formatter: (params: any) =>
-              params.value.toLocaleString("es-AR"),
-          },
-          emphasis: {
-            itemStyle: {
-              opacity: 1,
-              shadowBlur: 16,
-              shadowColor: "rgba(37, 99, 235, 0.4)",
-            },
-            label: {
-              color: C_BLUE_MAIN,
-              fontWeight: 800,
-              fontSize: 12,
-            },
-          },
+          stack: "total",
+          barMaxWidth: 28,
+          data: maleData,
+          itemStyle: { color: C_MALE },
+          label: insideLabel(),
+          emphasis: { itemStyle: { opacity: 0.85 } },
+          animationDuration: 800,
+          animationEasing: "cubicOut",
+        },
+        {
+          name: "Femenino",
+          type: "bar",
+          stack: "total",
+          barMaxWidth: 28,
+          data: femaleData,
+          itemStyle: { color: C_FEMALE, borderRadius: [0, 8, 8, 0] },
+          label: insideLabel(),
+          emphasis: { itemStyle: { opacity: 0.85 } },
           animationDuration: 800,
           animationEasing: "cubicOut",
         },
@@ -624,26 +613,50 @@ export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
   );
 }
 
-// ---------------- GENDER PER SPORT — horizontal bars ----------------
+// ---------------- GENDER PER SPORT — stacked horizontal bar (M/F) ----------------
 
 interface GenderPerSportChartProps {
-  data: { sport: string; count: number; clubs?: number }[];
+  data: { sport: string; male: number; female: number }[];
 }
 
 export function GenderPerSportChart({ data }: GenderPerSportChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
-  const sorted = [...data].sort((a, b) => b.count - a.count);
-  const totalAthletes = sorted.reduce((sum, d) => sum + d.count, 0);
+  const sorted = [...data]
+    .sort((a, b) => (b.male + b.female) - (a.male + a.female))
+    .reverse();
+  const totalAthletes = sorted.reduce((sum, d) => sum + d.male + d.female, 0);
 
   useEffect(() => {
-    if (!chartRef.current || !sorted || sorted.length === 0) return;
+    if (!chartRef.current || sorted.length === 0) return;
 
     const chart = echarts.init(chartRef.current, "light");
 
-    const maxCount = Math.max(...sorted.map((d) => d.count));
+    const labels = sorted.map((d) => d.sport);
+    const maleData = sorted.map((d) => d.male);
+    const femaleData = sorted.map((d) => d.female);
+
+    const insideLabel = () => ({
+      show: true,
+      position: "inside" as const,
+      fontSize: 10,
+      fontWeight: 600,
+      color: "#ffffff",
+      fontFamily: "inherit",
+      overflow: "truncate" as const,
+      formatter: (params: any) =>
+        params.value > 0 ? params.value.toLocaleString("es-AR") : "",
+    });
 
     const option = {
       backgroundColor: "transparent",
+      legend: {
+        bottom: 0,
+        left: "center",
+        itemWidth: 10,
+        itemHeight: 10,
+        textStyle: { fontSize: 11, color: C_AXIS, fontFamily: "inherit" },
+        data: ["Masculino", "Femenino"],
+      },
       tooltip: {
         trigger: "axis",
         axisPointer: { type: "none" },
@@ -652,23 +665,28 @@ export function GenderPerSportChart({ data }: GenderPerSportChartProps) {
         borderWidth: 1,
         textStyle: { fontSize: 12, color: "#0f172a" },
         formatter: (params: any[]) => {
-          const p = params[0];
-          const item = sorted[p.dataIndex];
-          const percentage = ((item.count / totalAthletes) * 100).toFixed(1);
-          const clubsInfo = item.clubs ? `<br/><span style="color:${C_AXIS};font-size:11px;">Clubes: </span><span style="font-weight:600;color:${C_AXIS};">${item.clubs.toLocaleString("es-AR")}</span>` : "";
+          const idx = params[0].dataIndex;
+          const item = sorted[idx];
+          const total = item.male + item.female;
+          const pct = totalAthletes > 0
+            ? ((total / totalAthletes) * 100).toFixed(1)
+            : "0.0";
           return `<span style="font-weight:700;color:#0f172a;font-size:13px;">${item.sport}</span><br/>
-            <span style="color:${C_AXIS};font-size:11px;">Deportistas: </span>
-            <span style="font-weight:900;color:${C_BLUE_MAIN};font-size:14px;">${item.count.toLocaleString("es-AR")}</span><br/>
-            <span style="color:${C_AXIS};font-size:11px;">Porcentaje: </span>
-            <span style="font-weight:700;color:${C_BLUE_MAIN};">${percentage}%</span>${clubsInfo}`;
+            <span style="color:${C_AXIS};font-size:11px;">Total: </span>
+            <span style="font-weight:900;color:#0f172a;font-size:14px;">${total.toLocaleString("es-AR")}</span>
+            <span style="color:${C_AXIS};font-size:11px;"> (${pct}%)</span><br/>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${C_MALE};margin-right:5px;"></span>
+            <span style="color:${C_AXIS};font-size:11px;">Masculino: </span>
+            <span style="font-weight:700;color:${C_MALE};">${item.male.toLocaleString("es-AR")}</span><br/>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${C_FEMALE};margin-right:5px;"></span>
+            <span style="color:${C_AXIS};font-size:11px;">Femenino: </span>
+            <span style="font-weight:700;color:${C_FEMALE};">${item.female.toLocaleString("es-AR")}</span>`;
         },
       },
-      grid: { left: 120, right: 32, top: 12, bottom: 28 },
+      grid: { left: 120, right: 32, top: 12, bottom: 36 },
       xAxis: {
         type: "value",
-        splitLine: {
-          lineStyle: { color: "hsl(215, 30%, 93%)", type: "dashed" },
-        },
+        splitLine: { lineStyle: { color: "hsl(215, 20%, 85%)", type: "dashed" } },
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: {
@@ -681,59 +699,33 @@ export function GenderPerSportChart({ data }: GenderPerSportChartProps) {
       },
       yAxis: {
         type: "category",
-        data: sorted.map((d) => d.sport),
+        data: labels,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: {
-          fontSize: 11,
-          color: "#0f172a",
-          fontWeight: 500,
-          fontFamily: "inherit",
-        },
+        axisLabel: { fontSize: 11, color: "#0f172a", fontWeight: 500, fontFamily: "inherit" },
       },
       series: [
         {
+          name: "Masculino",
           type: "bar",
-          data: sorted.map((d) => ({
-            value: d.count,
-            itemStyle: {
-              color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-                { offset: 0, color: "hsl(215, 85%, 52%)" },
-                { offset: 1, color: "hsl(215, 85%, 68%)" },
-              ]),
-              borderRadius: [0, 8, 8, 0],
-              opacity: 0.9,
-              shadowBlur: 8,
-              shadowColor: "rgba(37, 99, 235, 0.2)",
-              shadowOffsetX: 2,
-              shadowOffsetY: 2,
-            },
-          })),
-          barHeight: 28,
-          barGap: "35%",
-          label: {
-            show: true,
-            position: "right",
-            fontSize: 11,
-            fontWeight: 700,
-            color: C_AXIS,
-            fontFamily: "inherit",
-            padding: [0, 8, 0, 0],
-            formatter: (params: any) =>
-              params.value.toLocaleString("es-AR"),
-          },
-          emphasis: {
-            itemStyle: {
-              opacity: 1,
-              shadowBlur: 16,
-              shadowColor: "rgba(37, 99, 235, 0.4)",
-            },
-            label: {
-              color: C_BLUE_MAIN,
-              fontWeight: 800,
-              fontSize: 12,
-            },
-          },
+          stack: "total",
+          barMaxWidth: 28,
+          data: maleData,
+          itemStyle: { color: C_MALE },
+          label: insideLabel(),
+          emphasis: { itemStyle: { opacity: 0.85 } },
+          animationDuration: 800,
+          animationEasing: "cubicOut",
+        },
+        {
+          name: "Femenino",
+          type: "bar",
+          stack: "total",
+          barMaxWidth: 28,
+          data: femaleData,
+          itemStyle: { color: C_FEMALE, borderRadius: [0, 8, 8, 0] },
+          label: insideLabel(),
+          emphasis: { itemStyle: { opacity: 0.85 } },
           animationDuration: 800,
           animationEasing: "cubicOut",
         },

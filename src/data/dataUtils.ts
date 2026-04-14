@@ -94,21 +94,14 @@ export const getStats = (filters: Filters, scope?: { provinciaId?: number; munic
     };
   }).filter(s => s.male + s.female > 0);
 
-  // Age distribution
-  const ageBuckets: Record<string, number> = { '< 15': 0, '15-20': 0, '21-25': 0, '26-30': 0, '31-35': 0, '36-40': 0, '40+': 0 };
+  // Age distribution — raw ages for histogram
   let ageSum = 0;
+  const rawAges: number[] = [];
   for (const a of athletes) {
     const age = getAge(a.fecha_nac);
     ageSum += age;
-    if (age < 15) ageBuckets['< 15']++;
-    else if (age <= 20) ageBuckets['15-20']++;
-    else if (age <= 25) ageBuckets['21-25']++;
-    else if (age <= 30) ageBuckets['26-30']++;
-    else if (age <= 35) ageBuckets['31-35']++;
-    else if (age <= 40) ageBuckets['36-40']++;
-    else ageBuckets['40+']++;
+    rawAges.push(age);
   }
-  const ageDistribution = Object.entries(ageBuckets).map(([range, count]) => ({ range, count }));
   const averageAge = athletes.length > 0 ? Math.round((ageSum / athletes.length) * 10) / 10 : 0;
 
   // Clubs in scope
@@ -147,7 +140,7 @@ export const getStats = (filters: Filters, scope?: { provinciaId?: number; munic
     athletesPerSport,
     genderDistribution,
     genderPerSport,
-    ageDistribution,
+    rawAges,
     averageAge,
   };
 };
@@ -156,9 +149,12 @@ export const getProvinciaStats = (filters: Filters) => {
   return provincias.map(p => {
     const stats = getStats(filters, { provinciaId: p.id_provincia });
     return {
-      ...p,
+      id: p.id_provincia,
+      nombre: p.nombre,
       totalClubs: stats.totalClubs,
       totalAthletes: stats.totalAthletes,
+      male: stats.genderDistribution.male,
+      female: stats.genderDistribution.female,
     };
   });
 };

@@ -134,7 +134,7 @@ function ClubDetailPanel({
               data={stats.genderDistribution}
             />
             <AgeDistributionChart
-              data={stats.ageDistribution}
+              ages={stats.rawAges}
             />
           </>
         )}
