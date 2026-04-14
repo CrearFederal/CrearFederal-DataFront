@@ -3,6 +3,8 @@ export interface ProvinciaRanking {
   nombre: string;
   totalAthletes: number;
   totalClubs: number;
+  male?: number;
+  female?: number;
 }
 
 export interface ProvinciasTop10Response {
