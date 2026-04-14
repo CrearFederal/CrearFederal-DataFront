@@ -1,5 +1,6 @@
 import { instanceAxios } from "../api/axios";                                                                                                                
-import { isAxiosError } from "axios";       
+import { isAxiosError } from "axios";
+import type { EdadesHistogramaResponse } from "../types/Deportistas";       
 
 export interface TopDeporteItem {                                                                                                                            
 sport: string;                                                                                                                                             
@@ -21,4 +22,20 @@ try {
     }
     throw new Error("Error al obtener top deportes");
 }
+};
+
+export const getEdadesHistograma = async (signal?: AbortSignal): Promise<EdadesHistogramaResponse> => {
+	if (!instanceAxios.defaults.baseURL) {
+		throw new Error("VITE_API_URL no está configurada");
+	}
+
+	try {
+		const { data } = await instanceAxios.get<EdadesHistogramaResponse>("/deportistas/edades", { signal });
+		return data;
+	} catch (error: unknown) {
+		if (isAxiosError<{ message?: string }>(error)) {
+			throw new Error(error.response?.data?.message || "Error al obtener histograma de edades");
+		}
+		throw new Error("Error al obtener histograma de edades");
+	}
 };

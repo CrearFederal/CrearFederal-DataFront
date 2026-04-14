@@ -115,7 +115,7 @@ function ClubDetailPanel({
           <>
             <div className="grid grid-cols-2 gap-3">
               <KpiCard
-                title="Atletas"
+                title="Deportistas"
                 value={stats.totalAthletes}
                 icon={<Users className="h-4 w-4" />}
               />

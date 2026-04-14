@@ -1,6 +1,7 @@
 import { useMemo, useCallback, useEffect, useState } from "react";
 import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
 import L from "leaflet";
+import { Globe } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
@@ -186,7 +187,7 @@ function LeafletMap({
       layer.bindTooltip(
         `<strong style="color: hsl(215, 70%, 50%)">${props.nombre}</strong><br/>
          Clubes: ${stat?.totalClubs || 0}<br/>
-         Atletas: ${stat?.totalAthletes || 0}`,
+         Deportistas: ${stat?.totalAthletes || 0}`,
         { sticky: true }
       );
 
@@ -241,8 +242,9 @@ function LeafletMap({
     <div className="rounded-xl border border-border bg-card overflow-hidden h-full flex flex-col min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <h3 className="text-sm font-semibold">
-          {mapTitle}
+        <h3 className="text-sm font-semibold flex items-center gap-2">
+          <Globe className="h-4 w-4 text-primary" />
+          <span>{mapTitle}</span>
         </h3>
 
         {showClubMarkers && (

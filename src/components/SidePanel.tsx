@@ -79,7 +79,7 @@ function SidePanel({ navigation, filters }: SidePanelProps) {
         />
 
         <KpiCard
-          title="Total Atletas"
+          title="Total Deportistas"
           value={stats.totalAthletes}
           icon={<Users className="h-4 w-4" />}
         />

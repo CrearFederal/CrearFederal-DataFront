@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { ChevronRight, Globe } from "lucide-react";
+import { ChevronRight } from "lucide-react";
 
 import type { NavigationState } from "../types/types";
 import type { UserRoleConfig } from "../data/roles";
@@ -92,8 +92,6 @@ function BreadcrumbNav({
 
   return (
     <nav className="flex items-center gap-1 text-sm">
-      <Globe className="mr-1 h-4 w-4 text-primary" />
-
       {items.map((item) => {
         const allowed = isNavigationAllowed(roleConfig, item.nav);
 

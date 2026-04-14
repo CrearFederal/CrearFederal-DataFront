@@ -1,25 +1,27 @@
 import { useState, useEffect, useMemo } from "react";
 import type { Filters, NavigationState } from "../types/types";
-import { canClickProvince, canClickMunicipio, getInitialNavigation, isNavigationAllowed } from "../data/roles";
+import { canClickProvince, canClickMunicipio, getInitialNavigation } from "../data/roles";
 import type { UserRoleConfig } from "../data/roles";
-import { getClub, getStats, getProvinciaStats } from "../data/dataUtils";
+import { getClub, getStats, edadesFrecuenciaToAges } from "../data/dataUtils";
 import { getClubesTotales } from "../data/clubesApi";
 import { getDeportistasTotales } from "../data/deportistasApi";
 import { authBootstrap, getAuthMe, sendLogoutOnPageClose } from "../api/session";
 import type { AuthScope } from "../types/auth";
-import BreadcrumbNav from "../components/BreadcrumbNav";
-import GlobalFilters from "../components/GlobalFilters";
 import LeafletMap from "../components/LeafletMap";
 import ClubDetailPanel from "../components/ClubDetailPanel";
 import KpiCard from "../components/KpiCard";
-import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, GenderPerSportChart } from "../components/Charts";
+import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, ClubRankingChart } from "../components/Charts";
 import { BarChart3, Building2, Users, Medal } from "lucide-react";
 import type { ClubesTotalesResponse } from "../types/Clubes";
 import type { DeportistasTotalesResponse } from "../types/Deportistas";
-import { getTopDeportes } from "../data/statsApi";
+import { getTopDeportes, getEdadesHistograma } from "../data/statsApi";
 import type { TopDeporteItem } from "../data/statsApi";
 import { getMapaProvinciasResumen } from "../data/mapaApi";
 import type { ProvinciaResumen } from "../types/Mapa";
+import { getProvinciasTop10 } from "../data/provinciasApi";
+import { getTopClubes } from "../data/clubesApi";
+import type { ProvinciaRanking } from "../types/Provincias";
+import type { TopClubRankingItem } from "../types/Clubes";
 
 const mapScopeToRoleConfig = (scope: AuthScope): UserRoleConfig => {
   switch (scope.role) {
@@ -65,6 +67,9 @@ function Dashboard() {
   const [authStatus, setAuthStatus] = useState<"loading" | "ready" | "error">("loading");
   const [topDeportes, setTopDeportes] = useState<TopDeporteItem[] | null>(null);
   const [provinciasResumen, setProvinciasResumen] = useState<ProvinciaResumen[] | null>(null);
+  const [provinciasTop10, setProvinciasTop10] = useState<ProvinciaRanking[] | null>(null);
+  const [topClubes, setTopClubes] = useState<TopClubRankingItem[] | null>(null);
+  const [edadesApiData, setEdadesApiData] = useState<number[] | null>(null);
 
   const isAbortError = (error: unknown): boolean => {
     if (error instanceof DOMException && error.name === "AbortError") {
@@ -243,8 +248,6 @@ function Dashboard() {
 
   const stats = useMemo(() => getStats(filters, scope), [filters, scope]);
 
-  const provStats = useMemo(() => getProvinciaStats(filters), [filters]);
-
   useEffect(() => {
     if (authStatus !== "ready") return;
     const controller = new AbortController();
@@ -261,6 +264,66 @@ function Dashboard() {
     void load();
     return () => controller.abort();
   }, [authStatus, filters]);
+
+  useEffect(() => {
+    if (authStatus !== "ready") return;
+
+    const controller = new AbortController();
+
+    const loadTopProvincias = async () => {
+      try {
+        const data = await getProvinciasTop10(controller.signal);
+        if (!controller.signal.aborted) setProvinciasTop10(data.provincias);
+      } catch {
+        if (!controller.signal.aborted) setProvinciasTop10(null);
+      }
+    };
+
+    void loadTopProvincias();
+
+    return () => controller.abort();
+  }, [authStatus]);
+
+  useEffect(() => {
+    if (authStatus !== "ready") return;
+
+    const controller = new AbortController();
+
+    const loadTopClubes = async () => {
+      try {
+        const data = await getTopClubes(controller.signal);
+        if (!controller.signal.aborted) setTopClubes(data);
+      } catch {
+        if (!controller.signal.aborted) setTopClubes(null);
+      }
+    };
+
+    void loadTopClubes();
+
+    return () => controller.abort();
+  }, [authStatus]);
+
+  useEffect(() => {
+    if (authStatus !== "ready") return;
+
+    const controller = new AbortController();
+
+    const loadEdades = async () => {
+      try {
+        const data = await getEdadesHistograma(controller.signal);
+        if (!controller.signal.aborted) {
+          const ages = edadesFrecuenciaToAges(data.edadesFrecuencia);
+          setEdadesApiData(ages);
+        }
+      } catch {
+        if (!controller.signal.aborted) setEdadesApiData(null);
+      }
+    };
+
+    void loadEdades();
+
+    return () => controller.abort();
+  }, [authStatus]);
 
 
   const genderDistribution = useMemo(() => {
@@ -308,12 +371,6 @@ function Dashboard() {
 
   const handleClubClick = (clubId: number) => setSelectedClubId(clubId);
 
-  const handleNavigate = (nav: NavigationState) => {
-    if (!isNavigationAllowed(roleConfig, nav)) return;
-    setNavigation(nav);
-    setSelectedClubId(null);
-  };
-
   const handleNavigateCountry = () => {
     if (roleConfig.role !== "coa") return;
     setNavigation({ level: "country" });
@@ -327,16 +384,6 @@ function Dashboard() {
 
       {/* MAIN */}
       <div className="flex-1 flex flex-col p-4 gap-3">
-        <div className="flex items-center justify-end">
-          <BreadcrumbNav navigation={navigation} onNavigate={handleNavigate} roleConfig={roleConfig} />
-        </div>
-
-        {/* ROW 1 — Filters */}
-        <div className="bg-card border border-border rounded-lg p-4">
-          <h3 className="text-sm font-semibold text-foreground mb-3">Filtros</h3>
-          <GlobalFilters filters={filters} onChange={setFilters} />
-        </div>
-
         {/* ROW 2 — KPIs */}
         <div className="grid grid-cols-4 gap-2.5">
           <KpiCard
@@ -389,15 +436,15 @@ function Dashboard() {
           {/* Right charts — 50% stacked */}
           <div className="flex flex-col gap-3 flex-1 min-w-0">
             <AthletesPerSportChart data={topDeportes ?? stats.genderPerSport} />
-            <AgeDistributionChart ages={stats.rawAges} />
+            <AgeDistributionChart ages={edadesApiData ?? stats.rawAges} />
           </div>
         </div>
 
         {/* ROW 4 — Province + Gender + Gender per Sport */}
         <div className="grid grid-cols-3 gap-3">
-          <ProvinceRankingChart data={provStats} />
+          <ProvinceRankingChart data={provinciasTop10 ?? []} />
           <GenderDistributionChart data={genderDistribution} />
-          <GenderPerSportChart data={stats.genderPerSport} />
+          <ClubRankingChart data={topClubes ?? []} />
         </div>
 
       </div>

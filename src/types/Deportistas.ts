@@ -6,3 +6,12 @@ export interface DeportistasTotalesResponse {
   deporteLider: string;
   cantidadDeportistas: number;
 }
+
+export interface EdadFrecuencia {
+  edad: number;
+  cantidad: number;
+}
+
+export interface EdadesHistogramaResponse {
+  edadesFrecuencia: EdadFrecuencia[];
+}

@@ -1,4 +1,5 @@
 import type { Filters } from '../types/types';
+import type { EdadFrecuencia } from '../types/Deportistas';
 import { provincias, municipios, clubes, deportistas, deportes, perfilesDeportivos } from './mockData';
 
 const getAge = (fechaNac: string): number => {
@@ -39,9 +40,6 @@ const getFilteredAthleteIds = (filters: Filters, scope?: { provinciaId?: number;
   return new Set(filtered.map(d => d.id_deportista));
 };
 
-export const getProvincias = () => provincias;
-export const getMunicipios = (provinciaId?: number) =>
-  provinciaId ? municipios.filter(m => m.id_provincia === provinciaId) : municipios;
 export const getClubes = (scope?: { provinciaId?: number; municipioId?: number }) => {
   let result = clubes;
   if (scope?.provinciaId) result = result.filter(c => c.id_provincia === scope.provinciaId);
@@ -95,14 +93,11 @@ export const getStats = (filters: Filters, scope?: { provinciaId?: number; munic
   }).filter(s => s.male + s.female > 0);
 
   // Age distribution — raw ages for histogram
-  let ageSum = 0;
   const rawAges: number[] = [];
   for (const a of athletes) {
     const age = getAge(a.fecha_nac);
-    ageSum += age;
     rawAges.push(age);
   }
-  const averageAge = athletes.length > 0 ? Math.round((ageSum / athletes.length) * 10) / 10 : 0;
 
   // Clubs in scope
   const scopedClubs = getClubes(scope);
@@ -137,24 +132,22 @@ export const getStats = (filters: Filters, scope?: { provinciaId?: number; munic
     mostPracticedCount,
     clubWithMostAthletes: clubWithMostAthletes?.nombre ?? 'N/A',
     clubWithMostAthletesCount: clubWithMostAthletes ? (clubAthleteCount[clubWithMostAthletes.id_club] || 0) : 0,
-    athletesPerSport,
     genderDistribution,
     genderPerSport,
     rawAges,
-    averageAge,
   };
 };
 
-export const getProvinciaStats = (filters: Filters) => {
-  return provincias.map(p => {
-    const stats = getStats(filters, { provinciaId: p.id_provincia });
-    return {
-      id: p.id_provincia,
-      nombre: p.nombre,
-      totalClubs: stats.totalClubs,
-      totalAthletes: stats.totalAthletes,
-      male: stats.genderDistribution.male,
-      female: stats.genderDistribution.female,
-    };
-  });
+/**
+ * Convierte edadesFrecuencia (edad + cantidad) a un array de edades individuales
+ * Útil para mantener compatibilidad con buildHistogramBins
+ */
+export const edadesFrecuenciaToAges = (edadesFrecuencia: EdadFrecuencia[]): number[] => {
+  const ages: number[] = [];
+  for (const item of edadesFrecuencia) {
+    for (let i = 0; i < item.cantidad; i++) {
+      ages.push(item.edad);
+    }
+  }
+  return ages;
 };
