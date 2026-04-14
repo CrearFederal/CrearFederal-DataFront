@@ -20,6 +20,8 @@ import { getTopDeportes } from "../data/statsApi";
 import type { TopDeporteItem } from "../data/statsApi";
 import { getMapaProvinciasResumen } from "../data/mapaApi";
 import type { ProvinciaResumen } from "../types/Mapa";
+import { getProvinciasTop10 } from "../data/provinciasApi";
+import type { ProvinciaRanking } from "../types/Provincias";
 
 const mapScopeToRoleConfig = (scope: AuthScope): UserRoleConfig => {
   switch (scope.role) {
@@ -64,7 +66,8 @@ function Dashboard() {
   const [deportistasTotales, setDeportistasTotales] = useState<DeportistasTotalesResponse | null>(null);
   const [authStatus, setAuthStatus] = useState<"loading" | "ready" | "error">("loading");
   const [topDeportes, setTopDeportes] = useState<TopDeporteItem[] | null>(null);
-   const [provinciasResumen, setProvinciasResumen] = useState<ProvinciaResumen[] | null>(null);
+  const [provinciasResumen, setProvinciasResumen] = useState<ProvinciaResumen[] | null>(null);
+  const [provinciasTop10, setProvinciasTop10] = useState<ProvinciaRanking[] | null>(null);
 
   const isAbortError = (error: unknown): boolean => {
     if (error instanceof DOMException && error.name === "AbortError") {
@@ -262,6 +265,23 @@ function Dashboard() {
     return () => controller.abort();
   }, [authStatus, filters]);
 
+  useEffect(() => {
+    if (authStatus !== "ready") return;
+    const controller = new AbortController();
+
+    const loadProvinciasTop10 = async () => {
+      try {
+        const data = await getProvinciasTop10(controller.signal);
+        if (!controller.signal.aborted) setProvinciasTop10(data.provincias);
+      } catch {
+        if (!controller.signal.aborted) setProvinciasTop10(null);
+      }
+    };
+
+    void loadProvinciasTop10();
+    return () => controller.abort();
+  }, [authStatus]);
+
   const genderDistribution = useMemo(() => {
     if (!provinciasResumen) return stats.genderDistribution;
     const male   = provinciasResumen.reduce((s, p) => s + p.totalHombres, 0);
@@ -392,10 +412,10 @@ function Dashboard() {
           </div>
         </div>
 
-        {/* ROW 4 — Gender + Province + Gender per Sport */}
+        {/* ROW 4 — Province + Gender + Gender per Sport */}
         <div className="grid grid-cols-3 gap-3">
+          <ProvinceRankingChart data={provinciasTop10 ?? []} />
           <GenderDistributionChart data={genderDistribution} />
-          <ProvinceRankingChart data={provStats} />
           <GenderPerSportChart data={stats.athletesPerSport} />
         </div>
 

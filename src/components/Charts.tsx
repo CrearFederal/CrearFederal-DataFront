@@ -491,82 +491,269 @@ export function AgeDistributionChart({ data }: AgeDistributionChartProps) {
   );
 }
 
-// ---------------- PROVINCE RANKING — horizontal bar ----------------
+// ---------------- PROVINCE RANKING — modern horizontal bar ----------------
 
 interface ProvinceRankingChartProps {
-  data: { nombre: string; totalAthletes: number; totalClubs: number }[];
+  data: { id: number; nombre: string; totalAthletes: number; totalClubs: number }[];
 }
 
 export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
-  const top8 = [...data]
+  const chartRef = useRef<HTMLDivElement>(null);
+  const top10 = [...data]
     .sort((a, b) => b.totalAthletes - a.totalAthletes)
-    .slice(0, 8);
+    .slice(0, 10)
+    .reverse();
+
+  useEffect(() => {
+    if (!chartRef.current || !top10 || top10.length === 0) return;
+
+    const chart = echarts.init(chartRef.current, "light");
+
+    const maxValue = Math.max(...top10.map((d) => d.totalAthletes));
+
+    const option = {
+      backgroundColor: "transparent",
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "none" },
+        backgroundColor: "rgba(255, 255, 255, 0.98)",
+        borderColor: "rgba(148, 163, 184, 0.35)",
+        borderWidth: 1,
+        textStyle: { fontSize: 12, color: "#0f172a" },
+        formatter: (params: any[]) => {
+          const p = params[0];
+          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">${p.name}</span><br/>
+            <span style="color:${C_AXIS};font-size:11px;">Deportistas: </span>
+            <span style="font-weight:900;color:${C_BLUE_MAIN};font-size:14px;">${p.value.toLocaleString("es-AR")}</span><br/>
+            <span style="color:${C_AXIS};font-size:10px;margin-top:4px;display:inline-block;">Clubes: </span>
+            <span style="font-weight:600;color:${C_AXIS};font-size:12px;">${top10.find(d => d.nombre === p.name)?.totalClubs.toLocaleString("es-AR") || "N/A"}</span>`;
+        },
+      },
+      grid: { left: 120, right: 32, top: 12, bottom: 28 },
+      xAxis: {
+        type: "value",
+        splitLine: {
+          lineStyle: { color: "hsl(215, 30%, 93%)", type: "dashed" },
+        },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          fontSize: 10,
+          color: C_AXIS,
+          fontFamily: "inherit",
+          formatter: (v: number) =>
+            v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v),
+        },
+      },
+      yAxis: {
+        type: "category",
+        data: top10.map((d) => d.nombre),
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          fontSize: 11,
+          color: "#0f172a",
+          fontWeight: 500,
+          fontFamily: "inherit",
+        },
+      },
+      series: [
+        {
+          type: "bar",
+          data: top10.map((item, idx) => ({
+            value: item.totalAthletes,
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                { offset: 0, color: "hsl(215, 85%, 52%)" },
+                { offset: 1, color: "hsl(215, 85%, 68%)" },
+              ]),
+              borderRadius: [0, 8, 8, 0],
+              opacity: 0.9,
+              shadowBlur: 8,
+              shadowColor: "rgba(37, 99, 235, 0.2)",
+              shadowOffsetX: 2,
+              shadowOffsetY: 2,
+            },
+          })),
+          barHeight: 28,
+          barGap: "35%",
+          label: {
+            show: true,
+            position: "right",
+            fontSize: 11,
+            fontWeight: 700,
+            color: C_AXIS,
+            fontFamily: "inherit",
+            padding: [0, 8, 0, 0],
+            formatter: (params: any) =>
+              params.value.toLocaleString("es-AR"),
+          },
+          emphasis: {
+            itemStyle: {
+              opacity: 1,
+              shadowBlur: 16,
+              shadowColor: "rgba(37, 99, 235, 0.4)",
+            },
+            label: {
+              color: C_BLUE_MAIN,
+              fontWeight: 800,
+              fontSize: 12,
+            },
+          },
+          animationDuration: 800,
+          animationEasing: "cubicOut",
+        },
+      ],
+    };
+
+    chart.setOption(option, true);
+
+    const handleResize = () => chart.resize();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chart.dispose();
+    };
+  }, [top10]);
 
   return (
     <ChartCard title="Top Provincias" subtitle="Por cantidad de atletas registrados">
-      <BarChart
-        layout="horizontal"
-        height={190}
-        series={[{
-          data: top8.map((d) => d.totalAthletes),
-          color: C_BLUE_LIGHT,
-          valueFormatter: (v) => (v ?? 0).toLocaleString("es-AR"),
-        }]}
-        yAxis={[{
-          data: top8.map((d) => d.nombre),
-          scaleType: "band",
-          width: 120,
-          ...axisStyle,
-        }]}
-        xAxis={[{ ...axisStyle, tickNumber: 4 }]}
-        borderRadius={6}
-        margin={{ left: 4, right: 12, top: 4, bottom: 20 }}
-        sx={{
-          "& .MuiChartsAxis-line": { display: "none" },
-          "& .MuiChartsAxis-tick": { display: "none" },
-          "& .MuiChartsLegend-root": { display: "none" },
-        }}
-      />
+      <div ref={chartRef} style={{ width: "100%", height: "360px" }} />
     </ChartCard>
   );
 }
 
-// ---------------- GENDER PER SPORT — stacked horizontal ----------------
+// ---------------- GENDER PER SPORT — horizontal bars ----------------
 
 interface GenderPerSportChartProps {
-  data: { sport: string; count: number }[];
+  data: { sport: string; count: number; clubs?: number }[];
 }
 
 export function GenderPerSportChart({ data }: GenderPerSportChartProps) {
+  const chartRef = useRef<HTMLDivElement>(null);
   const sorted = [...data].sort((a, b) => b.count - a.count);
+  const totalAthletes = sorted.reduce((sum, d) => sum + d.count, 0);
+
+  useEffect(() => {
+    if (!chartRef.current || !sorted || sorted.length === 0) return;
+
+    const chart = echarts.init(chartRef.current, "light");
+
+    const maxCount = Math.max(...sorted.map((d) => d.count));
+
+    const option = {
+      backgroundColor: "transparent",
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "none" },
+        backgroundColor: "rgba(255, 255, 255, 0.98)",
+        borderColor: "rgba(148, 163, 184, 0.35)",
+        borderWidth: 1,
+        textStyle: { fontSize: 12, color: "#0f172a" },
+        formatter: (params: any[]) => {
+          const p = params[0];
+          const item = sorted[p.dataIndex];
+          const percentage = ((item.count / totalAthletes) * 100).toFixed(1);
+          const clubsInfo = item.clubs ? `<br/><span style="color:${C_AXIS};font-size:11px;">Clubes: </span><span style="font-weight:600;color:${C_AXIS};">${item.clubs.toLocaleString("es-AR")}</span>` : "";
+          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">${item.sport}</span><br/>
+            <span style="color:${C_AXIS};font-size:11px;">Deportistas: </span>
+            <span style="font-weight:900;color:${C_BLUE_MAIN};font-size:14px;">${item.count.toLocaleString("es-AR")}</span><br/>
+            <span style="color:${C_AXIS};font-size:11px;">Porcentaje: </span>
+            <span style="font-weight:700;color:${C_BLUE_MAIN};">${percentage}%</span>${clubsInfo}`;
+        },
+      },
+      grid: { left: 120, right: 32, top: 12, bottom: 28 },
+      xAxis: {
+        type: "value",
+        splitLine: {
+          lineStyle: { color: "hsl(215, 30%, 93%)", type: "dashed" },
+        },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          fontSize: 10,
+          color: C_AXIS,
+          fontFamily: "inherit",
+          formatter: (v: number) =>
+            v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v),
+        },
+      },
+      yAxis: {
+        type: "category",
+        data: sorted.map((d) => d.sport),
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          fontSize: 11,
+          color: "#0f172a",
+          fontWeight: 500,
+          fontFamily: "inherit",
+        },
+      },
+      series: [
+        {
+          type: "bar",
+          data: sorted.map((d) => ({
+            value: d.count,
+            itemStyle: {
+              color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
+                { offset: 0, color: "hsl(215, 85%, 52%)" },
+                { offset: 1, color: "hsl(215, 85%, 68%)" },
+              ]),
+              borderRadius: [0, 8, 8, 0],
+              opacity: 0.9,
+              shadowBlur: 8,
+              shadowColor: "rgba(37, 99, 235, 0.2)",
+              shadowOffsetX: 2,
+              shadowOffsetY: 2,
+            },
+          })),
+          barHeight: 28,
+          barGap: "35%",
+          label: {
+            show: true,
+            position: "right",
+            fontSize: 11,
+            fontWeight: 700,
+            color: C_AXIS,
+            fontFamily: "inherit",
+            padding: [0, 8, 0, 0],
+            formatter: (params: any) =>
+              params.value.toLocaleString("es-AR"),
+          },
+          emphasis: {
+            itemStyle: {
+              opacity: 1,
+              shadowBlur: 16,
+              shadowColor: "rgba(37, 99, 235, 0.4)",
+            },
+            label: {
+              color: C_BLUE_MAIN,
+              fontWeight: 800,
+              fontSize: 12,
+            },
+          },
+          animationDuration: 800,
+          animationEasing: "cubicOut",
+        },
+      ],
+    };
+
+    chart.setOption(option, true);
+
+    const handleResize = () => chart.resize();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chart.dispose();
+    };
+  }, [sorted, totalAthletes]);
 
   return (
     <ChartCard title="Deportistas por Deporte" subtitle="Cantidad total de deportistas por disciplina">
-      <BarChart
-        layout="horizontal"
-        height={200}
-        series={[
-          {
-            data: sorted.map((d) => d.count),
-            color: C_BLUE_LIGHT,
-            valueFormatter: (v) => (v ?? 0).toLocaleString("es-AR"),
-          },
-        ]}
-        yAxis={[{
-          data: sorted.map((d) => d.sport),
-          scaleType: "band",
-          width: 110,
-          ...axisStyle,
-        }]}
-        xAxis={[{ ...axisStyle, tickNumber: 3 }]}
-        borderRadius={4}
-        margin={{ left: 4, right: 8, top: 4, bottom: 24 }}
-        sx={{
-          "& .MuiChartsAxis-line": { display: "none" },
-          "& .MuiChartsAxis-tick": { display: "none" },
-          "& .MuiChartsLegend-root": { display: "none" },
-        }}
-      />
+      <div ref={chartRef} style={{ width: "100%", height: "320px" }} />
     </ChartCard>
   );
 }
