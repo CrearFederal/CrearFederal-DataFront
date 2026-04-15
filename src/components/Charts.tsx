@@ -265,7 +265,7 @@ export function GenderDistributionChart({ data }: GenderDistributionChartProps) 
         {
           type: "pie",
           radius: ["52%", "80%"],
-          center: ["50%", "50%"],
+          center: ["50%", "43%"],
           padAngle: 2,
           itemStyle: { borderRadius: 10 },
           label: {
@@ -273,7 +273,7 @@ export function GenderDistributionChart({ data }: GenderDistributionChartProps) 
             position: "inside",
             formatter: (params: any) => `${Math.round(params.percent ?? 0)}%`,
             color: "#ffffff",
-            fontSize: 24,
+            fontSize: 14,
             fontWeight: 800,
             fontFamily: "inherit",
             textBorderColor: "rgba(15, 23, 42, 0.35)",
@@ -287,7 +287,7 @@ export function GenderDistributionChart({ data }: GenderDistributionChartProps) 
           emphasis: {
             scale: true,
             scaleSize: 8,
-            label: { fontSize: 26, fontWeight: 900, color: "#ffffff" },
+            label: { fontSize: 16, fontWeight: 900, color: "#ffffff" },
             itemStyle: { shadowBlur: 12, shadowColor: "rgba(0,0,0,0.15)" },
           },
           data: [
@@ -313,7 +313,7 @@ export function GenderDistributionChart({ data }: GenderDistributionChartProps) 
       subtitle="Porcentajes de deportistas activos por género"
       icon={<Users className="h-4 w-4 text-primary" />}
     >
-      <div ref={chartRef} style={{ width: "100%", height: "380px" }} />
+      <div ref={chartRef} style={{ width: "100%", height: "220px" }} />
     </ChartCard>
   );
 }
