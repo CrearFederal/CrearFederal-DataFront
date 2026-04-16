@@ -264,8 +264,8 @@ export function GenderDistributionChart({ data }: GenderDistributionChartProps) 
       series: [
         {
           type: "pie",
-          radius: ["52%", "80%"],
-          center: ["50%", "43%"],
+          radius: ["56%", "84%"],
+          center: ["50%", "44%"],
           padAngle: 2,
           itemStyle: { borderRadius: 10 },
           label: {
@@ -313,7 +313,7 @@ export function GenderDistributionChart({ data }: GenderDistributionChartProps) 
       subtitle="Porcentajes de deportistas activos por género"
       icon={<Users className="h-4 w-4 text-primary" />}
     >
-      <div ref={chartRef} style={{ width: "100%", height: "220px" }} />
+      <div ref={chartRef} style={{ width: "100%", height: "360px" }} />
     </ChartCard>
   );
 }
