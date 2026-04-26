@@ -5,8 +5,10 @@ export interface ProvinciaRanking {
   totalClubs: number;
   totalMujeres: number;
   totalHombres: number;
+  posicion: number;
 }
 
-export interface ProvinciasTop10Response {
+export interface ProvinciasTop10ContextoResponse {
+  provinciaLogueada: ProvinciaRanking | null;
   provincias: ProvinciaRanking[];
 }

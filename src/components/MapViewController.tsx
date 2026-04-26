@@ -4,12 +4,12 @@ import L from "leaflet";
 import type { NavigationState, Club } from "../types/types";
 import type { UserRoleConfig } from "../data/roles";
 import { argentinaProvinces, provinceCenters } from "../data/argentinaGeoJson";
-import { getClubes } from "../data/dataUtils";
 
 // --------- Type
 interface MapViewControllerProps {
   navigation: NavigationState;      // Estado actual de navegación 
   roleConfig: UserRoleConfig;       // Configuración del rol del usuario
+  clubs: Club[];                    // Clubes visibles cargados desde API
   clubForRole?: Club | null;        // Datos del club si el usuario es de rol "club"
   onNavigateCountry?: () => void;   // Callback para volver a vista de país
 }
@@ -19,6 +19,7 @@ interface MapViewControllerProps {
 function MapViewController({
   navigation,
   roleConfig,
+  clubs,
   clubForRole,
   onNavigateCountry,
 }: MapViewControllerProps) {
@@ -26,6 +27,33 @@ function MapViewController({
 
   const prevNavRef = useRef<string>("");      // Rastrea navegación anterior para evitar re-cálculos innecesarios
   const prevRoleRef = useRef<string>("");     // Rastrea configuración de rol anterior para evitar re-animaciones
+
+  const flyToClubBounds = (targetClubs: Club[], maxZoom = 14, zoomBoost = 0) => {
+    if (targetClubs.length === 0) return false;
+
+    if (targetClubs.length === 1) {
+      const [club] = targetClubs;
+      const targetZoom = Math.min(map.getMaxZoom(), maxZoom + zoomBoost);
+      map.flyTo([club.lat, club.lng], targetZoom, { duration: 1.2 });
+      return true;
+    }
+
+    const bounds = L.latLngBounds(
+      targetClubs.map((c) => [c.lat, c.lng] as [number, number])
+    );
+
+    if (zoomBoost > 0) {
+      map.once("moveend", () => {
+        const boostedZoom = Math.min(map.getMaxZoom(), map.getZoom() + zoomBoost);
+        if (boostedZoom > map.getZoom()) {
+          map.setZoom(boostedZoom, { animate: true });
+        }
+      });
+    }
+
+    map.flyToBounds(bounds.pad(0.35), { duration: 1.2, maxZoom });
+    return true;
+  };
 
   // -------- Auto Reset a vista país para usuarios con rol COA
   useEffect(() => {
@@ -47,7 +75,7 @@ function MapViewController({
   // -------- Posición de vista inicial según rol del usuario
   // Se ejecuta cuando cambia el rol. Define la "zona permitida" para el usuario.
   useEffect(() => {
-    const roleKey = `${roleConfig.role}-${roleConfig.provinciaId}-${roleConfig.municipioId}-${roleConfig.clubId}-${roleConfig.federationScope}`;
+    const roleKey = `${roleConfig.role}-${roleConfig.provinciaId}-${roleConfig.municipioId}-${roleConfig.clubId}-${roleConfig.federationScope}-${clubs.length}`;
 
     if (roleKey === prevRoleRef.current) return;
     prevRoleRef.current = roleKey;
@@ -60,19 +88,10 @@ function MapViewController({
       return;
     }
 
-    // MUNICIPALITY ROLE — Ajusta a los clubes del municipio
+    // MUNICIPALITY ROLE — Ajusta a los clubes del municipio usando datos API
     if (roleConfig.role === "municipality" && roleConfig.municipioId) {
-      const clubs = getClubes({
-        provinciaId: roleConfig.provinciaId,
-        municipioId: roleConfig.municipioId,
-      });
-
-      if (clubs.length > 0) {
-        const bounds = L.latLngBounds(
-          clubs.map((c) => [c.lat, c.lng] as [number, number])
-        );
-        map.flyToBounds(bounds.pad(0.3), { duration: 1.2, maxZoom: 13 });
-      }
+      const municipalityClubs = clubs.filter((club) => club.id_municipio === roleConfig.municipioId);
+      flyToClubBounds(municipalityClubs, 15, 3);
       return;
     }
 
@@ -93,7 +112,7 @@ function MapViewController({
         });
       }
     }
-  }, [map, roleConfig, clubForRole]);
+  }, [map, roleConfig, clubForRole, clubs]);
 
   // -------- Movimiento dentro de la "zona permitida"
   // Se ejecuta cuando el usuario NAVEGA dentro de su rol.
@@ -146,28 +165,15 @@ function MapViewController({
       return;
     }
 
-    // CITY — Ajusta a los clubes del municipio
+    // CITY — Ajusta a los clubes del municipio usando datos API
     if (
       navigation.level === "city" &&
       navigation.municipioId
     ) {
-      const clubs = getClubes({
-        provinciaId: navigation.provinciaId,
-        municipioId: navigation.municipioId,
-      });
-
-      if (clubs.length > 0) {
-        const bounds = L.latLngBounds(
-          clubs.map((c) => [c.lat, c.lng] as [number, number])
-        );
-
-        map.flyToBounds(bounds.pad(0.3), {
-          duration: 1.2,
-          maxZoom: 13,
-        });
-      }
+      const municipalityClubs = clubs.filter((club) => club.id_municipio === navigation.municipioId);
+      flyToClubBounds(municipalityClubs, 15, 3);
     }
-  }, [map, navigation, roleConfig.role]);
+  }, [map, navigation, roleConfig.role, clubs]);
 
   // No renderiza nada visible — componente solo controla estado del mapa
   return null;
