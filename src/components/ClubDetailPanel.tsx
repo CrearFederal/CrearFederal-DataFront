@@ -80,7 +80,7 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
   // -------- RENDER --------
 
   return (
-    <div className="panel-slide-in fixed right-0 top-0 z-50 h-full w-full max-w-md overflow-y-auto border-l border-border bg-card shadow-2xl">
+    <div className="panel-slide-in fixed right-0 top-0 z-50 h-full w-full lg:w-[60vw] overflow-y-auto border-l border-border bg-card shadow-2xl">
       {/* HEADER */}
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/95 p-4 backdrop-blur-sm">
         <div className="flex items-center gap-3">
@@ -146,9 +146,11 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
             </div>
 
             {/* CHARTS */}
-            <AthletesPerSportChart data={genderPerSport} />
+            <div className="grid gap-3 lg:items-stretch lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">
+              <AthletesPerSportChart data={genderPerSport} />
+              <AgeDistributionChart ages={rawAges} fillHeight />
+            </div>
             <GenderDistributionChart data={genderDistribution} />
-            <AgeDistributionChart ages={rawAges} />
           </>
         )}
       </div>

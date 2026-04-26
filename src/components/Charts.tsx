@@ -1,14 +1,17 @@
 import * as echarts from 'echarts';
 import 'echarts-gl';
-import { useEffect, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { Volleyball, Users, BarChart3, MapPin, Building2 } from 'lucide-react';
-import type { ProvinciaRanking } from "../types/Provincias";
+import type { MunicipiosTop10ContextoResponse } from "../types/Municipios";
+import type { ProvinciasTop10ContextoResponse } from "../types/Provincias";
 import type { TopClubRankingItem } from "../types/Clubes";
 
 const C_BLUE_MAIN = "hsl(215, 85%, 52%)";
 const C_FEMALE = "hsl(330, 65%, 58%)";
 const C_MALE = "hsl(215, 85%, 52%)";
 const C_AXIS = "hsl(215, 20%, 55%)";
+const C_GRAY_MALE = "hsl(215, 10%, 70%)";
+const C_GRAY_FEMALE = "hsl(215, 8%, 78%)";
 
 interface ChartCardProps {
   title: string;
@@ -286,7 +289,7 @@ export function GenderDistributionChart({ data }: GenderDistributionChartProps) 
           labelLine: { show: false },
           emphasis: {
             scale: true,
-            scaleSize: 8,
+            scaleSize: 10,
             label: { fontSize: 16, fontWeight: 900, color: "#ffffff" },
             itemStyle: { shadowBlur: 12, shadowColor: "rgba(0,0,0,0.15)" },
           },
@@ -338,9 +341,10 @@ function buildHistogramBins(ages: number[]): { label: string; count: number }[] 
 
 interface AgeDistributionChartProps {
   ages: number[];
+  fillHeight?: boolean;
 }
 
-export function AgeDistributionChart({ ages }: AgeDistributionChartProps) {
+export function AgeDistributionChart({ ages, fillHeight = false }: AgeDistributionChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const bins = buildHistogramBins(ages);
 
@@ -419,30 +423,60 @@ export function AgeDistributionChart({ ages }: AgeDistributionChartProps) {
       title="Distribución por Edad"
       subtitle="Histograma etario de todos los deportistas activos"
       icon={<BarChart3 className="h-4 w-4 text-primary" />}
+      className={fillHeight ? "h-full" : ""}
     >
-      <div ref={chartRef} style={{ width: "100%", height: "190px" }} />
+      <div
+        className={fillHeight ? "flex-1 min-h-0" : ""}
+        style={{ width: "100%", height: fillHeight ? "100%" : "190px" }}
+      >
+        <div ref={chartRef} style={{ width: "100%", height: "100%" }} />
+      </div>
     </ChartCard>
   );
 }
 
 interface ProvinceRankingChartProps {
-  data: ProvinciaRanking[];
+  data: ProvinciasTop10ContextoResponse | null;
 }
 
 export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
-  const top10 = [...data].sort((a, b) => b.totalAthletes - a.totalAthletes).slice(0, 10).reverse();
+  const top10 = useMemo(
+    () => [...(data?.provincias ?? [])].sort((a, b) => a.posicion - b.posicion).slice(0, 10).reverse(),
+    [data]
+  );
+  const provinciaLogueadaId = data?.provinciaLogueada?.id ?? null;
 
   const getDisplayName = (nombre: string) => 
     nombre === "Ciudad Autónoma de Buenos Aires (CABA)" ? "CABA" : nombre;
+
+  const isHighlightedProvince = (provinciaId: number) => {
+    if (!provinciaLogueadaId) return true;
+    return provinciaId === provinciaLogueadaId;
+  };
 
   useEffect(() => {
     if (!chartRef.current || top10.length === 0) return;
 
     const chart = echarts.init(chartRef.current, "light");
     const labels = top10.map((d) => getDisplayName(d.nombre));
-    const maleData = top10.map((d) => d.totalHombres);
-    const femaleData = top10.map((d) => d.totalMujeres);
+    const maleData = top10.map((d) => {
+      const highlighted = isHighlightedProvince(d.id);
+      return {
+        value: d.totalHombres,
+        itemStyle: { color: highlighted ? C_MALE : C_GRAY_MALE },
+      };
+    });
+    const femaleData = top10.map((d) => {
+      const highlighted = isHighlightedProvince(d.id);
+      return {
+        value: d.totalMujeres,
+        itemStyle: {
+          color: highlighted ? C_FEMALE : C_GRAY_FEMALE,
+          borderRadius: [0, 8, 8, 0],
+        },
+      };
+    });
 
     const insideLabel = () => ({
       show: true,
@@ -462,7 +496,7 @@ export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
         left: "center",
         itemWidth: 10,
         itemHeight: 10,
-        textStyle: { fontSize: 11, color: C_AXIS, fontFamily: "inherit" },
+        textStyle: { fontSize: 10, color: C_AXIS },
         data: ["Masculino", "Femenino"],
       },
       tooltip: {
@@ -473,22 +507,26 @@ export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
         borderWidth: 1,
         textStyle: { fontSize: 12, color: "#0f172a" },
         formatter: (params: any[]) => {
-          const displayName = params[0].name;
+          const displayName = params[0].axisValue;
           const item = top10.find((d) => getDisplayName(d.nombre) === displayName);
           if (!item) return "";
+
+          const highlighted = isHighlightedProvince(item.id);
+          const maleColor = highlighted ? C_MALE : C_GRAY_MALE;
+          const femaleColor = highlighted ? C_FEMALE : C_GRAY_FEMALE;
           const total = item.totalHombres + item.totalMujeres;
-          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">${displayName}</span><br/>
+          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">#${item.posicion} ${displayName}</span><br/>
             <span style="color:${C_AXIS};font-size:11px;">Total de deportistas: </span>
             <span style="font-weight:900;color:#0f172a;font-size:14px;">${total.toLocaleString("es-AR")}</span><br/>
             <span style="color:${C_AXIS};font-size:11px;">En </span>
             <span style="font-weight:700;color:#0f172a;font-size:12px;">${item.totalClubs.toLocaleString("es-AR")}</span>
             <span style="color:${C_AXIS};font-size:11px;"> clubes</span><br/>
-            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${C_MALE};margin-right:5px;"></span>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${maleColor};margin-right:5px;"></span>
             <span style="color:${C_AXIS};font-size:11px;">Masculino: </span>
-            <span style="font-weight:700;color:${C_MALE};">${item.totalHombres.toLocaleString("es-AR")}</span><br/>
-            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${C_FEMALE};margin-right:5px;"></span>
+            <span style="font-weight:700;color:${maleColor};">${item.totalHombres.toLocaleString("es-AR")}</span><br/>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${femaleColor};margin-right:5px;"></span>
             <span style="color:${C_AXIS};font-size:11px;">Femenino: </span>
-            <span style="font-weight:700;color:${C_FEMALE};">${item.totalMujeres.toLocaleString("es-AR")}</span>`;
+            <span style="font-weight:700;color:${femaleColor};">${item.totalMujeres.toLocaleString("es-AR")}</span>`;
         },
       },
       grid: { left: 120, right: 32, top: 12, bottom: 52 },
@@ -509,7 +547,43 @@ export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
         data: labels,
         axisLine: { show: false },
         axisTick: { show: false },
-        axisLabel: { fontSize: 11, color: "#0f172a", fontWeight: 500, fontFamily: "inherit" },
+        axisLabel: {
+          fontFamily: "inherit",
+          formatter: (value: string, index: number) => {
+            const item = top10[index];
+            if (!item) return value;
+            const markToken = isHighlightedProvince(item.id) ? "markActive" : "markIdle";
+            const nameToken = isHighlightedProvince(item.id) ? "name" : "nameMuted";
+            return `{${markToken}|●} {pos|#${item.posicion}} {${nameToken}|${value}}`;
+          },
+          rich: {
+            markActive: {
+              color: C_BLUE_MAIN,
+              fontWeight: 800,
+              fontSize: 10,
+            },
+            markIdle: {
+              color: "rgba(0, 0, 0, 0)",
+              fontWeight: 800,
+              fontSize: 10,
+            },
+            pos: {
+              color: C_BLUE_MAIN,
+              fontWeight: 700,
+              fontSize: 11,
+            },
+            name: {
+              color: "#0f172a",
+              fontWeight: 600,
+              fontSize: 11,
+            },
+            nameMuted: {
+              color: "hsl(215, 10%, 52%)",
+              fontWeight: 500,
+              fontSize: 11,
+            },
+          },
+        },
       },
       series: [
         {
@@ -546,7 +620,7 @@ export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
       window.removeEventListener("resize", handleResize);
       chart.dispose();
     };
-  }, [top10]);
+  }, [top10, provinciaLogueadaId]);
 
   return (
     <ChartCard
@@ -653,6 +727,208 @@ export function ClubRankingChart({ data }: ClubRankingChartProps) {
       title="Top Clubes"
       subtitle="Por cantidad de deportistas registrados"
       icon={<Building2 className="h-4 w-4 text-primary" />}
+    >
+      <div ref={chartRef} style={{ width: "100%", height: "360px" }} />
+    </ChartCard>
+  );
+}
+
+interface MunicipioRankingChartProps {
+  data: MunicipiosTop10ContextoResponse | null;
+}
+
+export function MunicipioRankingChart({ data }: MunicipioRankingChartProps) {
+  const chartRef = useRef<HTMLDivElement>(null);
+  const top10 = useMemo(
+    () => [...(data?.municipios ?? [])].sort((a, b) => a.posicion - b.posicion).slice(0, 10).reverse(),
+    [data]
+  );
+  const municipioLogueadoId = data?.municipioLogueado?.id ?? null;
+
+  const getDisplayName = (nombre: string, codigopostal: string | null) => {
+    if (!codigopostal) return nombre;
+    return `${nombre} (${codigopostal})`;
+  };
+
+  const isHighlightedMunicipio = (municipioId: number) => {
+    if (!municipioLogueadoId) return true;
+    return municipioId === municipioLogueadoId;
+  };
+
+  useEffect(() => {
+    if (!chartRef.current || top10.length === 0) return;
+
+    const chart = echarts.init(chartRef.current, "light");
+    const labels = top10.map((d) => getDisplayName(d.nombre, d.codigopostal));
+    const maleData = top10.map((d) => {
+      const highlighted = isHighlightedMunicipio(d.id);
+      return {
+        value: d.totalHombres,
+        itemStyle: { color: highlighted ? C_MALE : C_GRAY_MALE },
+      };
+    });
+    const femaleData = top10.map((d) => {
+      const highlighted = isHighlightedMunicipio(d.id);
+      return {
+        value: d.totalMujeres,
+        itemStyle: {
+          color: highlighted ? C_FEMALE : C_GRAY_FEMALE,
+          borderRadius: [0, 8, 8, 0],
+        },
+      };
+    });
+
+    const insideLabel = () => ({
+      show: true,
+      position: "inside" as const,
+      fontSize: 10,
+      fontWeight: 600,
+      color: "#ffffff",
+      fontFamily: "inherit",
+      overflow: "truncate" as const,
+      formatter: (params: any) => (params.value > 0 ? params.value.toLocaleString("es-AR") : ""),
+    });
+
+    chart.setOption({
+      backgroundColor: "transparent",
+      legend: {
+        bottom: 0,
+        left: "center",
+        itemWidth: 10,
+        itemHeight: 10,
+        textStyle: { fontSize: 10, color: C_AXIS },
+        data: ["Masculino", "Femenino"],
+      },
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "none" },
+        backgroundColor: "rgba(255, 255, 255, 0.98)",
+        borderColor: "rgba(148, 163, 184, 0.35)",
+        borderWidth: 1,
+        textStyle: { fontSize: 12, color: "#0f172a" },
+        formatter: (params: any[]) => {
+          const dataIndex = params[0]?.dataIndex;
+          const item = typeof dataIndex === "number" ? top10[dataIndex] : undefined;
+          if (!item) return "";
+
+          const highlighted = isHighlightedMunicipio(item.id);
+          const maleColor = highlighted ? C_MALE : C_GRAY_MALE;
+          const femaleColor = highlighted ? C_FEMALE : C_GRAY_FEMALE;
+          const total = item.totalHombres + item.totalMujeres;
+          const displayName = getDisplayName(item.nombre, item.codigopostal);
+
+          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">#${item.posicion} ${displayName}</span><br/>
+            <span style="color:${C_AXIS};font-size:11px;">Total de deportistas: </span>
+            <span style="font-weight:900;color:#0f172a;font-size:14px;">${total.toLocaleString("es-AR")}</span><br/>
+            <span style="color:${C_AXIS};font-size:11px;">En </span>
+            <span style="font-weight:700;color:#0f172a;font-size:12px;">${item.totalClubs.toLocaleString("es-AR")}</span>
+            <span style="color:${C_AXIS};font-size:11px;"> clubes</span><br/>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${maleColor};margin-right:5px;"></span>
+            <span style="color:${C_AXIS};font-size:11px;">Masculino: </span>
+            <span style="font-weight:700;color:${maleColor};">${item.totalHombres.toLocaleString("es-AR")}</span><br/>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${femaleColor};margin-right:5px;"></span>
+            <span style="color:${C_AXIS};font-size:11px;">Femenino: </span>
+            <span style="font-weight:700;color:${femaleColor};">${item.totalMujeres.toLocaleString("es-AR")}</span>`;
+        },
+      },
+      grid: { left: 140, right: 32, top: 12, bottom: 52 },
+      xAxis: {
+        type: "value",
+        splitLine: { lineStyle: { color: "hsl(215, 20%, 85%)", type: "dashed" } },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          fontSize: 10,
+          color: C_AXIS,
+          fontFamily: "inherit",
+          formatter: (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)),
+        },
+      },
+      yAxis: {
+        type: "category",
+        data: labels,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          fontFamily: "inherit",
+          formatter: (value: string, index: number) => {
+            const item = top10[index];
+            if (!item) return value;
+            const markToken = isHighlightedMunicipio(item.id) ? "markActive" : "markIdle";
+            const nameToken = isHighlightedMunicipio(item.id) ? "name" : "nameMuted";
+            return `{${markToken}|●} {pos|#${item.posicion}} {${nameToken}|${value}}`;
+          },
+          rich: {
+            markActive: {
+              color: C_BLUE_MAIN,
+              fontWeight: 800,
+              fontSize: 10,
+            },
+            markIdle: {
+              color: "rgba(0, 0, 0, 0)",
+              fontWeight: 800,
+              fontSize: 10,
+            },
+            pos: {
+              color: C_BLUE_MAIN,
+              fontWeight: 700,
+              fontSize: 11,
+            },
+            name: {
+              color: "#0f172a",
+              fontWeight: 600,
+              fontSize: 11,
+            },
+            nameMuted: {
+              color: "hsl(215, 10%, 52%)",
+              fontWeight: 500,
+              fontSize: 11,
+            },
+          },
+        },
+      },
+      series: [
+        {
+          name: "Masculino",
+          type: "bar",
+          stack: "total",
+          barMaxWidth: 28,
+          data: maleData,
+          itemStyle: { color: C_MALE },
+          label: insideLabel(),
+          emphasis: { itemStyle: { opacity: 0.85 } },
+          animationDuration: 800,
+          animationEasing: "cubicOut",
+        },
+        {
+          name: "Femenino",
+          type: "bar",
+          stack: "total",
+          barMaxWidth: 28,
+          data: femaleData,
+          itemStyle: { color: C_FEMALE, borderRadius: [0, 8, 8, 0] },
+          label: insideLabel(),
+          emphasis: { itemStyle: { opacity: 0.85 } },
+          animationDuration: 800,
+          animationEasing: "cubicOut",
+        },
+      ],
+    }, true);
+
+    const handleResize = () => chart.resize();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chart.dispose();
+    };
+  }, [top10, municipioLogueadoId]);
+
+  return (
+    <ChartCard
+      title="Top Municipios"
+      subtitle="Por cantidad de deportistas y distribución por género"
+      icon={<MapPin className="h-4 w-4 text-primary" />}
     >
       <div ref={chartRef} style={{ width: "100%", height: "360px" }} />
     </ChartCard>
