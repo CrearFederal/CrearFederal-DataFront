@@ -315,6 +315,7 @@ function LeafletMap({
         <MapViewController
           navigation={navigation}
           roleConfig={roleConfig}
+          clubs={clubs}
           clubForRole={clubForRole}
           onNavigateCountry={onNavigateCountry}
         />

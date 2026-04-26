@@ -10,7 +10,7 @@ import type { AuthScope } from "../types/auth";
 import LeafletMap from "../components/LeafletMap";
 import ClubDetailPanel from "../components/ClubDetailPanel";
 import KpiCard from "../components/KpiCard";
-import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, ClubRankingChart } from "../components/Charts";
+import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, MunicipioRankingChart, ClubRankingChart } from "../components/Charts";
 import { BarChart3, Building2, Users, Medal } from "lucide-react";
 import type { ClubesTotalesResponse } from "../types/Clubes";
 import type { DeportistasTotalesResponse } from "../types/Deportistas";
@@ -18,9 +18,11 @@ import { getTopDeportes, getEdadesHistograma } from "../data/statsApi";
 import type { TopDeporteItem } from "../data/statsApi";
 import { getMapaProvinciasResumen } from "../data/mapaApi";
 import type { ProvinciaResumen } from "../types/Mapa";
+import { getMunicipiosTop10 } from "../data/municipiosApi";
 import { getProvinciasTop10 } from "../data/provinciasApi";
 import { getTopClubes } from "../data/clubesApi";
-import type { ProvinciaRanking } from "../types/Provincias";
+import type { MunicipiosTop10ContextoResponse } from "../types/Municipios";
+import type { ProvinciasTop10ContextoResponse } from "../types/Provincias";
 import type { TopClubRankingItem } from "../types/Clubes";
 
 const mapScopeToRoleConfig = (scope: AuthScope): UserRoleConfig => {
@@ -67,7 +69,8 @@ function Dashboard() {
   const [authStatus, setAuthStatus] = useState<"loading" | "ready" | "error">("loading");
   const [topDeportes, setTopDeportes] = useState<TopDeporteItem[] | null>(null);
   const [provinciasResumen, setProvinciasResumen] = useState<ProvinciaResumen[] | null>(null);
-  const [provinciasTop10, setProvinciasTop10] = useState<ProvinciaRanking[] | null>(null);
+  const [provinciasTop10, setProvinciasTop10] = useState<ProvinciasTop10ContextoResponse | null>(null);
+  const [municipiosTop10, setMunicipiosTop10] = useState<MunicipiosTop10ContextoResponse | null>(null);
   const [topClubes, setTopClubes] = useState<TopClubRankingItem[] | null>(null);
   const [edadesApiData, setEdadesApiData] = useState<number[] | null>(null);
 
@@ -180,6 +183,30 @@ function Dashboard() {
   useEffect(() => {
     if (authStatus !== "ready") return;
 
+    if (roleConfig?.role !== "municipality") {
+      setMunicipiosTop10(null);
+      return;
+    }
+
+    const controller = new AbortController();
+
+    const loadTopMunicipios = async () => {
+      try {
+        const data = await getMunicipiosTop10(controller.signal);
+        if (!controller.signal.aborted) setMunicipiosTop10(data);
+      } catch {
+        if (!controller.signal.aborted) setMunicipiosTop10(null);
+      }
+    };
+
+    void loadTopMunicipios();
+
+    return () => controller.abort();
+  }, [authStatus, roleConfig?.role]);
+
+  useEffect(() => {
+    if (authStatus !== "ready") return;
+
     const controller = new AbortController();
 
     const loadDeportistasTotales = async () => {
@@ -273,7 +300,7 @@ function Dashboard() {
     const loadTopProvincias = async () => {
       try {
         const data = await getProvinciasTop10(controller.signal);
-        if (!controller.signal.aborted) setProvinciasTop10(data.provincias);
+        if (!controller.signal.aborted) setProvinciasTop10(data);
       } catch {
         if (!controller.signal.aborted) setProvinciasTop10(null);
       }
@@ -389,17 +416,35 @@ function Dashboard() {
           <KpiCard
             title="Total de Clubes"
             value={clubesTotales?.totalClubes ?? stats.totalClubs}
-            subtitle={clubesTotales
-              ? `Mas deportistas en: ${clubesTotales.clubConMasDeportistas.nombre} (${clubesTotales.clubConMasDeportistas.totalDeportistas})`
-              : `Mas deportistas en: ${stats.clubWithMostAthletes} (${stats.clubWithMostAthletesCount})`}
+            subtitle={clubesTotales ? (
+              <span>
+                Mas deportistas en: {" "}
+                <span className="font-bold text-primary">
+                  {clubesTotales.clubConMasDeportistas.nombre} ({clubesTotales.clubConMasDeportistas.totalDeportistas})
+                </span>
+              </span>
+            ) : (
+              <span>
+                Mas deportistas en: {" "}
+                <span className="font-bold text-primary">
+                  {stats.clubWithMostAthletes} ({stats.clubWithMostAthletesCount})
+                </span>
+              </span>
+            )}
             icon={<Building2 className="h-5 w-5" />}
           />
           <KpiCard
             title="Total de Deportistas"
             value={deportistasTotales?.deportistas ?? stats.totalAthletes}
             subtitle={deportistasTotales
-              ? `${deportistasTotales.porcentaje.toLocaleString("es-AR")}% de ${deportistasTotales.provinciaLider}`
-              : `En ${stats.totalSports.toLocaleString()} deportes`}
+              ? (
+                <span> 
+                  {deportistasTotales.porcentaje.toLocaleString("es-AR")}% de {" "}
+                  <span className="font-bold text-primary">
+                    {deportistasTotales.provinciaLider}
+                  </span>
+                </span>
+              ) : `En ${stats.totalSports.toLocaleString()} deportes`}
             icon={<Users className="h-5 w-5" />}
           />
           <KpiCard
@@ -411,7 +456,15 @@ function Dashboard() {
           <KpiCard
             title="Deporte líder"
             value={deportistasTotales?.deporteLider ?? stats.mostPracticedSport}
-            subtitle={`Con un total de ${(deportistasTotales?.cantidadDeportistas ?? stats.mostPracticedCount).toLocaleString()} deportistas`}
+            subtitle={
+              <span>
+                Con un total de {" "}
+                <span className="font-bold text-primary">
+                  {(deportistasTotales?.cantidadDeportistas ?? stats.mostPracticedCount).toLocaleString()}
+                </span>
+                {" "}deportistas
+              </span>
+            }
             icon={<Medal className="h-5 w-5" />}
           />
         </div>
@@ -442,7 +495,11 @@ function Dashboard() {
 
         {/* ROW 4 — Province + Gender + Gender per Sport */}
         <div className="grid grid-cols-3 gap-3">
-          <ProvinceRankingChart data={provinciasTop10 ?? []} />
+          {roleConfig.role === "municipality" ? (
+            <MunicipioRankingChart data={municipiosTop10} />
+          ) : (
+            <ProvinceRankingChart data={provinciasTop10} />
+          )}
           <GenderDistributionChart data={genderDistribution} />
           <ClubRankingChart data={topClubes ?? []} />
         </div>

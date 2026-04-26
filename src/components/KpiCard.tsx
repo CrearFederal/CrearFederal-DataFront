@@ -5,7 +5,7 @@ interface KpiCardProps {
   title: string;
   value: number | string;
   icon: ReactNode;
-  subtitle?: string;
+  subtitle?: ReactNode;
 }
 
 function formatValue(value: number | string): string {
@@ -34,7 +34,7 @@ function KpiCard({ title, value, icon, subtitle }: KpiCardProps) {
             {formattedValue}
           </p>
           {subtitle && (
-            <p className="mt-1 text-xs text-muted-foreground truncate">{subtitle}</p>
+            <div className="mt-1 text-xs text-muted-foreground truncate">{subtitle}</div>
           )}
         </div>
 
