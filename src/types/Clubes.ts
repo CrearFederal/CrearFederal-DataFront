@@ -6,6 +6,8 @@ export interface ClubConMasDeportistas {
   nombre: string;
   nombre_corto: string;
   totalDeportistas: number;
+  logoUrl?: string | null;
+  totalDeportes?: number;
 }
 
 export interface ClubesTotalesResponse {
@@ -23,6 +25,7 @@ export interface TopClubRankingItem {
 }
 
 export interface TopClubApiItem {
+  id_club: number;
   nombreCorto: string;
   nombreProvincia: string;
   nombreMunicipio: string;
@@ -31,6 +34,19 @@ export interface TopClubApiItem {
 
 export interface TopClubApiResponse {
   clubes: TopClubApiItem[];
+}
+
+export interface TopClubesDetalleItem {
+  id_club: number;
+  nombreCorto: string;
+  nombreProvincia: string;
+  nombreMunicipio: string;
+  cantidadDeportista: number;
+}
+
+export interface TopClubesDetalleResponse {
+  porcentaje: number;
+  clubes: TopClubesDetalleItem[];
 }
 
 export interface ClubDetalleInfo {

@@ -1,4 +1,4 @@
-import type { ClubesTotalesResponse, ClubDetalleResponse } from "../types/Clubes";
+import type { ClubesTotalesResponse, ClubDetalleResponse, TopClubesDetalleResponse } from "../types/Clubes";
 import type { TopClubApiItem, TopClubApiResponse, TopClubRankingItem } from "../types/Clubes";
 import { instanceAxios } from "../api/axios";
 import { isAxiosError } from "axios";
@@ -25,7 +25,7 @@ const normalizeTopClubesResponse = (
     const clubes = Array.isArray(data) ? data : data.clubes ?? [];
 
     return clubes.map((item) => ({
-        id_club: 0,
+        id_club: item.id_club,
         nombre: item.nombreCorto,
         nombre_corto: item.nombreCorto,
         nombreProvincia: item.nombreProvincia,
@@ -63,5 +63,21 @@ export const getTopClubes = async (signal?: AbortSignal): Promise<TopClubRanking
             throw new Error(error.response?.data?.message || "Error al obtener top clubes");
         }
         throw new Error("Error al obtener top clubes");
+    }
+};
+
+export const getTopClubesDetalle = async (signal?: AbortSignal): Promise<TopClubesDetalleResponse> => {
+    if (!instanceAxios.defaults.baseURL) {
+        throw new Error("VITE_API_URL no está configurada");
+    }
+
+    try {
+        const { data } = await instanceAxios.get<TopClubesDetalleResponse>("/clubes/top10/detalles", { signal });
+        return data;
+    } catch (error: unknown) {
+        if (isAxiosError<{ message?: string }>(error)) {
+            throw new Error(error.response?.data?.message || "Error al obtener top clubes detallado");
+        }
+        throw new Error("Error al obtener top clubes detallado");
     }
 };
