@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useEffect, useState } from "react";
+import { memo, useMemo, useCallback, useEffect, useState } from "react";
 import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
 import L from "leaflet";
 import { Globe } from "lucide-react";
@@ -324,4 +324,4 @@ function LeafletMap({
   );
 }
 
-export default LeafletMap;
+export default memo(LeafletMap);

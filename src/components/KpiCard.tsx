@@ -6,6 +6,7 @@ interface KpiCardProps {
   value: number | string;
   icon: ReactNode;
   subtitle?: ReactNode;
+  onClick?: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
 function formatValue(value: number | string): string {
@@ -13,15 +14,17 @@ function formatValue(value: number | string): string {
   return value;
 }
 
-function KpiCard({ title, value, icon, subtitle }: KpiCardProps) {
+function KpiCard({ title, value, icon, subtitle, onClick }: KpiCardProps) {
   const formattedValue = useMemo(() => formatValue(value), [value]);
 
-  return (
-    <div className="kpi-card fade-up group">
+  const cardClasses = `kpi-card fade-up group ${onClick ? "cursor-pointer transition-transform hover:-translate-y-0.5 active:translate-y-0" : ""}`;
+
+  const content = (
+    <>
       {/* Accent bar */}
       <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-primary/60 transition-all duration-300 group-hover:bg-primary" />
 
-      <div className="flex items-start justify-between gap-2 pl-2">
+      <div className="flex items-start justify-between gap-2 pl-2 text-left w-full">
         {/* Text */}
         <div className="min-w-0 flex-1">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground truncate">
@@ -43,8 +46,18 @@ function KpiCard({ title, value, icon, subtitle }: KpiCardProps) {
           {icon}
         </div>
       </div>
-    </div>
+    </>
   );
+
+  if (onClick) {
+    return (
+      <button type="button" onClick={onClick} className={cardClasses}>
+        {content}
+      </button>
+    );
+  }
+
+  return <div className={cardClasses}>{content}</div>;
 }
 
 export default KpiCard;

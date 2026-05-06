@@ -35,6 +35,19 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  const isAbortError = (value: unknown): boolean => {
+    if (value instanceof DOMException && value.name === "AbortError") {
+      return true;
+    }
+
+    if (typeof value === "object" && value !== null) {
+      const error = value as { name?: string; code?: string };
+      return error.name === "CanceledError" || error.code === "ERR_CANCELED";
+    }
+
+    return false;
+  };
+
   useEffect(() => {
     const controller = new AbortController();
     // active evita que una petición cancelada actualice el estado
@@ -48,6 +61,10 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
     getClubDetalle(clubId, controller.signal)
       .then((result) => { if (active) setData(result); })
       .catch((err) => {
+        if (!active || isAbortError(err)) {
+          return;
+        }
+
         if (active) setError("No se pudo cargar el detalle del club.");
         console.error("ClubDetailPanel fetch error:", err);
       })
@@ -80,7 +97,7 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
   // -------- RENDER --------
 
   return (
-    <div className="panel-slide-in fixed right-0 top-0 z-50 h-full w-full lg:w-[60vw] overflow-y-auto border-l border-border bg-card shadow-2xl">
+    <div className="panel-slide-in fixed right-0 top-0 z-[60] h-full w-full lg:w-[60vw] overflow-y-auto border-l border-border bg-card shadow-2xl">
       {/* HEADER */}
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/95 p-4 backdrop-blur-sm">
         <div className="flex items-center gap-3">
@@ -100,9 +117,9 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
 
         <button
           onClick={onClose}
-          className="rounded-lg p-1.5 transition-colors hover:bg-secondary"
+          className="rounded-lg p-1.5 transition-colors hover:bg-primary/30 "
         >
-          <X className="h-5 w-5 text-muted-foreground" />
+          <X className="h-5 w-5 text-muted-foreground hover:text-primary" />
         </button>
       </div>
 
