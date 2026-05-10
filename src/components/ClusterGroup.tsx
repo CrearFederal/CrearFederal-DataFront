@@ -15,6 +15,7 @@ interface MarkerData {
 
 interface MarkerClusterGroupProps {
   markers: MarkerData[];           // Array de datos de marcadores a mostrar
+  logos?: Record<number, string | null>;  // Mapa de id_club -> logoUrl (cargado bajo demanda)
   onMarkerClick: (id: number) => void;  // Callback cuando usuario hace click en marcador
 }
 
@@ -37,11 +38,13 @@ function createClusterIcon(cluster: any) {
 
 // Crea el ícono visual para cada marcador individual
 // Si el club tiene logo, muestra el logo. Si no, muestra punto genérico pequeño
-function createMarkerIcon(marker: MarkerData) {
-  if (marker.logoUrl) {
+function createMarkerIcon(marker: MarkerData, logos?: Record<number, string | null>) {
+  const logoUrl = logos?.[marker.id] ?? marker.logoUrl;
+  
+  if (logoUrl) {
     return L.divIcon({
       html: `<div class="club-logo-marker">
-              <img src="${marker.logoUrl}" alt="" />
+              <img src="${logoUrl}" alt="" />
             </div>`,
       className: "custom-marker",
       iconSize: L.point(28, 28),
@@ -57,12 +60,14 @@ function createMarkerIcon(marker: MarkerData) {
   });
 }
 
-function createTooltip(marker: MarkerData) {
+function createTooltip(marker: MarkerData, logos?: Record<number, string | null>) {
+  const logoUrl = logos?.[marker.id] ?? marker.logoUrl;
+  
   return `
     <div class="club-tooltip-content">
       ${
-        marker.logoUrl
-          ? `<img src="${marker.logoUrl}" class="club-tooltip-logo" />`
+        logoUrl
+          ? `<img src="${logoUrl}" class="club-tooltip-logo" />`
           : ""
       }
       <span>${marker.name}</span>
@@ -75,10 +80,12 @@ function createTooltip(marker: MarkerData) {
 // Los marcadores se agrupan automáticamente cuando están cerca (cluster)
 function MarkerClusterGroup({
   markers,
+  logos,
   onMarkerClick,
 }: MarkerClusterGroupProps) {
   const map = useMap();
   const clusterRef = useRef<LMarkerClusterGroup | null>(null);
+  const markersRef = useRef<Map<number, L.Marker>>(new Map());
 
   // -------- Crear e inicializar el cluster group la primera vez
   // Configura propiedades: agrupación por proximidad, animaciones, comportamiento al hacer click
@@ -110,15 +117,16 @@ function MarkerClusterGroup({
 
     // Elimina todos los marcadores anteriores
     cluster.clearLayers();
+    markersRef.current.clear();
 
     // Itera sobre cada marcador, crea su ícono, tooltip y evento de click
     markers.forEach((m) => {
       const marker = L.marker([m.lat, m.lng], {
-        icon: createMarkerIcon(m),   
+        icon: createMarkerIcon(m, logos),   
       });
 
       // Bind tooltip que aparece al pasar mouse sobre marcador
-      marker.bindTooltip(createTooltip(m), {
+      marker.bindTooltip(createTooltip(m, logos), {
         direction: "top",          
         offset: L.point(0, -12),    
         className: "club-tooltip",    
@@ -127,10 +135,32 @@ function MarkerClusterGroup({
       // Evento: disparar callback cuando usuario hace click
       marker.on("click", () => onMarkerClick(m.id));
 
+      // Guardar referencia al marcador para actualizaciones posteriores
+      markersRef.current.set(m.id, marker);
+
       // Agregar marcador al cluster
       cluster.addLayer(marker);
     });
   }, [markers, onMarkerClick]);
+
+  // -------- Actualizar logos cuando llegan dinámicamente
+  // Sin recrear todos los marcadores, solo actualiza el icono y tooltip
+  useEffect(() => {
+    if (!logos || Object.keys(logos).length === 0) return;
+
+    markersRef.current.forEach((marker, clubId) => {
+      if (clubId in logos && logos[clubId]) {
+        // Actualizar icono
+        marker.setIcon(createMarkerIcon({ lat: 0, lng: 0, id: clubId, name: "", address: "" }, logos));
+        
+        // Actualizar tooltip con el logo cargado
+        const markerData = markers.find(m => m.id === clubId);
+        if (markerData) {
+          marker.setTooltipContent(createTooltip(markerData, logos));
+        }
+      }
+    });
+  }, [logos, markers]);
 
   // No renderiza nada visible — componente solo controla estado del cluster
   return null;

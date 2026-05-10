@@ -150,14 +150,16 @@ function Dashboard() {
     totalDeportistasStageTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
     totalDeportistasStageTimersRef.current = [];
 
-    setSelectedGeneroDetalle(
-      (deportistasGeneros?.femenino ?? 0) >= (deportistasGeneros?.masculino ?? 0) ? "femenino" : "masculino"
-    );
+    setSelectedGeneroDetalle("femenino");
     setGenderSplitAnimated(false);
     setTotalDeportistasModalOrigin(event.currentTarget.getBoundingClientRect());
     setIsTotalDeportistasRendered(true);
     setTotalDeportistasContentStage(0);
     window.requestAnimationFrame(() => setIsTotalDeportistasVisible(true));
+
+    if (!edadesFemenino || edadesFemenino.length === 0) {
+      void handleGenderSelect("femenino");
+    }
 
     totalDeportistasStageTimersRef.current.push(
       window.setTimeout(() => setTotalDeportistasContentStage(1), TOTAL_DEPORTISTAS_HEADER_DELAY_MS)
