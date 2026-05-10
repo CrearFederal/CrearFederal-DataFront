@@ -41,3 +41,12 @@ export interface ProvinciaResumenRaw {
   totalMujeres: number;
   totalHombres: number;
 }
+
+export interface ClubLogo {
+  id_club: number;
+  logoUrl: string | null;
+}
+
+export interface ClubLogosResponse {
+  logos: ClubLogo[];
+}

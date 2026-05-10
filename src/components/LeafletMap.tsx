@@ -1,5 +1,5 @@
-import { memo, useMemo, useCallback, useEffect, useState } from "react";
-import { MapContainer, TileLayer, GeoJSON } from "react-leaflet";
+import { memo, useMemo, useCallback, useEffect, useState, useRef } from "react";
+import { MapContainer, TileLayer, GeoJSON, useMapEvents } from "react-leaflet";
 import L from "leaflet";
 import { Globe } from "lucide-react";
 import "leaflet/dist/leaflet.css";
@@ -8,7 +8,7 @@ import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import type { NavigationState, Filters, Club } from "../types/types";
 import type { UserRoleConfig } from "../data/roles";
 import { canClickProvince } from "../data/roles";
-import { getMapaClubes, getMapaProvinciasResumen } from "../data/mapaApi";
+import { getMapaClubes, getMapaProvinciasResumen, getMapaClubesLogos } from "../data/mapaApi";
 import { argentinaProvinces } from "../data/argentinaGeoJson";
 import MarkerClusterGroup from "./ClusterGroup";
 import MapViewController from "./MapViewController";
@@ -25,6 +25,90 @@ interface LeafletMapProps {
   onNavigateCountry?: () => void;
 }
 
+// Componente para detectar cambios de zoom y viewport
+function MapEventListener({
+  clubs,
+  logos,
+  setLogos,
+  navigation,
+  requestedLogosRef,
+}: {
+  clubs: Club[];
+  logos: Record<number, string | null>;
+  setLogos: (logos: Record<number, string | null>) => void;
+  navigation: NavigationState;
+  requestedLogosRef: React.MutableRefObject<Set<number>>;
+}) {
+  const map = useMapEvents({
+    zoomend: () => {
+      checkAndRequestLogos();
+    },
+    moveend: () => {
+      checkAndRequestLogos();
+    },
+  });
+
+  const checkAndRequestLogos = () => {
+    const zoom = map.getZoom();
+    const bounds = map.getBounds();
+    
+    // Solicitar logos según el nivel de navegación
+    let visibleClubIds: number[] = [];
+    
+    if (navigation.level === "country") {
+      // En vista país, solo solicitar logos si zoom es alto
+      if (zoom >= 11) {
+        visibleClubIds = getVisibleClubsInBounds(clubs, bounds);
+      }
+    } else if (navigation.level === "province") {
+      // En vista provincia, siempre solicitar logos de todos los clubes
+      visibleClubIds = clubs.map(c => c.id_club);
+    } else if (navigation.level === "city") {
+      // En vista ciudad, siempre solicitar logos de todos los clubes visibles
+      visibleClubIds = clubs.map(c => c.id_club);
+    }
+
+    if (visibleClubIds.length > 0) {
+      requestLogos(visibleClubIds);
+    }
+  };
+
+  const requestLogos = async (clubIds: number[]) => {
+    // Filtrar solo los que no hemos pedido ya
+    const idsToRequest = clubIds.filter(
+      (id) => !requestedLogosRef.current.has(id) && !(id in logos)
+    );
+
+    if (idsToRequest.length === 0) return;
+
+    try {
+      const newLogos = await getMapaClubesLogos(idsToRequest);
+      requestedLogosRef.current = new Set([
+        ...requestedLogosRef.current,
+        ...idsToRequest,
+      ]);
+      setLogos({ ...logos, ...newLogos });
+    } catch (error) {
+      console.error("Error fetching logos:", error);
+    }
+  };
+
+  return null;
+}
+
+// Helper: obtener clubes visibles dentro de los bounds del mapa
+function getVisibleClubsInBounds(
+  clubs: Club[],
+  bounds: L.LatLngBounds
+): number[] {
+  return clubs
+    .filter((club) => {
+      const latLng = L.latLng(club.lat, club.lng);
+      return bounds.contains(latLng);
+    })
+    .map((club) => club.id_club);
+}
+
 // ------- Componente de mapa con Leaflet
 function LeafletMap({
   filters,
@@ -39,6 +123,8 @@ function LeafletMap({
     Array<{ id_provincia: number; totalClubs: number; totalAthletes: number }>
   >([]);
   const [clubs, setClubs] = useState<Club[]>([]);
+  const [logos, setLogos] = useState<Record<number, string | null>>({});
+  const requestedLogosRef = useRef<Set<number>>(new Set());
 
   const isAbortError = (error: unknown): boolean => {
     if (error instanceof DOMException && error.name === "AbortError") {
@@ -90,6 +176,10 @@ function LeafletMap({
         }
 
         setClubs(scopedClubs);
+        
+        // Limpiar cache de logos cuando cambian los filtros o navegación
+        setLogos({});
+        requestedLogosRef.current.clear();
       } catch (error) {
         if (!isAbortError(error)) {
           setProvStats([]);
@@ -308,7 +398,19 @@ function LeafletMap({
         {showClubMarkers && (
           <MarkerClusterGroup
             markers={clubMarkers}
+            logos={logos}
             onMarkerClick={onClubClick}
+          />
+        )}
+
+        {/* Detector de eventos del mapa para cargar logos bajo demanda */}
+        {showClubMarkers && (
+          <MapEventListener
+            clubs={clubs}
+            logos={logos}
+            setLogos={setLogos}
+            navigation={navigation}
+            requestedLogosRef={requestedLogosRef}
           />
         )}
 
