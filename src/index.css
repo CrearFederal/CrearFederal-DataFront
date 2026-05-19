@@ -117,6 +117,14 @@
   .fade-up {
     animation: fadeUp 0.4s ease-out;
   }
+
+  .spring-open {
+    animation: springOpen 0.52s cubic-bezier(0.16, 1, 0.3, 1);
+  }
+
+  .spring-close {
+    animation: springClose 0.38s ease-in forwards;
+  }
 }
 
 @keyframes slideInRight {
@@ -127,6 +135,18 @@
 @keyframes fadeUp {
   from { transform: translateY(12px); opacity: 0; }
   to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes springOpen {
+  0% { transform: translateY(22px) scale(0.94); opacity: 0; }
+  60% { transform: translateY(-6px) scale(1.02); opacity: 1; }
+  82% { transform: translateY(2px) scale(0.995); }
+  100% { transform: translateY(0) scale(1); opacity: 1; }
+}
+
+@keyframes springClose {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(16px) scale(0.96); opacity: 0; }
 }
 
 @keyframes pulse-glow {
@@ -229,6 +249,8 @@
   border: 1px solid hsl(220, 15%, 88%) !important;
   border-radius: 8px !important;
   padding: 6px 10px !important;
+  min-width: 180px !important;
+  width: max-content !important;
   font-size: 12px !important;
   box-shadow: 0 2px 8px rgba(0,0,0,0.12) !important;
 }
@@ -241,6 +263,8 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  width: 100%;
+  white-space: nowrap;
 }
 
 .club-tooltip-logo {
@@ -249,6 +273,11 @@
   border-radius: 50%;
   object-fit: cover;
   border: 1px solid hsl(220, 15%, 88%);
+}
+
+.club-tooltip-content span {
+  display: block;
+  flex: 1;
 }
 
 .province-tooltip-container {

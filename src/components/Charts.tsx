@@ -1,7 +1,7 @@
 import * as echarts from 'echarts';
 import 'echarts-gl';
-import { useEffect, useMemo, useRef } from 'react';
-import { Volleyball, Users, BarChart3, MapPin, Building2 } from 'lucide-react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Volleyball, Users, BarChart3, MapPin, Building2, Play, Pause } from 'lucide-react';
 import type { MunicipiosTop10ContextoResponse } from "../types/Municipios";
 import type { ProvinciasTop10ContextoResponse } from "../types/Provincias";
 import type { TopClubRankingItem } from "../types/Clubes";
@@ -19,16 +19,20 @@ interface ChartCardProps {
   icon?: React.ReactNode;
   children: React.ReactNode;
   className?: string;
+  headerAction?: React.ReactNode;
 }
 
-function ChartCard({ title, subtitle, icon, children, className = "" }: ChartCardProps) {
+function ChartCard({ title, subtitle, icon, children, className = "", headerAction }: ChartCardProps) {
   return (
     <div className={`rounded-xl border border-border bg-card p-4 flex flex-col ${className}`}>
       <div className="mb-3">
-        <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
-          {icon}
-          <span>{title}</span>
-        </h3>
+        <div className="flex items-center justify-between gap-2 mb-1">
+          <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+            {icon}
+            <span>{title}</span>
+          </h3>
+          {headerAction}
+        </div>
         {subtitle && <p className="text-xs text-muted-foreground mt-0.5">{subtitle}</p>}
       </div>
       {children}
@@ -42,6 +46,8 @@ interface AthletesPerSportChartProps {
 
 export function AthletesPerSportChart({ data }: AthletesPerSportChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
+  const chartInstanceRef = useRef<any>(null);
+  const [isPaused, setIsPaused] = useState(false);
 
   useEffect(() => {
     if (!chartRef.current || data.length === 0) return;
@@ -51,6 +57,7 @@ export function AthletesPerSportChart({ data }: AthletesPerSportChartProps) {
       .slice(0, 5);
 
     const chart = echarts.init(chartRef.current, "light");
+    chartInstanceRef.current = chart;
     const sports = topSports.map((d) => d.sport);
     const genders = ["Masculino", "Femenino"];
     const bar3dData: [number, number, number][] = [];
@@ -90,7 +97,7 @@ export function AthletesPerSportChart({ data }: AthletesPerSportChartProps) {
         axisPointer: { show: false },
         splitLine: { lineStyle: { color: "rgba(100, 116, 139, 0.18)" } },
         viewControl: {
-          autoRotate: true,
+          autoRotate: !isPaused,
           autoRotateSpeed: 8,
           autoRotateAfterStill: 0,
           projection: "perspective",
@@ -210,7 +217,7 @@ export function AthletesPerSportChart({ data }: AthletesPerSportChartProps) {
       window.removeEventListener("resize", handleResize);
       chart.dispose();
     };
-  }, [data]);
+  }, [data, isPaused]);
 
   return (
     <ChartCard
@@ -219,6 +226,17 @@ export function AthletesPerSportChart({ data }: AthletesPerSportChartProps) {
       icon={<Volleyball className="h-4 w-4 text-primary" />}
     >
       <div ref={chartRef} style={{ width: "100%", height: "480px", position: "relative" }} />
+      <button
+        onClick={() => setIsPaused(!isPaused)}
+        className="self-start p-1 rounded-lg text-primary hover:bg-primary hover:text-white transition-colors flex items-center gap-1.5"
+        title={isPaused ? "Reanudar rotación" : "Pausar rotación"}
+      >
+        {isPaused ? (
+          <Play className="h-5 w-5" />
+        ) : (
+          <Pause className="h-5 w-5" />
+        )}
+      </button>
     </ChartCard>
   );
 }
@@ -342,81 +360,147 @@ function buildHistogramBins(ages: number[]): { label: string; count: number }[] 
 interface AgeDistributionChartProps {
   ages: number[];
   fillHeight?: boolean;
+  showCard?: boolean;
+  genero?: "femenino" | "masculino";
 }
 
-export function AgeDistributionChart({ ages, fillHeight = false }: AgeDistributionChartProps) {
+export function AgeDistributionChart({ ages, fillHeight = false, showCard = true, genero }: AgeDistributionChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
-  const bins = buildHistogramBins(ages);
+  const bins = useMemo(() => buildHistogramBins(ages), [ages]);
+  
+  const barColor = genero === "femenino" ? C_FEMALE : C_MALE;
+  const tooltipColor = genero === "femenino" ? C_FEMALE : C_MALE;
 
   useEffect(() => {
     if (!chartRef.current || bins.length === 0) return;
 
-    const chart = echarts.init(chartRef.current, "light");
+    const chartDom = chartRef.current;
+    let chart: echarts.ECharts | null = null;
+    let disposed = false;
 
-    chart.setOption({
-      backgroundColor: "transparent",
-      tooltip: {
-        trigger: "axis",
-        axisPointer: { type: "none" },
-        backgroundColor: "rgba(255, 255, 255, 0.98)",
-        borderColor: "rgba(148, 163, 184, 0.35)",
-        borderWidth: 1,
-        textStyle: { fontSize: 12, color: "#0f172a" },
-        formatter: (params: any[]) => {
-          const p = params[0];
-          return `<span style="font-weight:600;color:#0f172a;">${p.name} años</span><br/>
-            <span style="color:${C_AXIS};">Deportistas: </span>
-            <span style="font-weight:700;color:${C_BLUE_MAIN};">${p.value.toLocaleString("es-AR")}</span>`;
-        },
-      },
-      grid: { left: 40, right: 16, top: 28, bottom: 32 },
-      xAxis: {
-        type: "category",
-        data: bins.map((b) => b.label),
-        axisLine: { lineStyle: { color: "hsl(215, 30%, 88%)" } },
-        axisTick: { show: false },
-        axisLabel: { fontSize: 10, color: C_AXIS, fontFamily: "inherit", interval: 0 },
-      },
-      yAxis: {
-        type: "value",
-        splitLine: { lineStyle: { color: "hsl(215, 20%, 85%)", type: "dashed" } },
-        axisLine: { show: false },
-        axisTick: { show: false },
-        axisLabel: {
-          fontSize: 10,
-          color: C_AXIS,
-          fontFamily: "inherit",
-          formatter: (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)),
-        },
-      },
-      series: [
-        {
-          type: "bar",
-          data: bins.map((b) => ({ value: b.count })),
-          barCategoryGap: "1%",
-          itemStyle: { color: C_BLUE_MAIN },
-          label: {
-            show: true,
-            position: "inside",
-            fontSize: 10,
-            fontWeight: 600,
-            color: "#ffffff",
-            fontFamily: "inherit",
-            formatter: (params: any) => (params.value > 0 ? params.value.toLocaleString("es-AR") : ""),
+    const initChart = () => {
+      if (disposed || !chartDom.isConnected) return false;
+      if (chartDom.clientWidth === 0 || chartDom.clientHeight === 0) return false;
+
+      chart = echarts.init(chartDom, "light");
+
+      chart.setOption({
+        backgroundColor: "transparent",
+        tooltip: {
+          trigger: "axis",
+          axisPointer: { type: "none" },
+          backgroundColor: "rgba(255, 255, 255, 0.98)",
+          borderColor: "rgba(148, 163, 184, 0.35)",
+          borderWidth: 1,
+          textStyle: { fontSize: 12, color: "#0f172a" },
+          formatter: (params: any[]) => {
+            const p = params[0];
+            return `<span style="font-weight:600;color:#0f172a;">${p.name} años</span><br/>
+              <span style="color:${C_AXIS};">Deportistas: </span>
+              <span style="font-weight:700;color:${tooltipColor};">${p.value.toLocaleString("es-AR")}</span>`;
           },
-          emphasis: { itemStyle: { opacity: 0.85 } },
         },
-      ],
-    }, true);
+        grid: { left: 40, right: 16, top: 28, bottom: 32 },
+        xAxis: {
+          type: "category",
+          data: bins.map((b) => b.label),
+          axisLine: { lineStyle: { color: "hsl(215, 30%, 88%)" } },
+          axisTick: { show: false },
+          axisLabel: { fontSize: 10, color: C_AXIS, fontFamily: "inherit", interval: 0 },
+        },
+        yAxis: {
+          type: "value",
+          splitLine: { lineStyle: { color: "hsl(215, 20%, 85%)", type: "dashed" } },
+          axisLine: { show: false },
+          axisTick: { show: false },
+          axisLabel: {
+            fontSize: 10,
+            color: C_AXIS,
+            fontFamily: "inherit",
+            formatter: (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)),
+          },
+        },
+        series: [
+          {
+            type: "bar",
+            data: bins.map((b) => ({ value: b.count })),
+            barCategoryGap: "1%",
+            itemStyle: { color: barColor },
+            animationDuration: 1200,
+            animationDurationUpdate: 900,
+            animationDelay: (idx: number) => idx * 35,
+            animationDelayUpdate: (idx: number) => idx * 35,
+            animationEasing: "cubicOut",
+            animationEasingUpdate: "cubicOut",
+            label: {
+              show: true,
+              position: "inside",
+              fontSize: 10,
+              fontWeight: 600,
+              color: "#ffffff",
+              fontFamily: "inherit",
+              formatter: (params: any) => (params.value > 0 ? params.value.toLocaleString("es-AR") : ""),
+            },
+            emphasis: { itemStyle: { opacity: 0.85 } },
+          },
+        ],
+      }, true);
 
-    const handleResize = () => chart.resize();
-    window.addEventListener("resize", handleResize);
+      const handleResize = () => chart?.resize();
+      window.addEventListener("resize", handleResize);
+
+      cleanup = () => {
+        window.removeEventListener("resize", handleResize);
+        chart?.dispose();
+        chart = null;
+      };
+
+      return true;
+    };
+
+    let cleanup = () => {};
+
+    if (!initChart()) {
+      const observer = new ResizeObserver(() => {
+        if (initChart()) {
+          observer.disconnect();
+        }
+      });
+
+      observer.observe(chartDom);
+
+      const retryFrame = window.requestAnimationFrame(() => {
+        if (initChart()) {
+          observer.disconnect();
+        }
+      });
+
+      cleanup = () => {
+        window.cancelAnimationFrame(retryFrame);
+        observer.disconnect();
+        chart?.dispose();
+        chart = null;
+      };
+    }
 
     return () => {
-      window.removeEventListener("resize", handleResize);
-      chart.dispose();
+      disposed = true;
+      cleanup();
     };
-  }, [bins]);
+  }, [bins, barColor, tooltipColor]);
+
+  const chartContent = (
+    <div
+      className={fillHeight ? "flex-1 min-h-0" : ""}
+      style={{ width: "100%", height: fillHeight ? "100%" : "190px" }}
+    >
+      <div ref={chartRef} style={{ width: "100%", height: "100%" }} />
+    </div>
+  );
+
+  if (!showCard) {
+    return chartContent;
+  }
 
   return (
     <ChartCard
@@ -425,12 +509,7 @@ export function AgeDistributionChart({ ages, fillHeight = false }: AgeDistributi
       icon={<BarChart3 className="h-4 w-4 text-primary" />}
       className={fillHeight ? "h-full" : ""}
     >
-      <div
-        className={fillHeight ? "flex-1 min-h-0" : ""}
-        style={{ width: "100%", height: fillHeight ? "100%" : "190px" }}
-      >
-        <div ref={chartRef} style={{ width: "100%", height: "100%" }} />
-      </div>
+      {chartContent}
     </ChartCard>
   );
 }
@@ -447,7 +526,7 @@ export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
   );
   const provinciaLogueadaId = data?.provinciaLogueada?.id ?? null;
 
-  const getDisplayName = (nombre: string) => 
+  const getDisplayName = (nombre: string) =>
     nombre === "Ciudad Autónoma de Buenos Aires (CABA)" ? "CABA" : nombre;
 
   const isHighlightedProvince = (provinciaId: number) => {
@@ -635,18 +714,26 @@ export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
 
 interface ClubRankingChartProps {
   data: TopClubRankingItem[];
+  height?: number;
+  customHeight?: number;
+  onClubClick?: (clubId: number) => void;
 }
 
-export function ClubRankingChart({ data }: ClubRankingChartProps) {
+export function ClubRankingChart({ data, height = 360, customHeight, onClubClick }: ClubRankingChartProps) {
+  const finalHeight = customHeight ?? height;
   const chartRef = useRef<HTMLDivElement>(null);
-  const top10 = [...data].sort((a, b) => b.totalDeportistas - a.totalDeportistas).slice(0, 10).reverse();
+  const top10 = useMemo(
+    () => [...data].sort((a, b) => b.totalDeportistas - a.totalDeportistas).slice(0, 10).reverse(),
+    [data]
+  );
 
   useEffect(() => {
     if (!chartRef.current || top10.length === 0) return;
 
     const chart = echarts.init(chartRef.current, "light");
     const labels = top10.map((d) => d.nombre_corto || d.nombre);
-    const totals = top10.map((d) => d.totalDeportistas);
+    const totals = top10.map((d) => ({ value: d.totalDeportistas, id_club: d.id_club }));
+    const initialTotals = totals.map((item) => ({ value: 0, id_club: item.id_club }));
 
     const insideLabel = () => ({
       show: true,
@@ -678,7 +765,7 @@ export function ClubRankingChart({ data }: ClubRankingChartProps) {
             <span style="font-size:11px;">${item.nombreMunicipio || ""} - ${item.nombreProvincia || ""}</span>`;
         },
       },
-      grid: { left: 120, right: 32, top: 12, bottom: 24 },
+      grid: { left: 90, right: 20, top: 12, bottom: 24 },
       xAxis: {
         type: "value",
         splitLine: { lineStyle: { color: "hsl(215, 20%, 85%)", type: "dashed" } },
@@ -703,34 +790,77 @@ export function ClubRankingChart({ data }: ClubRankingChartProps) {
           name: "Deportistas",
           type: "bar",
           barMaxWidth: 28,
-          data: totals,
+          data: initialTotals,
           itemStyle: { color: C_MALE, borderRadius: [0, 8, 8, 0] },
           label: insideLabel(),
           emphasis: { itemStyle: { opacity: 0.85 } },
-          animationDuration: 800,
+          animationDuration: 900,
+          animationDurationUpdate: 1100,
+          animationDelay: (idx: number) => idx * 90,
+          animationDelayUpdate: (idx: number) => idx * 90,
           animationEasing: "cubicOut",
+          animationEasingUpdate: "cubicOut",
         },
       ],
-    }, true);
+    },true);
 
-    const handleResize = () => chart.resize();
-    window.addEventListener("resize", handleResize);
+    const handleChartClick = (params: any) => {
+      const clubId = params?.data?.id_club ?? top10[params?.dataIndex ?? -1]?.id_club;
 
-    return () => {
-      window.removeEventListener("resize", handleResize);
-      chart.dispose();
+      if (typeof clubId === "number" && onClubClick) {
+        onClubClick(clubId);
+      }
     };
-  }, [top10]);
 
-  return (
-    <ChartCard
-      title="Top Clubes"
-      subtitle="Por cantidad de deportistas registrados"
-      icon={<Building2 className="h-4 w-4 text-primary" />}
-    >
-      <div ref={chartRef} style={{ width: "100%", height: "360px" }} />
-    </ChartCard>
-  );
+    chart.on("click", handleChartClick);
+
+  const dataRevealFrame = window.setTimeout(() => {
+    chart.setOption(
+      {
+        series: [
+          {
+            name: "Deportistas",
+            data: totals,
+          },
+        ],
+      },
+      false,
+      true
+    );
+  }, 80);
+
+  const handleResize = () => chart.resize();
+  const chartContainer = chartRef.current;
+  const resizeObserver = typeof ResizeObserver !== "undefined"
+    ? new ResizeObserver(() => chart.resize())
+    : null;
+
+  resizeObserver?.observe(chartContainer);
+  window.addEventListener("resize", handleResize);
+
+  const initialResizeFrame = window.requestAnimationFrame(() => {
+    chart.resize();
+  });
+
+  return () => {
+    window.clearTimeout(dataRevealFrame);
+    chart.off("click", handleChartClick);
+    resizeObserver?.disconnect();
+    window.cancelAnimationFrame(initialResizeFrame);
+    window.removeEventListener("resize", handleResize);
+    chart.dispose();
+  };
+}, [top10, finalHeight]);
+
+return (
+  <ChartCard
+    title="Top Clubes"
+    subtitle="Por cantidad de deportistas registrados"
+    icon={<Building2 className="h-4 w-4 text-primary" />}
+  >
+    <div ref={chartRef} style={{ width: "100%", height: `${finalHeight}px` }} />
+  </ChartCard>
+);
 }
 
 interface MunicipioRankingChartProps {

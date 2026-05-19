@@ -1,6 +1,6 @@
 import { instanceAxios } from "../api/axios";
 import type { Filters } from "../types/types";
-import type { MapaClub, MapaClubRaw, ProvinciaResumen, ProvinciaResumenRaw } from "../types/Mapa";
+import type { MapaClub, MapaClubRaw, ProvinciaResumen, ProvinciaResumenRaw, ClubLogosResponse } from "../types/Mapa";
 
 const toNumber = (value: string | number): number => {
   if (typeof value === "number") return value;
@@ -57,4 +57,34 @@ export const getMapaProvinciasResumen = async (
   });
 
   return data.map(toProvinciaResumen);
+};
+
+export const getMapaClubesLogos = async (
+  clubIds: number[],
+  signal?: AbortSignal
+): Promise<Record<number, string | null>> => {
+  if (clubIds.length === 0) {
+    return {};
+  }
+
+  try {
+    const { data } = await instanceAxios.get<ClubLogosResponse>("/mapa/clubes/logos", {
+      signal,
+      params: {
+        ids: clubIds.join(","),
+      },
+    });
+
+    // Convertir array a mapa por id_club para acceso rápido
+    const logosMap: Record<number, string | null> = {};
+    data.logos.forEach((logo) => {
+      logosMap[logo.id_club] = logo.logoUrl;
+    });
+
+    return logosMap;
+  } catch (error) {
+    // En caso de error, retornar un mapa vacío
+    console.error("Error fetching logos:", error);
+    return {};
+  }
 };
