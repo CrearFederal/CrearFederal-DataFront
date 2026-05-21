@@ -248,9 +248,10 @@ interface GenderDistributionChartProps {
     malePercent: number;
     femalePercent: number;
   };
+  subtitle?: string;
 }
 
-export function GenderDistributionChart({ data }: GenderDistributionChartProps) {
+export function GenderDistributionChart({ data, subtitle = "Porcentajes de deportistas activos por género" }: GenderDistributionChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -331,7 +332,7 @@ export function GenderDistributionChart({ data }: GenderDistributionChartProps) 
   return (
     <ChartCard
       title="Distribución por Género"
-      subtitle="Porcentajes de deportistas activos por género"
+      subtitle={subtitle}
       icon={<Users className="h-4 w-4 text-primary" />}
     >
       <div ref={chartRef} style={{ width: "100%", height: "360px" }} />
