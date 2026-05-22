@@ -1,5 +1,6 @@
 import { useMemo } from "react";
 import type { ReactNode } from "react";
+import { ChevronRight } from "lucide-react";
 
 interface KpiCardProps {
   title: string;
@@ -41,9 +42,14 @@ function KpiCard({ title, value, icon, subtitle, onClick }: KpiCardProps) {
           )}
         </div>
 
-        {/* Icon */}
-        <div className="rounded-lg bg-primary/10 p-2 text-primary shrink-0 transition-colors group-hover:bg-primary/15">
-          {icon}
+        {/* Icon + click hint */}
+        <div className="flex flex-col items-center gap-1 shrink-0">
+          <div className="rounded-lg bg-primary/10 p-2 text-primary transition-colors group-hover:bg-primary/15">
+            {icon}
+          </div>
+          {onClick && (
+            <ChevronRight className="h-4 w-4 text-muted-foreground/60 group-hover:text-primary transition-colors" />
+          )}
         </div>
       </div>
     </>
