@@ -11,7 +11,7 @@ import LeafletMap from "../components/LeafletMap";
 import ClubDetailPanel from "../components/ClubDetailPanel";
 import KpiCard from "../components/KpiCard";
 import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, MunicipioRankingChart, ClubRankingChart } from "../components/Charts";
-import { BarChart3, Building2, Users, Medal, MapPin, X, Venus, Mars } from "lucide-react";
+import { BarChart3, Building2, Users, Medal, MapPin, X, Venus, Mars, TrendingUp } from "lucide-react";
 import type { ClubesTotalesResponse } from "../types/Clubes";
 import type { DeportistasGenerosResponse, DeportistasTotalesResponse } from "../types/Deportistas";
 import { getTopDeportes, getEdadesHistograma } from "../data/statsApi";
@@ -21,7 +21,8 @@ import { getMunicipiosTop10 } from "../data/municipiosApi";
 import { getProvinciasTop10 } from "../data/provinciasApi";
 import { getTopClubes, getTopClubesDetalle } from "../data/clubesApi";
 import type { MunicipiosTop10ContextoResponse } from "../types/Municipios";
-import type { ProvinciasTop10ContextoResponse } from "../types/Provincias";
+import type { ProvinciasTop10ContextoResponse, ProvinciaRanking } from "../types/Provincias";
+import { POBLACION_PROVINCIAS } from "../data/argentinaPopulation";
 import type { TopClubRankingItem, TopClubesDetalleResponse } from "../types/Clubes";
 import type { Club } from "../types/types";
 
@@ -70,6 +71,17 @@ function Dashboard() {
   const TOTAL_DEPORTISTAS_DETAIL_DELAY_MS = 280;
   const TOTAL_DEPORTISTAS_SUBTITLE_DELAY_MS = 460;
   const TOTAL_DEPORTISTAS_CHART_DELAY_MS = 820;
+  const DEPORTES_MODAL_ANIMATION_MS = 760;
+  const DEPORTES_HEADER_DELAY_MS = 120;
+  const DEPORTES_DETAIL_DELAY_MS = 280;
+  const DEPORTES_CHART_DELAY_MS = 460;
+  const DEPORTE_LIDER_MODAL_ANIMATION_MS = 760;
+  const DEPORTE_LIDER_HEADER_DELAY_MS = 120;
+  const DEPORTE_LIDER_DETAIL_DELAY_MS = 280;
+  const DEPORTE_LIDER_CHART_DELAY_MS = 460;
+  const PROVINCIA_RANKING_MODAL_ANIMATION_MS = 760;
+  const PROVINCIA_RANKING_HEADER_DELAY_MS = 120;
+  const PROVINCIA_RANKING_DETAIL_DELAY_MS = 280;
   const [roleConfig, setRoleConfig] = useState<UserRoleConfig | null>(null);
   const [navigation, setNavigation] = useState<NavigationState>({ level: "country" });
   const [filters, setFilters] = useState<Filters>({ sports: [], gender: [], ageRange: [6, 60] });
@@ -97,10 +109,28 @@ function Dashboard() {
   const [genderSplitAnimated, setGenderSplitAnimated] = useState(false);
   const [edadesFemenino, setEdadesFemenino] = useState<number[] | null>(null);
   const [edadesMasculino, setEdadesMasculino] = useState<number[] | null>(null);
+  const [isDeportesRendered, setIsDeportesRendered] = useState(false);
+  const [isDeportesVisible, setIsDeportesVisible] = useState(false);
+  const [deportesContentStage, setDeportesContentStage] = useState(0);
+  const [deportesModalOrigin, setDeportesModalOrigin] = useState<DOMRect | null>(null);
+  const [isDeporteLiderRendered, setIsDeporteLiderRendered] = useState(false);
+  const [isDeporteLiderVisible, setIsDeporteLiderVisible] = useState(false);
+  const [deporteLiderContentStage, setDeporteLiderContentStage] = useState(0);
+  const [deporteLiderModalOrigin, setDeporteLiderModalOrigin] = useState<DOMRect | null>(null);
+  const [selectedProvinciaRanking, setSelectedProvinciaRanking] = useState<ProvinciaRanking | null>(null);
+  const [isProvinciaRankingRendered, setIsProvinciaRankingRendered] = useState(false);
+  const [isProvinciaRankingVisible, setIsProvinciaRankingVisible] = useState(false);
+  const [provinciaRankingContentStage, setProvinciaRankingContentStage] = useState(0);
   const totalClubesCloseTimerRef = useRef<number | null>(null);
   const totalClubesStageTimersRef = useRef<number[]>([]);
   const totalDeportistasCloseTimerRef = useRef<number | null>(null);
   const totalDeportistasStageTimersRef = useRef<number[]>([]);
+  const deportesCloseTimerRef = useRef<number | null>(null);
+  const deportesStageTimersRef = useRef<number[]>([]);
+  const deporteLiderCloseTimerRef = useRef<number | null>(null);
+  const deporteLiderStageTimersRef = useRef<number[]>([]);
+  const provinciaRankingCloseTimerRef = useRef<number | null>(null);
+  const provinciaRankingStageTimersRef = useRef<number[]>([]);
 
   const getTotalClubesModalTarget = () => {
     if (typeof window === "undefined") return null;
@@ -619,6 +649,70 @@ function Dashboard() {
     [deportistasTotales]
   );
 
+  const deportesInsights = useMemo(() => {
+    if (!topDeportes?.length) return null;
+    const withPct = topDeportes.map((d) => ({
+      ...d,
+      total: d.male + d.female,
+      pctF: d.male + d.female > 0 ? Math.round((d.female / (d.male + d.female)) * 100) : 0,
+      pctM: d.male + d.female > 0 ? Math.round((d.male / (d.male + d.female)) * 100) : 0,
+    }));
+    return {
+      masFemenino: [...withPct].sort((a, b) => b.pctF - a.pctF)[0],
+      masMasculino: [...withPct].sort((a, b) => b.pctM - a.pctM)[0],
+    };
+  }, [topDeportes]);
+
+  const deporteLiderStats = useMemo(() => {
+    if (!deportistasTotales?.deporteLider || !topDeportes?.length) return null;
+    const lider = topDeportes.find(
+      (d) => d.sport.toLowerCase() === deportistasTotales.deporteLider.toLowerCase()
+    ) ?? topDeportes[0];
+    const segundo = topDeportes.find((d) => d !== lider);
+    const total = lider.male + lider.female;
+    const pctF = total > 0 ? Math.round((lider.female / total) * 100) : 0;
+    const pctM = total > 0 ? Math.round((lider.male / total) * 100) : 0;
+    const pctDelTotal =
+      deportistasTotales.deportistas > 0
+        ? Math.round((deportistasTotales.cantidadDeportistas / deportistasTotales.deportistas) * 100)
+        : 0;
+    return { lider, segundo, pctF, pctM, pctDelTotal };
+  }, [deportistasTotales, topDeportes]);
+
+  const provinciaRankingStats = useMemo(() => {
+    if (!selectedProvinciaRanking || !provinciasTop10?.provincias.length) return null;
+    const todas = provinciasTop10.provincias;
+    const totalNacional = todas.reduce((acc, p) => acc + p.totalAthletes, 0);
+    const pctNacional =
+      totalNacional > 0
+        ? parseFloat(((selectedProvinciaRanking.totalAthletes / totalNacional) * 100).toFixed(1))
+        : 0;
+    const poblacion = POBLACION_PROVINCIAS[selectedProvinciaRanking.id] ?? null;
+    const pctPoblacion =
+      poblacion && poblacion > 0
+        ? parseFloat(((selectedProvinciaRanking.totalAthletes / poblacion) * 100).toFixed(2))
+        : null;
+    const rankingPorPoblacion = poblacion
+      ? [...todas]
+          .filter((p) => POBLACION_PROVINCIAS[p.id])
+          .map((p) => ({
+            id: p.id,
+            pct: parseFloat(((p.totalAthletes / POBLACION_PROVINCIAS[p.id]) * 100).toFixed(2)),
+          }))
+          .sort((a, b) => b.pct - a.pct)
+          .findIndex((p) => p.id === selectedProvinciaRanking.id) + 1
+      : null;
+    const pctF =
+      selectedProvinciaRanking.totalAthletes > 0
+        ? Math.round((selectedProvinciaRanking.totalMujeres / selectedProvinciaRanking.totalAthletes) * 100)
+        : 0;
+    const pctM =
+      selectedProvinciaRanking.totalAthletes > 0
+        ? Math.round((selectedProvinciaRanking.totalHombres / selectedProvinciaRanking.totalAthletes) * 100)
+        : 0;
+    return { pctNacional, poblacion, pctPoblacion, rankingPorPoblacion, pctF, pctM };
+  }, [selectedProvinciaRanking, provinciasTop10]);
+
   const getAgeRangeFromAverage = (average: number | undefined) => {
     if (typeof average !== "number" || !Number.isFinite(average) || average <= 0) return null;
     const center = Math.round(average);
@@ -696,6 +790,103 @@ function Dashboard() {
     [edadesFemenino, edadesMasculino]
   );
 
+  const getModalTarget = () => {
+    if (typeof window === "undefined") return null;
+    const width = Math.min(1120, window.innerWidth - 32);
+    const height = Math.min(620, window.innerHeight - 32);
+    const left = Math.round((window.innerWidth - width) / 2);
+    const top = Math.round((window.innerHeight - height) / 2);
+    return { left, top, width, height };
+  };
+
+  const openDeportesModal = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (deportesCloseTimerRef.current !== null) {
+      window.clearTimeout(deportesCloseTimerRef.current);
+      deportesCloseTimerRef.current = null;
+    }
+    deportesStageTimersRef.current.forEach((t) => window.clearTimeout(t));
+    deportesStageTimersRef.current = [];
+    setDeportesModalOrigin(event.currentTarget.getBoundingClientRect());
+    setIsDeportesRendered(true);
+    setDeportesContentStage(0);
+    window.requestAnimationFrame(() => setIsDeportesVisible(true));
+    deportesStageTimersRef.current.push(window.setTimeout(() => setDeportesContentStage(1), DEPORTES_HEADER_DELAY_MS));
+    deportesStageTimersRef.current.push(window.setTimeout(() => setDeportesContentStage(2), DEPORTES_DETAIL_DELAY_MS));
+    deportesStageTimersRef.current.push(window.setTimeout(() => setDeportesContentStage(3), DEPORTES_CHART_DELAY_MS));
+  };
+
+  const closeDeportesModal = () => {
+    setIsDeportesVisible(false);
+    setDeportesContentStage(0);
+    deportesStageTimersRef.current.forEach((t) => window.clearTimeout(t));
+    deportesStageTimersRef.current = [];
+    if (deportesCloseTimerRef.current !== null) window.clearTimeout(deportesCloseTimerRef.current);
+    deportesCloseTimerRef.current = window.setTimeout(() => {
+      setIsDeportesRendered(false);
+      setDeportesModalOrigin(null);
+      deportesCloseTimerRef.current = null;
+    }, DEPORTES_MODAL_ANIMATION_MS);
+  };
+
+  const openDeporteLiderModal = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (deporteLiderCloseTimerRef.current !== null) {
+      window.clearTimeout(deporteLiderCloseTimerRef.current);
+      deporteLiderCloseTimerRef.current = null;
+    }
+    deporteLiderStageTimersRef.current.forEach((t) => window.clearTimeout(t));
+    deporteLiderStageTimersRef.current = [];
+    setDeporteLiderModalOrigin(event.currentTarget.getBoundingClientRect());
+    setIsDeporteLiderRendered(true);
+    setDeporteLiderContentStage(0);
+    window.requestAnimationFrame(() => setIsDeporteLiderVisible(true));
+    deporteLiderStageTimersRef.current.push(window.setTimeout(() => setDeporteLiderContentStage(1), DEPORTE_LIDER_HEADER_DELAY_MS));
+    deporteLiderStageTimersRef.current.push(window.setTimeout(() => setDeporteLiderContentStage(2), DEPORTE_LIDER_DETAIL_DELAY_MS));
+    deporteLiderStageTimersRef.current.push(window.setTimeout(() => setDeporteLiderContentStage(3), DEPORTE_LIDER_CHART_DELAY_MS));
+  };
+
+  const closeDeporteLiderModal = () => {
+    setIsDeporteLiderVisible(false);
+    setDeporteLiderContentStage(0);
+    deporteLiderStageTimersRef.current.forEach((t) => window.clearTimeout(t));
+    deporteLiderStageTimersRef.current = [];
+    if (deporteLiderCloseTimerRef.current !== null) window.clearTimeout(deporteLiderCloseTimerRef.current);
+    deporteLiderCloseTimerRef.current = window.setTimeout(() => {
+      setIsDeporteLiderRendered(false);
+      setDeporteLiderModalOrigin(null);
+      deporteLiderCloseTimerRef.current = null;
+    }, DEPORTE_LIDER_MODAL_ANIMATION_MS);
+  };
+
+  const handleProvinciaBarClick = (provinciaId: number) => {
+    const prov = provinciasTop10?.provincias.find((p) => p.id === provinciaId);
+    if (!prov) return;
+    if (provinciaRankingCloseTimerRef.current !== null) {
+      window.clearTimeout(provinciaRankingCloseTimerRef.current);
+      provinciaRankingCloseTimerRef.current = null;
+    }
+    provinciaRankingStageTimersRef.current.forEach((t) => window.clearTimeout(t));
+    provinciaRankingStageTimersRef.current = [];
+    setSelectedProvinciaRanking(prov);
+    setIsProvinciaRankingRendered(true);
+    setProvinciaRankingContentStage(0);
+    window.requestAnimationFrame(() => setIsProvinciaRankingVisible(true));
+    provinciaRankingStageTimersRef.current.push(window.setTimeout(() => setProvinciaRankingContentStage(1), PROVINCIA_RANKING_HEADER_DELAY_MS));
+    provinciaRankingStageTimersRef.current.push(window.setTimeout(() => setProvinciaRankingContentStage(2), PROVINCIA_RANKING_DETAIL_DELAY_MS));
+  };
+
+  const closeProvinciaRankingModal = () => {
+    setIsProvinciaRankingVisible(false);
+    setProvinciaRankingContentStage(0);
+    provinciaRankingStageTimersRef.current.forEach((t) => window.clearTimeout(t));
+    provinciaRankingStageTimersRef.current = [];
+    if (provinciaRankingCloseTimerRef.current !== null) window.clearTimeout(provinciaRankingCloseTimerRef.current);
+    provinciaRankingCloseTimerRef.current = window.setTimeout(() => {
+      setIsProvinciaRankingRendered(false);
+      setSelectedProvinciaRanking(null);
+      provinciaRankingCloseTimerRef.current = null;
+    }, PROVINCIA_RANKING_MODAL_ANIMATION_MS);
+  };
+
   if (authStatus === "loading") {
     return (
       <div className="min-h-screen bg-background flex items-center justify-center">
@@ -763,6 +954,7 @@ function Dashboard() {
             title="Cantidad de Deportes"
             value={deportistasTotales?.deportes ?? 0}
             subtitle="Disciplinas con deportistas activos"
+            onClick={openDeportesModal}
             icon={<BarChart3 className="h-5 w-5" />}
           />
           <KpiCard
@@ -777,6 +969,7 @@ function Dashboard() {
                 {" "}deportistas
               </span>
             }
+            onClick={openDeporteLiderModal}
             icon={<Medal className="h-5 w-5" />}
           />
         </div>
@@ -810,7 +1003,7 @@ function Dashboard() {
           {roleConfig.role === "municipality" ? (
             <MunicipioRankingChart data={municipiosTop10} />
           ) : (
-            <ProvinceRankingChart data={provinciasTop10} />
+            <ProvinceRankingChart data={provinciasTop10} onBarClick={handleProvinciaBarClick} />
           )}
           <GenderDistributionChart data={genderDistribution} />
           <ClubRankingChart
@@ -1132,6 +1325,317 @@ function Dashboard() {
           </div>
         </>
       )}
+
+      {/* DEPORTES MODAL */}
+      {isDeportesRendered && (() => {
+        const target = getModalTarget();
+        const origin = deportesModalOrigin;
+        const startLeft = origin ? Math.round(origin.left) : target?.left ?? 0;
+        const startTop = origin ? Math.round(origin.top) : target?.top ?? 0;
+        const startWidth = origin ? Math.round(origin.width) : target?.width ?? 0;
+        const startHeight = origin ? Math.round(origin.height) : target?.height ?? 0;
+        const endLeft = target?.left ?? startLeft;
+        const endTop = target?.top ?? startTop;
+        const endWidth = target?.width ?? startWidth;
+        const endHeight = target?.height ?? startHeight;
+        const modalStyle = isDeportesVisible
+          ? { left: `${endLeft}px`, top: `${endTop}px`, width: `${endWidth}px`, height: `${endHeight}px` }
+          : { left: `${startLeft}px`, top: `${startTop}px`, width: `${startWidth}px`, height: `${startHeight}px` };
+        return (
+          <>
+            <div
+              className={`fixed inset-0 z-40 bg-background/55 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isDeportesVisible ? "opacity-100 backdrop-blur-sm" : "opacity-0 backdrop-blur-0"}`}
+              onClick={closeDeportesModal}
+            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div
+                className={`fixed z-50 overflow-hidden rounded-xl border border-border bg-card shadow-2xl transform-gpu will-change-transform will-change-opacity transition-[left,top,width,height,opacity,transform,box-shadow] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${isDeportesVisible ? "opacity-100 scale-100" : "opacity-0 scale-[0.96]"}`}
+                style={{ ...modalStyle, background: "linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--surface-elevated)) 100%)" }}
+              >
+                <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-primary" />
+                <div className="absolute left-0 top-0 h-1 w-full rounded-t-xl bg-primary" />
+                <div className={`flex items-start justify-between px-5 pt-5 pb-3 transition-all duration-500 ${deportesContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
+                  <div>
+                    <h3 className="text-xl font-semibold text-foreground">
+                      <span className="text-primary">{deportistasTotales?.deportes ?? 0}</span> deportes activos
+                    </h3>
+                    <p className="text-sm text-muted-foreground mt-0.5">Disciplinas con deportistas registrados</p>
+                  </div>
+                  <button type="button" onClick={closeDeportesModal} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors" aria-label="Cerrar">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="px-4 pb-4 flex flex-col gap-3 h-[calc(100%-80px)] overflow-y-auto">
+                  {deportesInsights && (
+                    <div className={`grid grid-cols-2 gap-2 transition-all duration-500 ${deportesContentStage >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
+                      <div className="rounded-xl border border-pink-200 bg-pink-50 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-pink-600 mb-1 flex items-center gap-1">
+                          <Venus className="h-3 w-3" /> Mayor participación femenina
+                        </p>
+                        <p className="text-sm text-foreground font-semibold">{deportesInsights.masFemenino.sport}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          <span className="font-bold text-pink-600">{deportesInsights.masFemenino.pctF}%</span> de sus deportistas son mujeres
+                        </p>
+                      </div>
+                      <div className="rounded-xl border border-blue-200 bg-blue-50 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 mb-1 flex items-center gap-1">
+                          <Mars className="h-3 w-3" /> Mayor participación masculina
+                        </p>
+                        <p className="text-sm text-foreground font-semibold">{deportesInsights.masMasculino.sport}</p>
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          <span className="font-bold text-blue-600">{deportesInsights.masMasculino.pctM}%</span> de sus deportistas son hombres
+                        </p>
+                      </div>
+                    </div>
+                  )}
+                  {deportesContentStage >= 3 && (
+                    <div className="flex-1 min-h-0">
+                      <AthletesPerSportChart data={topDeportes ?? []} autoRotate={false} height={360} />
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* DEPORTE LÍDER MODAL */}
+      {isDeporteLiderRendered && (() => {
+        const target = getModalTarget();
+        const origin = deporteLiderModalOrigin;
+        const startLeft = origin ? Math.round(origin.left) : target?.left ?? 0;
+        const startTop = origin ? Math.round(origin.top) : target?.top ?? 0;
+        const startWidth = origin ? Math.round(origin.width) : target?.width ?? 0;
+        const startHeight = origin ? Math.round(origin.height) : target?.height ?? 0;
+        const endLeft = target?.left ?? startLeft;
+        const endTop = target?.top ?? startTop;
+        const endWidth = target?.width ?? startWidth;
+        const endHeight = target?.height ?? startHeight;
+        const modalStyle = isDeporteLiderVisible
+          ? { left: `${endLeft}px`, top: `${endTop}px`, width: `${endWidth}px`, height: `${endHeight}px` }
+          : { left: `${startLeft}px`, top: `${startTop}px`, width: `${startWidth}px`, height: `${startHeight}px` };
+        const liderTotal = deporteLiderStats ? deporteLiderStats.lider.male + deporteLiderStats.lider.female : 0;
+        return (
+          <>
+            <div
+              className={`fixed inset-0 z-40 bg-background/55 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isDeporteLiderVisible ? "opacity-100 backdrop-blur-sm" : "opacity-0 backdrop-blur-0"}`}
+              onClick={closeDeporteLiderModal}
+            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div
+                className={`fixed z-50 overflow-hidden rounded-xl border border-border bg-card shadow-2xl transform-gpu will-change-transform will-change-opacity transition-[left,top,width,height,opacity,transform,box-shadow] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${isDeporteLiderVisible ? "opacity-100 scale-100" : "opacity-0 scale-[0.96]"}`}
+                style={{ ...modalStyle, background: "linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--surface-elevated)) 100%)" }}
+              >
+                <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-primary" />
+                <div className="absolute left-0 top-0 h-1 w-full rounded-t-xl bg-primary" />
+                <div className={`flex items-start justify-between px-5 pt-5 pb-3 transition-all duration-500 ${deporteLiderContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                      <Medal className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-foreground">{deportistasTotales?.deporteLider ?? "-"}</h3>
+                      <p className="text-sm text-muted-foreground">Deporte líder en deportistas activos</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={closeDeporteLiderModal} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors" aria-label="Cerrar">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className="px-4 pb-4 flex flex-col gap-3 h-[calc(100%-80px)] overflow-y-auto">
+                  <div className={`transition-all duration-500 ${deporteLiderContentStage >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
+                    <div className="grid grid-cols-2 gap-2 mb-3">
+                      <div className="rounded-xl border border-border bg-background/70 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Deportistas</p>
+                        <p className="text-2xl font-bold text-primary font-mono">
+                          {(deportistasTotales?.cantidadDeportistas ?? 0).toLocaleString("es-AR")}
+                        </p>
+                        {deporteLiderStats && (
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            <span className="font-semibold text-foreground">{deporteLiderStats.pctDelTotal}%</span> del total nacional
+                          </p>
+                        )}
+                      </div>
+                      {deporteLiderStats?.segundo && (
+                        <div className="rounded-xl border border-border bg-background/70 p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">2do deporte</p>
+                          <p className="text-base font-semibold text-foreground">{deporteLiderStats.segundo.sport}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {(deporteLiderStats.segundo.male + deporteLiderStats.segundo.female).toLocaleString("es-AR")} deportistas
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    {deporteLiderStats && liderTotal > 0 && (
+                      <div className="rounded-xl border border-border bg-background/70 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Distribución por género</p>
+                        <div className="flex h-8 w-full overflow-hidden rounded-lg">
+                          <div
+                            className="flex items-center justify-center gap-1 text-white text-xs font-semibold"
+                            style={{ width: `${deporteLiderStats.pctF}%`, background: "linear-gradient(90deg, #db2777, #be185d)" }}
+                          >
+                            {deporteLiderStats.pctF > 10 && <><Venus className="h-3 w-3" /><span>{deporteLiderStats.pctF}%</span></>}
+                          </div>
+                          <div
+                            className="flex items-center justify-center gap-1 text-white text-xs font-semibold"
+                            style={{ width: `${deporteLiderStats.pctM}%`, background: "linear-gradient(90deg, #2563eb, #1d4ed8)" }}
+                          >
+                            {deporteLiderStats.pctM > 10 && <><Mars className="h-3 w-3" /><span>{deporteLiderStats.pctM}%</span></>}
+                          </div>
+                        </div>
+                        <div className="flex justify-between mt-1.5 text-xs text-muted-foreground">
+                          <span><span className="font-semibold text-pink-600">{deporteLiderStats.lider.female.toLocaleString("es-AR")}</span> mujeres</span>
+                          <span><span className="font-semibold text-blue-600">{deporteLiderStats.lider.male.toLocaleString("es-AR")}</span> hombres</span>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  {deporteLiderContentStage >= 3 && deporteLiderStats && (
+                    <div className={`rounded-xl border border-border bg-background/70 p-3 transition-all duration-500 opacity-100 translate-y-0`}>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+                        <TrendingUp className="h-3 w-3" /> Comparativa top deportes
+                      </p>
+                      <div className="space-y-1.5">
+                        {(topDeportes ?? []).slice(0, 5).map((d, i) => {
+                          const tot = d.male + d.female;
+                          const maxTot = Math.max(...(topDeportes ?? []).map((x) => x.male + x.female), 1);
+                          const isLider = d.sport.toLowerCase() === (deportistasTotales?.deporteLider ?? "").toLowerCase();
+                          return (
+                            <div key={d.sport} className="flex items-center gap-2">
+                              <span className="text-xs text-muted-foreground w-4 text-right">{i + 1}</span>
+                              <div className="flex-1 h-5 bg-border/40 rounded overflow-hidden">
+                                <div
+                                  className={`h-full rounded transition-all duration-700 ${isLider ? "bg-primary" : "bg-primary/30"}`}
+                                  style={{ width: `${(tot / maxTot) * 100}%` }}
+                                />
+                              </div>
+                              <span className={`text-xs w-28 truncate ${isLider ? "font-semibold text-primary" : "text-muted-foreground"}`}>{d.sport}</span>
+                              <span className="text-xs text-muted-foreground w-16 text-right">{tot.toLocaleString("es-AR")}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* PROVINCIA RANKING MODAL */}
+      {isProvinciaRankingRendered && selectedProvinciaRanking && (() => {
+        const target = getModalTarget();
+        const endLeft = target?.left ?? 0;
+        const endTop = target?.top ?? 0;
+        const endWidth = target?.width ?? 0;
+        const endHeight = target?.height ?? 0;
+        const modalStyle = isProvinciaRankingVisible
+          ? { left: `${endLeft}px`, top: `${endTop}px`, width: `${endWidth}px`, height: `${endHeight}px` }
+          : { left: `${endLeft}px`, top: `${endTop}px`, width: `${endWidth}px`, height: `${endHeight}px` };
+        return (
+          <>
+            <div
+              className={`fixed inset-0 z-40 bg-background/55 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isProvinciaRankingVisible ? "opacity-100 backdrop-blur-sm" : "opacity-0 backdrop-blur-0"}`}
+              onClick={closeProvinciaRankingModal}
+            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div
+                className={`fixed z-50 overflow-hidden rounded-xl border border-border bg-card shadow-2xl transform-gpu will-change-transform will-change-opacity transition-[left,top,width,height,opacity,transform,box-shadow] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${isProvinciaRankingVisible ? "opacity-100 scale-100" : "opacity-0 scale-[0.96]"}`}
+                style={{ ...modalStyle, background: "linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--surface-elevated)) 100%)" }}
+              >
+                <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-primary" />
+                <div className="absolute left-0 top-0 h-1 w-full rounded-t-xl bg-primary" />
+                <div className={`flex items-start justify-between px-5 pt-5 pb-3 transition-all duration-500 ${provinciaRankingContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
+                  <div>
+                    <div className="flex items-center gap-2 mb-0.5">
+                      <h3 className="text-xl font-semibold text-foreground">
+                        {selectedProvinciaRanking.nombre === "Ciudad Autónoma de Buenos Aires (CABA)" ? "CABA" : selectedProvinciaRanking.nombre}
+                      </h3>
+                      <span className="inline-flex items-center rounded-lg border border-primary/20 bg-primary/10 px-2 py-0.5 font-bold text-primary text-sm">
+                        #{selectedProvinciaRanking.posicion}
+                      </span>
+                    </div>
+                    <p className="text-sm text-muted-foreground">Ranking por cantidad de deportistas</p>
+                  </div>
+                  <button type="button" onClick={closeProvinciaRankingModal} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors" aria-label="Cerrar">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className={`px-4 pb-4 flex flex-col gap-3 h-[calc(100%-80px)] overflow-y-auto transition-all duration-500 ${provinciaRankingContentStage >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-xl border border-border bg-background/70 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total deportistas</p>
+                      <p className="text-2xl font-bold text-primary font-mono">{selectedProvinciaRanking.totalAthletes.toLocaleString("es-AR")}</p>
+                      {provinciaRankingStats && (
+                        <p className="text-xs text-muted-foreground mt-0.5">
+                          <span className="font-semibold text-foreground">{provinciaRankingStats.pctNacional}%</span> del total nacional
+                        </p>
+                      )}
+                    </div>
+                    <div className="rounded-xl border border-border bg-background/70 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Clubes</p>
+                      <p className="text-2xl font-bold text-primary font-mono">{selectedProvinciaRanking.totalClubs.toLocaleString("es-AR")}</p>
+                    </div>
+                  </div>
+                  {provinciaRankingStats && (
+                    <>
+                      <div className="rounded-xl border border-border bg-background/70 p-3">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Distribución por género</p>
+                        <div className="flex h-8 w-full overflow-hidden rounded-lg">
+                          <div
+                            className="flex items-center justify-center gap-1 text-white text-xs font-semibold"
+                            style={{ width: `${provinciaRankingStats.pctF}%`, background: "linear-gradient(90deg, #db2777, #be185d)" }}
+                          >
+                            {provinciaRankingStats.pctF > 8 && <><Venus className="h-3 w-3" /><span>{provinciaRankingStats.pctF}%</span></>}
+                          </div>
+                          <div
+                            className="flex items-center justify-center gap-1 text-white text-xs font-semibold"
+                            style={{ width: `${provinciaRankingStats.pctM}%`, background: "linear-gradient(90deg, #2563eb, #1d4ed8)" }}
+                          >
+                            {provinciaRankingStats.pctM > 8 && <><Mars className="h-3 w-3" /><span>{provinciaRankingStats.pctM}%</span></>}
+                          </div>
+                        </div>
+                        <div className="flex justify-between mt-1.5 text-xs text-muted-foreground">
+                          <span><span className="font-semibold text-pink-600">{selectedProvinciaRanking.totalMujeres.toLocaleString("es-AR")}</span> mujeres</span>
+                          <span><span className="font-semibold text-blue-600">{selectedProvinciaRanking.totalHombres.toLocaleString("es-AR")}</span> hombres</span>
+                        </div>
+                      </div>
+                      {provinciaRankingStats.pctPoblacion !== null && (
+                        <div className="rounded-xl border border-border bg-background/70 p-3">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
+                            <TrendingUp className="h-3 w-3" /> Participación deportiva (Censo INDEC 2022)
+                          </p>
+                            <div className="flex items-center justify-between">
+                            <div>
+                              <p className="text-sm text-foreground">
+                                <span className="text-2xl font-bold text-primary font-mono">{provinciaRankingStats.pctPoblacion}%</span>
+                                <span className="text-muted-foreground ml-2">de la población es deportista</span>
+                              </p>
+                              {provinciaRankingStats.poblacion && (
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  La provincia de <span className="font-semibold text-foreground">{selectedProvinciaRanking.nombre === "Ciudad Autónoma de Buenos Aires (CABA)" ? "CABA" : selectedProvinciaRanking.nombre}</span> tiene <span className="font-semibold text-foreground">{provinciaRankingStats.poblacion.toLocaleString("es-AR")}</span> habitantes
+                                </p>
+                              )}
+                            </div>
+                            {provinciaRankingStats.rankingPorPoblacion !== null && (
+                              <span className="inline-flex items-center rounded-lg border border-primary/20 bg-primary/10 px-3 py-1.5 font-bold text-primary text-base">
+                                #{provinciaRankingStats.rankingPorPoblacion} en este ranking
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
 
       {selectedClubId && (
         <>

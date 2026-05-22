@@ -42,12 +42,14 @@ function ChartCard({ title, subtitle, icon, children, className = "", headerActi
 
 interface AthletesPerSportChartProps {
   data: { sport: string; male: number; female: number }[];
+  autoRotate?: boolean;
+  height?: number;
 }
 
-export function AthletesPerSportChart({ data }: AthletesPerSportChartProps) {
+export function AthletesPerSportChart({ data, autoRotate = true, height = 480 }: AthletesPerSportChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const chartInstanceRef = useRef<any>(null);
-  const [isPaused, setIsPaused] = useState(false);
+  const [isPaused, setIsPaused] = useState(!autoRotate);
 
   useEffect(() => {
     if (!chartRef.current || data.length === 0) return;
@@ -225,18 +227,20 @@ export function AthletesPerSportChart({ data }: AthletesPerSportChartProps) {
       subtitle="Eje X: Deportes · Eje Y: Género · Eje Z: Cantidad de deportistas"
       icon={<Volleyball className="h-4 w-4 text-primary" />}
     >
-      <div ref={chartRef} style={{ width: "100%", height: "480px", position: "relative" }} />
-      <button
-        onClick={() => setIsPaused(!isPaused)}
-        className="self-start p-1 rounded-lg text-primary hover:bg-primary hover:text-white transition-colors flex items-center gap-1.5"
-        title={isPaused ? "Reanudar rotación" : "Pausar rotación"}
-      >
-        {isPaused ? (
-          <Play className="h-5 w-5" />
-        ) : (
-          <Pause className="h-5 w-5" />
-        )}
-      </button>
+      <div ref={chartRef} style={{ width: "100%", height: `${height}px`, position: "relative" }} />
+      {autoRotate && (
+        <button
+          onClick={() => setIsPaused(!isPaused)}
+          className="self-start p-1 rounded-lg text-primary hover:bg-primary hover:text-white transition-colors flex items-center gap-1.5"
+          title={isPaused ? "Reanudar rotación" : "Pausar rotación"}
+        >
+          {isPaused ? (
+            <Play className="h-5 w-5" />
+          ) : (
+            <Pause className="h-5 w-5" />
+          )}
+        </button>
+      )}
     </ChartCard>
   );
 }
@@ -516,10 +520,13 @@ export function AgeDistributionChart({ ages, fillHeight = false, showCard = true
 
 interface ProvinceRankingChartProps {
   data: ProvinciasTop10ContextoResponse | null;
+  onBarClick?: (provinciaId: number) => void;
 }
 
-export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
+export function ProvinceRankingChart({ data, onBarClick }: ProvinceRankingChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
+  const onBarClickRef = useRef(onBarClick);
+  useEffect(() => { onBarClickRef.current = onBarClick; }, [onBarClick]);
   const top10 = useMemo(
     () => [...(data?.provincias ?? [])].sort((a, b) => a.posicion - b.posicion).slice(0, 10).reverse(),
     [data]
@@ -674,6 +681,7 @@ export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
           itemStyle: { color: C_MALE },
           label: insideLabel(),
           emphasis: { itemStyle: { opacity: 0.85 } },
+          cursor: onBarClick ? "pointer" : "default",
           animationDuration: 800,
           animationEasing: "cubicOut",
         },
@@ -686,11 +694,17 @@ export function ProvinceRankingChart({ data }: ProvinceRankingChartProps) {
           itemStyle: { color: C_FEMALE, borderRadius: [0, 8, 8, 0] },
           label: insideLabel(),
           emphasis: { itemStyle: { opacity: 0.85 } },
+          cursor: onBarClick ? "pointer" : "default",
           animationDuration: 800,
           animationEasing: "cubicOut",
         },
       ],
     }, true);
+
+    chart.on("click", (params: any) => {
+      const item = top10.find((d) => getDisplayName(d.nombre) === params.name);
+      if (item) onBarClickRef.current?.(item.id);
+    });
 
     const handleResize = () => chart.resize();
     window.addEventListener("resize", handleResize);
