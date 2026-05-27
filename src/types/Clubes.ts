@@ -58,6 +58,12 @@ export interface ClubDetalleInfo {
   nombreProvincia: string;
 }
 
+export interface InfraestructuraItem {
+  id_tipo_infra: number;
+  descripcion: string;
+  categoria: string;
+}
+
 export interface ClubDetalleGeneroPorDeporte {
   deporte: string;
   masculino: number;
@@ -79,4 +85,5 @@ export interface ClubDetalleResponse {
   };
   generoPorDeporte: ClubDetalleGeneroPorDeporte[];
   edadesFrecuencia: EdadFrecuenciaItem[];
+  infraestructura?: InfraestructuraItem[];
 }
