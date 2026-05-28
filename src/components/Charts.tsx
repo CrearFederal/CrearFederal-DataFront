@@ -1,7 +1,7 @@
 import * as echarts from 'echarts';
 import 'echarts-gl';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Volleyball, Users, BarChart3, MapPin, Building2, Play, Pause } from 'lucide-react';
+import { Volleyball, Users, BarChart3, MapPin, Building2, Play, Pause, Eye } from 'lucide-react';
 import type { MunicipiosTop10ContextoResponse } from "../types/Municipios";
 import type { ProvinciasTop10ContextoResponse } from "../types/Provincias";
 import type { TopClubRankingItem } from "../types/Clubes";
@@ -632,10 +632,12 @@ export function ProvinceRankingChart({ data, onBarClick }: ProvinceRankingChartP
       yAxis: {
         type: "category",
         data: labels,
+        triggerEvent: true,
         axisLine: { show: false },
         axisTick: { show: false },
         axisLabel: {
           fontFamily: "inherit",
+          cursor: onBarClick ? "pointer" : "default",
           formatter: (value: string, index: number) => {
             const item = top10[index];
             if (!item) return value;
@@ -703,7 +705,8 @@ export function ProvinceRankingChart({ data, onBarClick }: ProvinceRankingChartP
     }, true);
 
     chart.on("click", (params: any) => {
-      const item = top10.find((d) => getDisplayName(d.nombre) === params.name);
+      const name = params.componentType === "yAxis" ? params.value : params.name;
+      const item = top10.find((d) => getDisplayName(d.nombre) === name);
       if (item) onBarClickRef.current?.(item.id);
     });
 
@@ -721,6 +724,14 @@ export function ProvinceRankingChart({ data, onBarClick }: ProvinceRankingChartP
       title="Top Provincias"
       subtitle="Por cantidad de deportistas y distribución por género"
       icon={<MapPin className="h-4 w-4 text-primary" />}
+      headerAction={
+        onBarClick ? (
+          <div className="flex items-center gap-1 text-muted-foreground/60">
+            <Eye className="h-3.5 w-3.5" />
+            <span className="text-[9px] font-medium uppercase tracking-wide">click en provincia para ver</span>
+          </div>
+        ) : undefined
+      }
     >
       <div ref={chartRef} style={{ width: "100%", height: "360px" }} />
     </ChartCard>
