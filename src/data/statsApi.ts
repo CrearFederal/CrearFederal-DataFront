@@ -14,6 +14,31 @@ export interface TopDeporteItem {
 	female: number;
 }
 
+export interface DeporteItem {
+	id_deporte: number;
+	nombre: string;
+	totalDeportistas: number;
+	totalHombres: number;
+	totalMujeres: number;
+}
+
+export interface DeporteProvinciaItem {
+	id_provincia: number;
+	nombre: string;
+	totalDeportistas: number;
+	totalClubes: number;
+	totalMujeres: number;
+	totalHombres: number;
+	porcentaje: number;
+}
+
+export interface DeporteProvinciasResponse {
+	deporte: { id: number; nombre: string };
+	totalDeportistas: number;
+	totalProvincias: number;
+	provincias: DeporteProvinciaItem[];
+}
+
 export const getTopDeportes = async (signal?: AbortSignal): Promise<TopDeporteItem[]> => {
 	if (!instanceAxios.defaults.baseURL) {
 		throw new Error("VITE_API_URL no está configurada");
@@ -28,6 +53,40 @@ export const getTopDeportes = async (signal?: AbortSignal): Promise<TopDeporteIt
 		}
 
 		throw new Error("Error al obtener top deportes");
+	}
+};
+
+export const getDeportesAll = async (signal?: AbortSignal): Promise<DeporteItem[]> => {
+	if (!instanceAxios.defaults.baseURL) {
+		throw new Error("VITE_API_URL no está configurada");
+	}
+
+	try {
+		const { data } = await instanceAxios.get<{ deportes: DeporteItem[] }>("/stats/deportes", { signal });
+		return data.deportes;
+	} catch (error: unknown) {
+		if (isAxiosError<{ message?: string }>(error)) {
+			throw new Error(error.response?.data?.message || "Error al obtener deportes");
+		}
+
+		throw new Error("Error al obtener deportes");
+	}
+};
+
+export const getDeporteProvincias = async (id: number, signal?: AbortSignal): Promise<DeporteProvinciasResponse> => {
+	if (!instanceAxios.defaults.baseURL) {
+		throw new Error("VITE_API_URL no está configurada");
+	}
+
+	try {
+		const { data } = await instanceAxios.get<DeporteProvinciasResponse>(`/stats/deportes/${id}/provincias`, { signal });
+		return data;
+	} catch (error: unknown) {
+		if (isAxiosError<{ message?: string }>(error)) {
+			throw new Error(error.response?.data?.message || "Error al obtener cobertura provincial del deporte");
+		}
+
+		throw new Error("Error al obtener cobertura provincial del deporte");
 	}
 };
 
