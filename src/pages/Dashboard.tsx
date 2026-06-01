@@ -10,12 +10,12 @@ import type { AuthScope } from "../types/auth";
 import LeafletMap from "../components/LeafletMap";
 import ClubDetailPanel from "../components/ClubDetailPanel";
 import KpiCard from "../components/KpiCard";
-import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, MunicipioRankingChart, ClubRankingChart } from "../components/Charts";
+import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, MunicipioRankingChart, ClubRankingChart, DeporteCoverageChart } from "../components/Charts";
 import { BarChart3, Building2, Users, Medal, MapPin, X, Venus, Mars, TrendingUp } from "lucide-react";
 import type { ClubesTotalesResponse } from "../types/Clubes";
 import type { DeportistasGenerosResponse, DeportistasTotalesResponse } from "../types/Deportistas";
-import { getTopDeportes, getEdadesHistograma } from "../data/statsApi";
-import type { TopDeporteItem } from "../data/statsApi";
+import { getTopDeportes, getEdadesHistograma, getDeportesAll, getDeporteProvincias } from "../data/statsApi";
+import type { TopDeporteItem, DeporteItem, DeporteProvinciasResponse } from "../data/statsApi";
 import { getMapaClubes } from "../data/mapaApi";
 import { getMunicipiosTop10 } from "../data/municipiosApi";
 import { getProvinciasTop10 } from "../data/provinciasApi";
@@ -97,6 +97,10 @@ function Dashboard() {
   const [topClubesDetalle, setTopClubesDetalle] = useState<TopClubesDetalleResponse | null>(null);
   const [edadesApiData, setEdadesApiData] = useState<number[] | null>(null);
   const [clubForRole, setClubForRole] = useState<Club | null>(null);
+  const [deportesAll, setDeportesAll] = useState<DeporteItem[] | null>(null);
+  const [selectedDeporteId, setSelectedDeporteId] = useState<number | null>(null);
+  const [deporteProvincias, setDeporteProvincias] = useState<DeporteProvinciasResponse | null>(null);
+  const [deporteProvinciasLoading, setDeporteProvinciasLoading] = useState(false);
   const [isTotalClubesRendered, setIsTotalClubesRendered] = useState(false);
   const [isTotalClubesVisible, setIsTotalClubesVisible] = useState(false);
   const [totalClubesContentStage, setTotalClubesContentStage] = useState(0);
@@ -131,6 +135,7 @@ function Dashboard() {
   const deporteLiderStageTimersRef = useRef<number[]>([]);
   const provinciaRankingCloseTimerRef = useRef<number | null>(null);
   const provinciaRankingStageTimersRef = useRef<number[]>([]);
+  const deporteProvinciasAbortRef = useRef<AbortController | null>(null);
 
   const getTotalClubesModalTarget = () => {
     if (typeof window === "undefined") return null;
@@ -401,6 +406,10 @@ function Dashboard() {
         window.clearTimeout(totalDeportistasCloseTimerRef.current);
       }
       totalDeportistasStageTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+
+      if (deporteProvinciasAbortRef.current) {
+        deporteProvinciasAbortRef.current.abort();
+      }
     };
   }, []);
 
@@ -600,6 +609,52 @@ function Dashboard() {
     return () => controller.abort();
   }, [authStatus]);
 
+
+  useEffect(() => {
+    if (authStatus !== "ready") return;
+
+    const controller = new AbortController();
+
+    const loadDeportesAll = async () => {
+      try {
+        const data = await getDeportesAll(controller.signal);
+        if (!controller.signal.aborted) setDeportesAll(data);
+      } catch {
+        if (!controller.signal.aborted) setDeportesAll(null);
+      }
+    };
+
+    void loadDeportesAll();
+
+    return () => controller.abort();
+  }, [authStatus]);
+
+  const handleDeporteClick = useCallback((id: number) => {
+    if (deporteProvinciasAbortRef.current) {
+      deporteProvinciasAbortRef.current.abort();
+    }
+
+    const controller = new AbortController();
+    deporteProvinciasAbortRef.current = controller;
+
+    setSelectedDeporteId(id);
+    setDeporteProvincias(null);
+    setDeporteProvinciasLoading(true);
+
+    getDeporteProvincias(id, controller.signal)
+      .then((data) => {
+        if (!controller.signal.aborted) {
+          setDeporteProvincias(data);
+          setDeporteProvinciasLoading(false);
+        }
+      })
+      .catch(() => {
+        if (!controller.signal.aborted) {
+          setDeporteProvincias(null);
+          setDeporteProvinciasLoading(false);
+        }
+      });
+  }, []);
 
   const genderDistribution = useMemo(() => {
     if (!deportistasGeneros) {
@@ -1011,6 +1066,15 @@ function Dashboard() {
             onClubClick={handleClubClick}
           />
         </div>
+
+        {/* ROW 5 — Cobertura deportiva por provincia */}
+        <DeporteCoverageChart
+          deportes={deportesAll ?? []}
+          selectedId={selectedDeporteId}
+          provinciasData={deporteProvincias}
+          provinciasLoading={deporteProvinciasLoading}
+          onDeporteClick={handleDeporteClick}
+        />
 
       </div>
 
