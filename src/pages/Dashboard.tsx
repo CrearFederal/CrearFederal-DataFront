@@ -10,8 +10,9 @@ import type { AuthScope } from "../types/auth";
 import LeafletMap from "../components/LeafletMap";
 import ClubDetailPanel from "../components/ClubDetailPanel";
 import KpiCard from "../components/KpiCard";
+import DeporteHeatMap from "../components/DeporteHeatMap";
 import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, MunicipioRankingChart, ClubRankingChart, DeporteCoverageChart } from "../components/Charts";
-import { BarChart3, Building2, Users, Medal, MapPin, X, Venus, Mars, TrendingUp } from "lucide-react";
+import { BarChart3, Building2, Users, Medal, MapPin, X, Venus, Mars, TrendingUp, Volleyball } from "lucide-react";
 import type { ClubesTotalesResponse } from "../types/Clubes";
 import type { DeportistasGenerosResponse, DeportistasTotalesResponse } from "../types/Deportistas";
 import { getTopDeportes, getEdadesHistograma, getDeportesAll, getDeporteProvincias } from "../data/statsApi";
@@ -79,6 +80,10 @@ function Dashboard() {
   const DEPORTE_LIDER_HEADER_DELAY_MS = 120;
   const DEPORTE_LIDER_DETAIL_DELAY_MS = 280;
   const DEPORTE_LIDER_CHART_DELAY_MS = 460;
+  const DEPORTE_HEATMAP_MODAL_ANIMATION_MS = 760;
+  const DEPORTE_HEATMAP_HEADER_DELAY_MS = 120;
+  const DEPORTE_HEATMAP_DETAIL_DELAY_MS = 280;
+  const DEPORTE_HEATMAP_MAP_DELAY_MS = 460;
   const PROVINCIA_RANKING_MODAL_ANIMATION_MS = 760;
   const PROVINCIA_RANKING_HEADER_DELAY_MS = 120;
   const PROVINCIA_RANKING_DETAIL_DELAY_MS = 280;
@@ -121,6 +126,10 @@ function Dashboard() {
   const [isDeporteLiderVisible, setIsDeporteLiderVisible] = useState(false);
   const [deporteLiderContentStage, setDeporteLiderContentStage] = useState(0);
   const [deporteLiderModalOrigin, setDeporteLiderModalOrigin] = useState<DOMRect | null>(null);
+  const [isDeporteHeatmapRendered, setIsDeporteHeatmapRendered] = useState(false);
+  const [isDeporteHeatmapVisible, setIsDeporteHeatmapVisible] = useState(false);
+  const [deporteHeatmapContentStage, setDeporteHeatmapContentStage] = useState(0);
+  const [deporteHeatmapModalOrigin, setDeporteHeatmapModalOrigin] = useState<DOMRect | null>(null);
   const [selectedProvinciaRanking, setSelectedProvinciaRanking] = useState<ProvinciaRanking | null>(null);
   const [isProvinciaRankingRendered, setIsProvinciaRankingRendered] = useState(false);
   const [isProvinciaRankingVisible, setIsProvinciaRankingVisible] = useState(false);
@@ -133,6 +142,8 @@ function Dashboard() {
   const deportesStageTimersRef = useRef<number[]>([]);
   const deporteLiderCloseTimerRef = useRef<number | null>(null);
   const deporteLiderStageTimersRef = useRef<number[]>([]);
+  const deporteHeatmapCloseTimerRef = useRef<number | null>(null);
+  const deporteHeatmapStageTimersRef = useRef<number[]>([]);
   const provinciaRankingCloseTimerRef = useRef<number | null>(null);
   const provinciaRankingStageTimersRef = useRef<number[]>([]);
   const deporteProvinciasAbortRef = useRef<AbortController | null>(null);
@@ -410,13 +421,18 @@ function Dashboard() {
       if (deporteProvinciasAbortRef.current) {
         deporteProvinciasAbortRef.current.abort();
       }
+
+      if (deporteHeatmapCloseTimerRef.current !== null) {
+        window.clearTimeout(deporteHeatmapCloseTimerRef.current);
+      }
+      deporteHeatmapStageTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
     };
   }, []);
 
   useEffect(() => {
     if (typeof document === "undefined") return;
 
-    const modalOpen = isTotalClubesRendered || isTotalDeportistasRendered || selectedClubId !== null;
+    const modalOpen = isTotalClubesRendered || isTotalDeportistasRendered || isDeporteHeatmapRendered || selectedClubId !== null;
     if (!modalOpen) return;
 
     const body = document.body;
@@ -431,7 +447,7 @@ function Dashboard() {
       body.style.overflow = previousOverflow;
       body.style.paddingRight = previousPaddingRight;
     };
-  }, [isTotalClubesRendered, isTotalDeportistasRendered, selectedClubId]);
+  }, [isTotalClubesRendered, isTotalDeportistasRendered, isDeporteHeatmapRendered, selectedClubId]);
 
   useEffect(() => {
     if (!isTotalDeportistasRendered || totalDeportistasContentStage < 4) {
@@ -854,6 +870,15 @@ function Dashboard() {
     return { left, top, width, height };
   };
 
+  const getHeatmapModalTarget = () => {
+    if (typeof window === "undefined") return null;
+    const width = Math.min(1180, window.innerWidth - 32);
+    const height = Math.min(760, window.innerHeight - 32);
+    const left = Math.round((window.innerWidth - width) / 2);
+    const top = Math.round((window.innerHeight - height) / 2);
+    return { left, top, width, height };
+  };
+
   const openDeportesModal = (event: React.MouseEvent<HTMLButtonElement>) => {
     if (deportesCloseTimerRef.current !== null) {
       window.clearTimeout(deportesCloseTimerRef.current);
@@ -899,6 +924,31 @@ function Dashboard() {
     deporteLiderStageTimersRef.current.push(window.setTimeout(() => setDeporteLiderContentStage(3), DEPORTE_LIDER_CHART_DELAY_MS));
   };
 
+  const openDeporteHeatmapModal = (event: React.MouseEvent<HTMLButtonElement>) => {
+    if (deporteHeatmapCloseTimerRef.current !== null) {
+      window.clearTimeout(deporteHeatmapCloseTimerRef.current);
+      deporteHeatmapCloseTimerRef.current = null;
+    }
+
+    deporteHeatmapStageTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    deporteHeatmapStageTimersRef.current = [];
+
+    setDeporteHeatmapModalOrigin(event.currentTarget.getBoundingClientRect());
+    setIsDeporteHeatmapRendered(true);
+    setDeporteHeatmapContentStage(0);
+    window.requestAnimationFrame(() => setIsDeporteHeatmapVisible(true));
+
+    deporteHeatmapStageTimersRef.current.push(
+      window.setTimeout(() => setDeporteHeatmapContentStage(1), DEPORTE_HEATMAP_HEADER_DELAY_MS)
+    );
+    deporteHeatmapStageTimersRef.current.push(
+      window.setTimeout(() => setDeporteHeatmapContentStage(2), DEPORTE_HEATMAP_DETAIL_DELAY_MS)
+    );
+    deporteHeatmapStageTimersRef.current.push(
+      window.setTimeout(() => setDeporteHeatmapContentStage(3), DEPORTE_HEATMAP_MAP_DELAY_MS)
+    );
+  };
+
   const closeDeporteLiderModal = () => {
     setIsDeporteLiderVisible(false);
     setDeporteLiderContentStage(0);
@@ -910,6 +960,24 @@ function Dashboard() {
       setDeporteLiderModalOrigin(null);
       deporteLiderCloseTimerRef.current = null;
     }, DEPORTE_LIDER_MODAL_ANIMATION_MS);
+  };
+
+  const closeDeporteHeatmapModal = () => {
+    setIsDeporteHeatmapVisible(false);
+    setDeporteHeatmapContentStage(0);
+
+    deporteHeatmapStageTimersRef.current.forEach((timerId) => window.clearTimeout(timerId));
+    deporteHeatmapStageTimersRef.current = [];
+
+    if (deporteHeatmapCloseTimerRef.current !== null) {
+      window.clearTimeout(deporteHeatmapCloseTimerRef.current);
+    }
+
+    deporteHeatmapCloseTimerRef.current = window.setTimeout(() => {
+      setIsDeporteHeatmapRendered(false);
+      setDeporteHeatmapModalOrigin(null);
+      deporteHeatmapCloseTimerRef.current = null;
+    }, DEPORTE_HEATMAP_MODAL_ANIMATION_MS);
   };
 
   const handleProvinciaBarClick = (provinciaId: number) => {
@@ -1074,6 +1142,7 @@ function Dashboard() {
           provinciasData={deporteProvincias}
           provinciasLoading={deporteProvinciasLoading}
           onDeporteClick={handleDeporteClick}
+          onOpenHeatmap={openDeporteHeatmapModal}
         />
 
       </div>
@@ -1580,6 +1649,72 @@ function Dashboard() {
                           );
                         })}
                       </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </>
+        );
+      })()}
+
+      {/* DEPORTE HEATMAP MODAL */}
+      {isDeporteHeatmapRendered && deporteProvincias && (() => {
+        const target = getHeatmapModalTarget();
+        const origin = deporteHeatmapModalOrigin;
+        const startLeft = origin ? Math.round(origin.left) : target?.left ?? 0;
+        const startTop = origin ? Math.round(origin.top) : target?.top ?? 0;
+        const startWidth = origin ? Math.round(origin.width) : target?.width ?? 0;
+        const startHeight = origin ? Math.round(origin.height) : target?.height ?? 0;
+        const endLeft = target?.left ?? startLeft;
+        const endTop = target?.top ?? startTop;
+        const endWidth = target?.width ?? startWidth;
+        const endHeight = target?.height ?? startHeight;
+        const modalStyle = isDeporteHeatmapVisible
+          ? { left: `${endLeft}px`, top: `${endTop}px`, width: `${endWidth}px`, height: `${endHeight}px` }
+          : { left: `${startLeft}px`, top: `${startTop}px`, width: `${startWidth}px`, height: `${startHeight}px` };
+
+        return (
+          <>
+            <div
+              className={`fixed inset-0 z-40 bg-background/55 transition-all duration-300 ease-[cubic-bezier(0.22,1,0.36,1)] ${isDeporteHeatmapVisible ? "opacity-100 backdrop-blur-sm" : "opacity-0 backdrop-blur-0"}`}
+              onClick={closeDeporteHeatmapModal}
+            />
+            <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+              <div
+                className={`fixed z-50 overflow-hidden rounded-xl border border-border bg-card shadow-2xl transform-gpu will-change-transform will-change-opacity transition-[left,top,width,height,opacity,transform,box-shadow] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${isDeporteHeatmapVisible ? "opacity-100 scale-100" : "opacity-0 scale-[0.96]"}`}
+                style={{ ...modalStyle, background: "linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--surface-elevated)) 100%)" }}
+              >
+                <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-primary" />
+                <div className="absolute left-0 top-0 h-1 w-full rounded-t-xl bg-primary" />
+                <div className={`flex items-start justify-between px-5 pt-5 pb-3 transition-all duration-500 ${deporteHeatmapContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                      <Volleyball className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-semibold text-foreground">{deporteProvincias?.deporte?.nombre ?? "-"}</h3>
+                      <p className="text-sm text-muted-foreground">Mapa de calor de todas las provincias que practican este deporte por cantidad de deportistas</p>
+                    </div>
+                  </div>
+                  <button type="button" onClick={closeDeporteHeatmapModal} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors" aria-label="Cerrar">
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+                <div className={`px-4 pb-4 flex flex-col gap-3 h-[calc(100%-80px)] overflow-hidden transition-all duration-500 ${deporteHeatmapContentStage >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div className="rounded-xl border border-border bg-background/70 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total de provincias</p>
+                      <p className="text-2xl font-bold text-primary font-mono">{deporteProvincias.totalProvincias.toLocaleString("es-AR")}</p>
+                    </div>
+                    <div className="rounded-xl border border-border bg-background/70 p-3">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total de deportistas</p>
+                      <p className="text-2xl font-bold text-primary font-mono">{deporteProvincias.totalDeportistas.toLocaleString("es-AR")}</p>
+                    </div>
+                  </div>
+                  {deporteHeatmapContentStage >= 3 && (
+                    <div className="flex-1 min-h-0">
+                      <DeporteHeatMap data={deporteProvincias} />
                     </div>
                   )}
                 </div>

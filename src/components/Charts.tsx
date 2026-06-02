@@ -918,9 +918,10 @@ interface DeporteCoverageChartProps {
   provinciasData: DeporteProvinciasChartData | null;
   provinciasLoading: boolean;
   onDeporteClick: (id: number) => void;
+  onOpenHeatmap?: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
-export function DeporteCoverageChart({ deportes, selectedId, provinciasData, provinciasLoading, onDeporteClick }: DeporteCoverageChartProps) {
+export function DeporteCoverageChart({ deportes, selectedId, provinciasData, provinciasLoading, onDeporteClick, onOpenHeatmap }: DeporteCoverageChartProps) {
   const deportesChartRef = useRef<HTMLDivElement>(null);
   const provinciasChartRef = useRef<HTMLDivElement>(null);
   const onClickRef = useRef(onDeporteClick);
@@ -1185,10 +1186,21 @@ export function DeporteCoverageChart({ deportes, selectedId, provinciasData, pro
       subtitle="Seleccioná un deporte para ver en qué provincias se practica"
       icon={<Globe className="h-4 w-4 text-primary" />}
       headerAction={
-        <div className="flex items-center gap-1 text-muted-foreground/60">
-          <Eye className="h-3.5 w-3.5" />
-          <span className="text-[9px] font-medium uppercase tracking-wide">clic en deporte para ver</span>
-        </div>
+        selectedId && provinciasData ? (
+          <button
+            type="button"
+            onClick={onOpenHeatmap}
+            className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary transition-colors hover:bg-primary/15"
+          >
+            <MapPin className="h-3.5 w-3.5" />
+            Mapa de calor
+          </button>
+        ) : (
+          <div className="flex items-center gap-1 text-muted-foreground/60">
+            <Eye className="h-3.5 w-3.5" />
+            <span className="text-[9px] font-medium uppercase tracking-wide">clic en deporte para ver</span>
+          </div>
+        )
       }
     >
       <div className="flex gap-4" style={{ height: "380px" }}>
