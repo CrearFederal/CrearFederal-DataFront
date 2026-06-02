@@ -1,18 +1,17 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { TrendingDown, TrendingUp, Users, MapPinHouse, BookUser, ClipboardCheck } from "lucide-react";
 import KpiCard from "../components/KpiCard";
-import MunicipalityComparisonChart from "../components/ChartMunisEvaluaciones";
+import ProvinceComparisonChart from "../components/ChartProvEvaluaciones";
 import MonthlyEvaluationsChart from "../components/ChartMesesEvaluaciones";
 import ChartCakeNiveles from "../components/ChartCakeNiveles";
 import { GenderDistributionChart } from "../components/Charts";
 import { authBootstrap, getAuthMe, sendLogoutOnPageClose } from "../api/session";
-import { getEvaluacionesMunicipiosTop10, getEvaluacionesResumen } from "../data/statsApi";
-import { getEvaluacionesDistribucionGenero, getEvaluacionesEvolucionMensual, getEvaluacionesPorNivel } from "../data/evaluacionesApi";
+import { getEvaluacionesDistribucionGenero, getEvaluacionesEvolucionMensual, getEvaluacionesPorNivel, getEvaluacionesResumen, getEvaluacionesProvinciasTop10 } from "../data/evaluacionesApi";
 import type { AuthScope } from "../types/auth";
 import type {
 	EvaluacionesDistribucionGeneroResponse,
 	EvaluacionesEvolucionMensualItem,
-	EvaluacionesMunicipioTop10Item,
+	EvaluacionesProvinciaTop10Item,
 	EvaluacionesPorNivelItem,
 	EvaluacionesResumenResponse,
 } from "../types/Evaluaciones";
@@ -106,7 +105,7 @@ function Evaluaciones() {
 	const [roleConfig, setRoleConfig] = useState<UserRoleConfig | null>(null);
 	const [authStatus, setAuthStatus] = useState<"loading" | "ready" | "error">("loading");
 	const [resumen, setResumen] = useState<EvaluacionesResumenResponse | null>(null);
-	const [municipiosComparativa, setMunicipiosComparativa] = useState<EvaluacionesMunicipioTop10Item[]>([]);
+	const [provinciasComparativa, setProvinciasComparativa] = useState<EvaluacionesProvinciaTop10Item[]>([]);	
 	const [evolucionMensual, setEvolucionMensual] = useState<EvaluacionesEvolucionMensualItem[]>([]);
 	const [nivelesEvaluados, setNivelesEvaluados] = useState<EvaluacionesPorNivelItem[]>([]);
 	const [distribucionGenero, setDistribucionGenero] = useState<EvaluacionesDistribucionGeneroResponse | null>(null);
@@ -274,20 +273,20 @@ function Evaluaciones() {
 
 		const controller = new AbortController();
 
-		const loadMunicipios = async () => {
+		const loadProvincias = async () => {
 			try {
-				const data = await getEvaluacionesMunicipiosTop10(controller.signal);
+				const data = await getEvaluacionesProvinciasTop10(controller.signal);
 				if (!controller.signal.aborted) {
-					setMunicipiosComparativa(data.municipios ?? []);
+					setProvinciasComparativa(data.provincias ?? []);
 				}
 			} catch {
 				if (!controller.signal.aborted) {
-					setMunicipiosComparativa([]);
+					setProvinciasComparativa([]);
 				}
 			}
 		};
 
-		void loadMunicipios();
+		void loadProvincias();
 
 		return () => controller.abort();
 	}, [authStatus]);
@@ -403,8 +402,8 @@ function Evaluaciones() {
 				</div>
 
 				<div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-					<MunicipalityComparisonChart
-						data={municipiosComparativa}
+					<ProvinceComparisonChart
+						data={provinciasComparativa}
 						height={360}
 						className="mt-1"
 					/>

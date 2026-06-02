@@ -5,8 +5,8 @@ import type {
 	EvaluacionesDistribucionGeneroResponse,
 	EvaluacionesEvolucionMensualResponse,
 	EvaluacionesPorNivelResponse,
-	EvaluacionesMunicipiosResponse,
 	EvaluacionesMunicipiosTop10Response,
+	EvaluacionesProvinciasTop10Response,
 	EvaluacionesResumenResponse,
 } from "../types/Evaluaciones";
 
@@ -52,6 +52,29 @@ export const getEvaluacionesMunicipiosTop10 = async (
 		}
 
 		throw new Error("Error al obtener el top 10 de municipios por evaluaciones");
+	}
+};
+
+export const getEvaluacionesProvinciasTop10 = async (
+	signal?: AbortSignal
+): Promise<EvaluacionesProvinciasTop10Response> => {
+	if (!instanceAxios.defaults.baseURL) {
+		throw new Error("VITE_API_URL no está configurada");
+	}
+
+	try {
+		const { data } = await instanceAxios.get<EvaluacionesProvinciasTop10Response>(
+			"/stats/provincias/top10-personas-evaluadas",
+			{ signal }
+		);
+
+		return data;
+	} catch (error: unknown) {
+		if (isAxiosError<{ message?: string }>(error)) {
+			throw new Error(error.response?.data?.message || "Error al obtener el top 10 de provincias por cantidad de personas evaluadas");
+		}
+
+		throw new Error("Error al obtener el top 10 de provincias por cantidad de personas evaluadas");
 	}
 };
 
@@ -120,27 +143,5 @@ export const getEvaluacionesDistribucionGenero = async (
 		}
 
 		throw new Error("Error al obtener la distribución por género de evaluaciones");
-	}
-};
-
-export const getEvaluacionesMunicipios = async (
-	signal?: AbortSignal
-): Promise<EvaluacionesMunicipiosResponse> => {
-	if (!instanceAxios.defaults.baseURL) {
-		throw new Error("VITE_API_URL no está configurada");
-	}
-
-	try {
-		const { data } = await instanceAxios.get<EvaluacionesMunicipiosResponse>("/evaluaciones/municipios", {
-			signal,
-		});
-
-		return data;
-	} catch (error: unknown) {
-		if (isAxiosError<{ message?: string }>(error)) {
-			throw new Error(error.response?.data?.message || "Error al obtener municipios de evaluaciones");
-		}
-
-		throw new Error("Error al obtener municipios de evaluaciones");
 	}
 };

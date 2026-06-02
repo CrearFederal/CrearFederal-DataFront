@@ -19,24 +19,24 @@ const formatNumber = (value: number): string => value.toLocaleString("es-AR");
 const USE_MOCK_DATA = true;
 
 const MOCK_EJEMPLOS: EvaluacionesEvolucionMensualItem[] = [
-    { mes: "Enero", cantidadEvaluaciones: 2480, actualVsAnterior: 8.2 },
-    { mes: "Febrero", cantidadEvaluaciones: 2320, actualVsAnterior: -6.5 },
-    { mes: "Marzo", cantidadEvaluaciones: 2760, actualVsAnterior: 19.0 },
-    { mes: "Abril", cantidadEvaluaciones: 3140, actualVsAnterior: 13.8 },
-    { mes: "Mayo", cantidadEvaluaciones: 2870, actualVsAnterior: -8.6 },
-    { mes: "Junio", cantidadEvaluaciones: 2430, actualVsAnterior: -15.3 },
+    { mes: "Enero", cantidadEvaluados: 2480, actualVsAnterior: 8.2 },
+    { mes: "Febrero", cantidadEvaluados: 2320, actualVsAnterior: -6.5 },
+    { mes: "Marzo", cantidadEvaluados: 2760, actualVsAnterior: 19.0 },
+    { mes: "Abril", cantidadEvaluados: 3140, actualVsAnterior: 13.8 },
+    { mes: "Mayo", cantidadEvaluados: 2870, actualVsAnterior: -8.6 },
+    { mes: "Junio", cantidadEvaluados: 2430, actualVsAnterior: -15.3 },
 
     // mínimo
-    { mes: "Julio", cantidadEvaluaciones: 1980, actualVsAnterior: -18.5 },
+    { mes: "Julio", cantidadEvaluados: 1980, actualVsAnterior: -18.5 },
 
-    { mes: "Agosto", cantidadEvaluaciones: 2380, actualVsAnterior: 20.2 },
-    { mes: "Septiembre", cantidadEvaluaciones: 2960, actualVsAnterior: 24.4 },
-    { mes: "Octubre", cantidadEvaluaciones: 3510, actualVsAnterior: 18.6 },
+    { mes: "Agosto", cantidadEvaluados: 2380, actualVsAnterior: 20.2 },
+    { mes: "Septiembre", cantidadEvaluados: 2960, actualVsAnterior: 24.4 },
+    { mes: "Octubre", cantidadEvaluados: 3510, actualVsAnterior: 18.6 },
 
     // máximo
-    { mes: "Noviembre", cantidadEvaluaciones: 4170, actualVsAnterior: 18.8 },
+    { mes: "Noviembre", cantidadEvaluados   : 4170, actualVsAnterior: 18.8 },
 
-    { mes: "Diciembre", cantidadEvaluaciones: 3720, actualVsAnterior: -10.8 },
+    { mes: "Diciembre", cantidadEvaluados: 3720, actualVsAnterior: -10.8 },
 ];
 
 export interface MonthlyEvaluationsChartProps {
@@ -98,12 +98,18 @@ function CustomTooltip({ active, payload }: any) {
                 {p.mes}
             </div>
             <div className="mt-0.5 text-sm font-semibold text-foreground tabular-nums">
-                {formatNumber(p.cantidadEvaluaciones)} <span className="text-xs text-muted-foreground">Evaluaciones</span>
+                {new Intl.NumberFormat("es-AR", {
+                        maximumFractionDigits: 1,
+                    }).format(p.cantidadEvaluados)} <span className="text-xs text-muted-foreground">Evaluados</span>
             </div>
             <div className={`mt-2 flex items-center gap-1 text-xs border-t border-border pt-2 ${tone}`}>
                 <Icon className="h-3 w-3" />
                 <span className="tabular-nums">
-                    {`${p.actualVsAnterior >= 0 ? "+" : ""}${p.actualVsAnterior.toFixed(1)}% vs mes anterior`}
+                    {p.actualVsAnterior >= 0 ? "+" : ""}
+                    {new Intl.NumberFormat("es-AR", {
+                        maximumFractionDigits: 1,
+                    }).format(p.actualVsAnterior)}
+                    % vs mes anterior
                 </span>
             </div>
         </motion.div>
@@ -115,7 +121,7 @@ export default function MonthlyEvaluationsChart({
     height = 320,
     className = "",
     title = "Evolución mensual",
-    subtitle = "Cantidad de evaluaciones por mes y comparación con el mes anterior",
+    subtitle = "Cantidad de evaluados por mes y comparación con el mes anterior",
 }: MonthlyEvaluationsChartProps) {
     const [hovered, setHovered] = useState<number | null>(null);
     const [hoveredMonth, setHoveredMonth] = useState<string | null>(null);
@@ -130,8 +136,8 @@ export default function MonthlyEvaluationsChart({
         if (!chartData.length) return { maxPoint: null, minPoint: null };
         let max = chartData[0], min = chartData[0];
         for (const d of chartData) {
-            if (d.cantidadEvaluaciones > max.cantidadEvaluaciones) max = d;
-            if (d.cantidadEvaluaciones < min.cantidadEvaluaciones) min = d;
+            if (d.cantidadEvaluados > max.cantidadEvaluados) max = d;
+            if (d.cantidadEvaluados < min.cantidadEvaluados) min = d;
         }
         return { maxPoint: max, minPoint: min };
     }, [chartData]);
@@ -272,7 +278,7 @@ export default function MonthlyEvaluationsChart({
 
                         <Area
                             type="monotone"
-                            dataKey="cantidadEvaluaciones"
+                            dataKey="cantidadEvaluados"
                             stroke="none"
                             fill="url(#meAreaFill)"
                             isAnimationActive
@@ -280,7 +286,7 @@ export default function MonthlyEvaluationsChart({
                         />
                         <Area
                             type="monotone"
-                            dataKey="cantidadEvaluaciones"
+                            dataKey="cantidadEvaluados"
                             stroke="url(#meStroke)"
                             strokeWidth={2.5}
                             fill="transparent"
@@ -332,7 +338,7 @@ export default function MonthlyEvaluationsChart({
                                 />
                                 <ReferenceDot
                                     x={maxPoint.mes}
-                                    y={maxPoint.cantidadEvaluaciones}
+                                    y={maxPoint.cantidadEvaluados}
                                     r={7}
                                     fill="#34d399"
                                     stroke="#064e3b"
@@ -352,7 +358,7 @@ export default function MonthlyEvaluationsChart({
                                 />
                                 <ReferenceDot
                                     x={minPoint.mes}
-                                    y={minPoint.cantidadEvaluaciones}
+                                    y={minPoint.cantidadEvaluados}
                                     r={7}
                                     fill="#fb7185"
                                     stroke="#881337"
