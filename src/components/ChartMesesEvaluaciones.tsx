@@ -14,8 +14,6 @@ import { motion } from "framer-motion";
 import { TrendingUp, TrendingDown, Minus, ChartColumnBig } from "lucide-react";
 import type { EvaluacionesEvolucionMensualItem } from "../types/Evaluaciones";
 
-const formatNumber = (value: number): string => value.toLocaleString("es-AR");
-
 const USE_MOCK_DATA = true;
 
 const MOCK_EJEMPLOS: EvaluacionesEvolucionMensualItem[] = [
