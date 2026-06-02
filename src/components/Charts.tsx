@@ -1,7 +1,7 @@
 import * as echarts from 'echarts';
 import 'echarts-gl';
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { Volleyball, Users, BarChart3, MapPin, Building2, Play, Pause, Eye } from 'lucide-react';
+import { Volleyball, Users, BarChart3, MapPin, Building2, Play, Pause, Eye, Globe } from 'lucide-react';
 import type { MunicipiosTop10ContextoResponse } from "../types/Municipios";
 import type { ProvinciasTop10ContextoResponse } from "../types/Provincias";
 import type { TopClubRankingItem } from "../types/Clubes";
@@ -887,6 +887,356 @@ return (
     <div ref={chartRef} style={{ width: "100%", height: `${finalHeight}px` }} />
   </ChartCard>
 );
+}
+
+interface DeporteBarItem {
+  id_deporte: number;
+  nombre: string;
+  totalDeportistas: number;
+  totalHombres: number;
+  totalMujeres: number;
+}
+
+interface DeporteProvinciasChartData {
+  deporte: { id: number; nombre: string };
+  totalDeportistas: number;
+  totalProvincias: number;
+  provincias: Array<{
+    id_provincia: number;
+    nombre: string;
+    totalDeportistas: number;
+    totalClubes: number;
+    totalMujeres: number;
+    totalHombres: number;
+    porcentaje: number;
+  }>;
+}
+
+interface DeporteCoverageChartProps {
+  deportes: DeporteBarItem[];
+  selectedId: number | null;
+  provinciasData: DeporteProvinciasChartData | null;
+  provinciasLoading: boolean;
+  onDeporteClick: (id: number) => void;
+  onOpenHeatmap?: (event: React.MouseEvent<HTMLButtonElement>) => void;
+}
+
+export function DeporteCoverageChart({ deportes, selectedId, provinciasData, provinciasLoading, onDeporteClick, onOpenHeatmap }: DeporteCoverageChartProps) {
+  const deportesChartRef = useRef<HTMLDivElement>(null);
+  const provinciasChartRef = useRef<HTMLDivElement>(null);
+  const onClickRef = useRef(onDeporteClick);
+  useEffect(() => { onClickRef.current = onDeporteClick; }, [onDeporteClick]);
+
+  useEffect(() => {
+    if (!deportesChartRef.current || deportes.length === 0) return;
+
+    const sorted = [...deportes].sort((a, b) => a.totalDeportistas - b.totalDeportistas);
+    const labels = sorted.map((d) => d.nombre);
+
+    const maleData = sorted.map((d) => ({
+      value: d.totalHombres,
+      id_deporte: d.id_deporte,
+      itemStyle: { color: selectedId === null || selectedId === d.id_deporte ? C_MALE : C_GRAY_MALE },
+    }));
+
+    const femaleData = sorted.map((d) => ({
+      value: d.totalMujeres,
+      id_deporte: d.id_deporte,
+      itemStyle: {
+        color: selectedId === null || selectedId === d.id_deporte ? C_FEMALE : C_GRAY_FEMALE,
+        borderRadius: [0, 8, 8, 0],
+      },
+    }));
+
+    const chart = echarts.init(deportesChartRef.current, "light");
+
+    chart.setOption({
+      backgroundColor: "transparent",
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "none" },
+        backgroundColor: "rgba(255, 255, 255, 0.98)",
+        borderColor: "rgba(148, 163, 184, 0.35)",
+        borderWidth: 1,
+        textStyle: { fontSize: 12, color: "#0f172a" },
+        formatter: (params: any[]) => {
+          const dataIndex = params[0]?.dataIndex;
+          const item = typeof dataIndex === "number" ? sorted[dataIndex] : undefined;
+          if (!item) return "";
+          const total = item.totalHombres + item.totalMujeres;
+          const maleColor = selectedId === null || selectedId === item.id_deporte ? C_MALE : C_GRAY_MALE;
+          const femaleColor = selectedId === null || selectedId === item.id_deporte ? C_FEMALE : C_GRAY_FEMALE;
+          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">${item.nombre}</span><br/>
+            <span style="color:${C_AXIS};font-size:11px;">Total: </span>
+            <span style="font-weight:900;color:#0f172a;font-size:14px;">${total.toLocaleString("es-AR")}</span><br/>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${maleColor};margin-right:5px;"></span>
+            <span style="color:${C_AXIS};font-size:11px;">Masculino: </span>
+            <span style="font-weight:700;color:${maleColor};">${item.totalHombres.toLocaleString("es-AR")}</span><br/>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${femaleColor};margin-right:5px;"></span>
+            <span style="color:${C_AXIS};font-size:11px;">Femenino: </span>
+            <span style="font-weight:700;color:${femaleColor};">${item.totalMujeres.toLocaleString("es-AR")}</span>`;
+        },
+      },
+      grid: { left: 112, right: 16, top: 8, bottom: 24 },
+      xAxis: {
+        type: "value",
+        splitLine: { lineStyle: { color: "hsl(215, 20%, 85%)", type: "dashed" } },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          fontSize: 10,
+          color: C_AXIS,
+          fontFamily: "inherit",
+          formatter: (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)),
+        },
+      },
+      yAxis: {
+        type: "category",
+        data: labels,
+        triggerEvent: true,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          fontFamily: "inherit",
+          cursor: "pointer",
+          formatter: (value: string, index: number) => {
+            const item = sorted[index];
+            const isActive = selectedId === null || selectedId === item?.id_deporte;
+            return `{${isActive ? "name" : "nameMuted"}|${value}}`;
+          },
+          rich: {
+            name: { color: "#0f172a", fontWeight: 600, fontSize: 11 },
+            nameMuted: { color: "hsl(215, 10%, 52%)", fontWeight: 500, fontSize: 11 },
+          },
+        },
+      },
+      series: [
+        {
+          name: "Masculino",
+          type: "bar",
+          stack: "total",
+          barMaxWidth: 22,
+          data: maleData,
+          label: {
+            show: true,
+            position: "inside" as const,
+            fontSize: 9,
+            fontWeight: 600,
+            color: "#ffffff",
+            fontFamily: "inherit",
+            overflow: "truncate" as const,
+            formatter: (params: any) => (params.value > 0 ? params.value.toLocaleString("es-AR") : ""),
+          },
+          emphasis: { itemStyle: { opacity: 0.85 } },
+          cursor: "pointer",
+          animationDuration: 800,
+          animationEasing: "cubicOut",
+        },
+        {
+          name: "Femenino",
+          type: "bar",
+          stack: "total",
+          barMaxWidth: 22,
+          data: femaleData,
+          label: {
+            show: true,
+            position: "inside" as const,
+            fontSize: 9,
+            fontWeight: 600,
+            color: "#ffffff",
+            fontFamily: "inherit",
+            overflow: "truncate" as const,
+            formatter: (params: any) => (params.value > 0 ? params.value.toLocaleString("es-AR") : ""),
+          },
+          emphasis: { itemStyle: { opacity: 0.85 } },
+          cursor: "pointer",
+          animationDuration: 800,
+          animationEasing: "cubicOut",
+        },
+      ],
+    }, true);
+
+    chart.on("click", (params: any) => {
+      const item = sorted[params.dataIndex];
+      if (item) onClickRef.current(item.id_deporte);
+    });
+
+    const handleResize = () => chart.resize();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chart.dispose();
+    };
+  }, [deportes, selectedId]);
+
+  useEffect(() => {
+    if (!provinciasChartRef.current || !provinciasData?.provincias?.length) return;
+
+    const sorted = [...provinciasData.provincias].sort((a, b) => a.totalDeportistas - b.totalDeportistas);
+    const labels = sorted.map((d) => d.nombre);
+
+    const insideLabel = () => ({
+      show: true,
+      position: "inside" as const,
+      fontSize: 9,
+      fontWeight: 600,
+      color: "#ffffff",
+      fontFamily: "inherit",
+      overflow: "truncate" as const,
+      formatter: (params: any) => (params.value > 0 ? params.value.toLocaleString("es-AR") : ""),
+    });
+
+    const chart = echarts.init(provinciasChartRef.current, "light");
+
+    chart.setOption({
+      backgroundColor: "transparent",
+      legend: {
+        bottom: 0,
+        left: "center",
+        itemWidth: 10,
+        itemHeight: 10,
+        textStyle: { fontSize: 10, color: C_AXIS },
+        data: ["Masculino", "Femenino"],
+      },
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "none" },
+        backgroundColor: "rgba(255, 255, 255, 0.98)",
+        borderColor: "rgba(148, 163, 184, 0.35)",
+        borderWidth: 1,
+        textStyle: { fontSize: 12, color: "#0f172a" },
+        formatter: (params: any[]) => {
+          const dataIndex = params[0]?.dataIndex;
+          const item = typeof dataIndex === "number" ? sorted[dataIndex] : undefined;
+          if (!item) return "";
+          const total = item.totalHombres + item.totalMujeres;
+          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">${item.nombre}</span><br/>
+            <span style="color:${C_AXIS};font-size:11px;">Total: </span>
+            <span style="font-weight:900;color:#0f172a;font-size:14px;">${total.toLocaleString("es-AR")}</span>
+            <span style="color:${C_AXIS};font-size:11px;"> (${item.porcentaje}%)</span><br/>
+            <span style="color:${C_AXIS};font-size:11px;">Clubes: </span>
+            <span style="font-weight:700;color:#0f172a;">${item.totalClubes.toLocaleString("es-AR")}</span><br/>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${C_MALE};margin-right:5px;"></span>
+            <span style="color:${C_AXIS};font-size:11px;">Masculino: </span>
+            <span style="font-weight:700;color:${C_MALE};">${item.totalHombres.toLocaleString("es-AR")}</span><br/>
+            <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${C_FEMALE};margin-right:5px;"></span>
+            <span style="color:${C_AXIS};font-size:11px;">Femenino: </span>
+            <span style="font-weight:700;color:${C_FEMALE};">${item.totalMujeres.toLocaleString("es-AR")}</span>`;
+        },
+      },
+      grid: { left: 128, right: 16, top: 8, bottom: 36 },
+      xAxis: {
+        type: "value",
+        splitLine: { lineStyle: { color: "hsl(215, 20%, 85%)", type: "dashed" } },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          fontSize: 10,
+          color: C_AXIS,
+          fontFamily: "inherit",
+          formatter: (v: number) => (v >= 1000 ? `${(v / 1000).toFixed(0)}k` : String(v)),
+        },
+      },
+      yAxis: {
+        type: "category",
+        data: labels,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: { fontSize: 11, color: "#0f172a", fontWeight: 600, fontFamily: "inherit" },
+      },
+      series: [
+        {
+          name: "Masculino",
+          type: "bar",
+          stack: "total",
+          barMaxWidth: 22,
+          data: sorted.map((d) => ({ value: d.totalHombres, itemStyle: { color: C_MALE } })),
+          label: insideLabel(),
+          emphasis: { itemStyle: { opacity: 0.85 } },
+          animationDuration: 800,
+          animationEasing: "cubicOut",
+        },
+        {
+          name: "Femenino",
+          type: "bar",
+          stack: "total",
+          barMaxWidth: 22,
+          data: sorted.map((d) => ({ value: d.totalMujeres, itemStyle: { color: C_FEMALE, borderRadius: [0, 8, 8, 0] } })),
+          label: insideLabel(),
+          emphasis: { itemStyle: { opacity: 0.85 } },
+          animationDuration: 800,
+          animationEasing: "cubicOut",
+        },
+      ],
+    }, true);
+
+    const handleResize = () => chart.resize();
+    window.addEventListener("resize", handleResize);
+
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      chart.dispose();
+    };
+  }, [provinciasData]);
+
+  return (
+    <ChartCard
+      title="Cobertura Deportiva por Provincia"
+      subtitle="Seleccioná un deporte para ver en qué provincias se practica"
+      icon={<Globe className="h-4 w-4 text-primary" />}
+      headerAction={
+        selectedId && provinciasData ? (
+          <button
+            type="button"
+            onClick={onOpenHeatmap}
+            className="inline-flex items-center gap-1 rounded-full border border-primary/20 bg-primary/10 px-3 py-1 text-[10px] font-semibold uppercase tracking-wide text-primary transition-colors hover:bg-primary/15"
+          >
+            <MapPin className="h-3.5 w-3.5" />
+            Mapa de calor
+          </button>
+        ) : (
+          <div className="flex items-center gap-1 text-muted-foreground/60">
+            <Eye className="h-3.5 w-3.5" />
+            <span className="text-[9px] font-medium uppercase tracking-wide">clic en deporte para ver</span>
+          </div>
+        )
+      }
+    >
+      <div className="flex gap-4" style={{ height: "380px" }}>
+        <div className="flex flex-col min-w-0" style={{ width: "40%" }}>
+          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex-none">
+            Deportes
+          </p>
+          <div ref={deportesChartRef} className="flex-1 min-h-0" />
+        </div>
+        <div className="w-px bg-border shrink-0" />
+        <div className="flex flex-col flex-1 min-w-0">
+          {provinciasLoading ? (
+            <div className="h-full flex items-center justify-center">
+              <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />
+            </div>
+          ) : provinciasData ? (
+            <>
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex-none">
+                <span className="text-foreground font-semibold normal-case text-[11px]">{provinciasData.deporte.nombre}</span>
+                {" · "}
+                {provinciasData.totalProvincias} {provinciasData.totalProvincias === 1 ? "provincia" : "provincias"}
+                {" · "}
+                {provinciasData.totalDeportistas.toLocaleString("es-AR")} deportistas
+              </p>
+              <div ref={provinciasChartRef} className="flex-1 min-h-0" />
+            </>
+          ) : (
+            <div className="h-full flex flex-col items-center justify-center gap-2 text-center text-muted-foreground/50">
+              <Globe className="h-9 w-9" />
+              <p className="text-sm leading-5">Seleccioná un deporte<br />para ver su cobertura provincial</p>
+            </div>
+          )}
+        </div>
+      </div>
+    </ChartCard>
+  );
 }
 
 interface MunicipioRankingChartProps {

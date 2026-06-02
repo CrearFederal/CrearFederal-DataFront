@@ -12,39 +12,41 @@ import {
     Cell,
 } from "recharts";
 import { TrendingDown, TrendingUp, MapPinHouse } from "lucide-react";
-import type { EvaluacionesMunicipioTop10Item } from "../types/Evaluaciones";
+import type { EvaluacionesProvinciaTop10Item } from "../types/Evaluaciones";
 
 const formatNumber = (value: number): string => value.toLocaleString("es-AR");
 const USE_MOCK_DATA = true;
 
-export interface MunicipalityComparisonChartProps {
-    data?: EvaluacionesMunicipioTop10Item[];
+export interface ProvinceComparisonChartProps {
+    data?: EvaluacionesProvinciaTop10Item[];
     height?: number;
     className?: string;
 }
 
-const MOCK_MUNICIPIOS: EvaluacionesMunicipioTop10Item[] = [
-    { id_municipio: 14471, codigopostal: "2000", nombre: "ROSARIO", evaluacionesTotales: 4987, evaluacionesTotalesAnterior: 0, actualVsAnterior: 100 },
-    { id_municipio: 14174, codigopostal: "3000", nombre: "CHAÑAR LADEADO", evaluacionesTotales: 4860, evaluacionesTotalesAnterior: 4510, actualVsAnterior: 7.8 },
-    { id_municipio: 5120, codigopostal: "2300", nombre: "RAFAELA", evaluacionesTotales: 3710, evaluacionesTotalesAnterior: 3120, actualVsAnterior: 18.9 },
-    { id_municipio: 6276, codigopostal: "2600", nombre: "VENADO TUERTO", evaluacionesTotales: 3320, evaluacionesTotalesAnterior: 3490, actualVsAnterior: -4.9 },
-    { id_municipio: 13573, codigopostal: "2508", nombre: "ARMSTRONG", evaluacionesTotales: 2890, evaluacionesTotalesAnterior: 2510, actualVsAnterior: 15.1 },
-    { id_municipio: 4322, codigopostal: "2240", nombre: "SAN LORENZO", evaluacionesTotales: 2410, evaluacionesTotalesAnterior: 1980, actualVsAnterior: 21.7 },
-    { id_municipio: 3445, codigopostal: "2128", nombre: "ARROYO SECO", evaluacionesTotales: 2140, evaluacionesTotalesAnterior: 2260, actualVsAnterior: -5.3 },
-    { id_municipio: 2, codigopostal: "1870", nombre: "AVELLANEDA", evaluacionesTotales: 1830, evaluacionesTotalesAnterior: 1650, actualVsAnterior: 10.9 },
-    { id_municipio: 14065, codigopostal: "3560", nombre: "RECONQUISTA", evaluacionesTotales: 1560, evaluacionesTotalesAnterior: 1710, actualVsAnterior: -8.8 },
-    { id_municipio: 14365, codigopostal: "3050", nombre: "CALCHAQUÍ", evaluacionesTotales: 1280, evaluacionesTotalesAnterior: 1190, actualVsAnterior: 7.6 },
+const MOCK_PROVINCIAS: EvaluacionesProvinciaTop10Item[] = [
+    { id_provincia: 1, nombre: "Santa Fe", personasTotales: 4987, personasTotalesAnterior: 2493, actualVsAnterior: 50.1},
+    { id_provincia: 2, nombre: "CABA", personasTotales: 4860, personasTotalesAnterior: 4510, actualVsAnterior: 7.8 },
+    { id_provincia: 3, nombre: "Cordoba", personasTotales: 3710, personasTotalesAnterior: 3120, actualVsAnterior: 18.9 },
+    { id_provincia: 4, nombre: "Mendoza", personasTotales: 3320, personasTotalesAnterior: 3490, actualVsAnterior: -4.9 },
+    { id_provincia: 5, nombre: "Corrientes", personasTotales: 2890, personasTotalesAnterior: 2510, actualVsAnterior: 15.1 },
+    { id_provincia: 1, nombre: "San Juan", personasTotales: 3000, personasTotalesAnterior: 1500, actualVsAnterior: 50 },
+    { id_provincia: 2, nombre: "Buenos Aires", personasTotales: 4860, personasTotalesAnterior: 4510, actualVsAnterior: 7.8 },
+    { id_provincia: 3, nombre: "Entre Ríos", personasTotales: 3710, personasTotalesAnterior: 3120, actualVsAnterior: 18.9 },
+    { id_provincia: 4, nombre: "Misiones", personasTotales: 3320, personasTotalesAnterior: 3490, actualVsAnterior: -4.9 },
+    { id_provincia: 5, nombre: "Formosa", personasTotales: 2890, personasTotalesAnterior: 2510, actualVsAnterior: 15.1 },
 ];
 
 function ChartShell({
     title,
     subtitle,
     children,
+    headerRight,
     className = "",
 }: {
     title: string;
     subtitle?: string;
     children: ReactNode;
+    headerRight?: React.ReactNode;
     className?: string;
 }) {
     return (
@@ -57,6 +59,7 @@ function ChartShell({
                     </div>
                     {subtitle && <p className="mt-1 text-xs text-muted-foreground">{subtitle}</p>}
                 </div>
+                {headerRight}
             </div>
             {children}
         </div>
@@ -65,18 +68,15 @@ function ChartShell({
 
 function CustomTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
-    const item = payload?.[0]?.payload as EvaluacionesMunicipioTop10Item | undefined;
-    const curr = item?.evaluacionesTotales ?? 0;
-    const prev = item?.evaluacionesTotalesAnterior ?? 0;
+    const item = payload?.[0]?.payload as EvaluacionesProvinciaTop10Item | undefined;
+    const curr = item?.personasTotales ?? 0;
+    const prev = item?.personasTotalesAnterior ?? 0;
     const pct = item?.actualVsAnterior ?? (prev === 0 ? 0 : ((curr - prev) / Math.max(prev, 1)) * 100);
     const up = pct >= 0;
     return (
         <div className="min-w-[180px] rounded-xl border border-border bg-card/95 p-3 shadow-2xl backdrop-blur-xl">
             <div className="text-sm font-semibold text-primary">
                 {item?.nombre ?? label}
-            </div>
-            <div className="mt-0.5 text-[10px] font-normal uppercase tracking-wider text-normal">
-                {item?.codigopostal ? `CP${item.codigopostal}` : ""}
             </div>
             <div className="mt-1.5 space-y-1 text-xs">
                 <div className="flex items-center justify-between gap-4">
@@ -109,22 +109,25 @@ function CustomTooltip({ active, payload, label }: any) {
                 )}
                 <span className="tabular-nums font-semibold">
                     {up ? "+" : ""}
-                    {pct.toFixed(1)}% vs año anterior
+                    {new Intl.NumberFormat("es-AR", {
+                        maximumFractionDigits: 1,
+                    }).format(pct)}
+                    % vs año anterior
                 </span>
             </div>
         </div>
     );
 }
 
-export default function MunicipalityComparisonChart({
-    data = MOCK_MUNICIPIOS,
+export default function ProvinceComparisonChart({
+    data = MOCK_PROVINCIAS,
     height = 340,
     className = "",
-}: MunicipalityComparisonChartProps) {
+}: ProvinceComparisonChartProps) {
     const chartId = useId().replace(/:/g, "");
-    const sourceData = USE_MOCK_DATA ? MOCK_MUNICIPIOS : data;
+    const sourceData = USE_MOCK_DATA ? MOCK_PROVINCIAS : data;
     const top = useMemo(
-        () => [...sourceData].sort((a, b) => b.evaluacionesTotales - a.evaluacionesTotales).slice(0, 10),
+        () => [...sourceData].sort((a, b) => b.personasTotales - a.personasTotales).slice(0, 10),
         [sourceData]
     );
 
@@ -148,11 +151,31 @@ export default function MunicipalityComparisonChart({
         </g>
     );
 
+    const headerLegend = (
+        <div className="pointer-events-none flex items-center gap-3 pt-0.5 text-[10px] text-muted-foreground">
+            <span className="flex items-center gap-1.5">
+                <span className="h-2.5 w-2.5 rounded-sm bg-gradient-to-b from-primary/25 to-primary shadow-[0_0_8px_rgba(37,99,235,0.32)]" />
+                Año actual
+            </span>
+            <span className="flex items-center gap-1.5">
+                <span
+                    className="h-[2px] w-4"
+                    style={{
+                        backgroundImage: "repeating-linear-gradient(90deg,hsl(265 92% 64%) 0 4px,transparent 4px 8px)",
+                        filter: "drop-shadow(0 0 4px rgba(147, 51, 234, 0.42))",
+                    }}
+                />
+                Año anterior
+            </span>
+        </div>
+    );
+
     if (top.length === 0) {
         return (
             <ChartShell
-                title="Evaluaciones por municipio"
-                subtitle="Top 10 con más evaluaciones y su comparación con el año anterior"
+                title="Evaluados por provincia"
+                subtitle="Top 10 con más personas evaluadas y su comparación con el año anterior"
+                headerRight={headerLegend}
                 className={className}
             >
                 <div
@@ -160,7 +183,7 @@ export default function MunicipalityComparisonChart({
                     style={{ height }}
                 >
                     <p className="text-sm text-muted-foreground">
-                        Aún no hay datos de municipios para mostrar.
+                        Aún no hay datos de provincias para mostrar.
                     </p>
                 </div>
             </ChartShell>
@@ -169,27 +192,11 @@ export default function MunicipalityComparisonChart({
 
     return (
         <ChartShell
-            title="Evaluaciones por municipio"
-            subtitle="Top 10 con más evaluaciones y su comparación con el año anterior"
+            title="Evaluados por provincia"
+            subtitle="Top 10 con más personas evaluadas y su comparación con el año anterior"
+            headerRight={headerLegend}
             className={className}
         >
-            <div className="pointer-events-none absolute right-4 top-4 z-10 flex items-center gap-3 text-[10px] text-muted-foreground">
-                <span className="flex items-center gap-1.5">
-                    <span className="h-2.5 w-2.5 rounded-sm bg-gradient-to-b from-primary/25 to-primary shadow-[0_0_8px_rgba(37,99,235,0.32)]" />
-                    Año actual
-                </span>
-                <span className="flex items-center gap-1.5">
-                    <span
-                        className="h-[2px] w-4"
-                        style={{
-                            backgroundImage: "repeating-linear-gradient(90deg,hsl(265 92% 64%) 0 4px,transparent 4px 8px)",
-                            filter: "drop-shadow(0 0 4px rgba(147, 51, 234, 0.42))",
-                        }}
-                    />
-                    Año anterior
-                </span>
-            </div>
-
             <div style={{ height }}>
                 <ResponsiveContainer width="100%" height="100%">
                     <ComposedChart
@@ -251,7 +258,7 @@ export default function MunicipalityComparisonChart({
                         />
 
                         <Bar
-                            dataKey="evaluacionesTotales"
+                            dataKey="personasTotales"
                             radius={[8, 8, 4, 4]}
                             fill={`url(#${currentGradientId})`}
                             filter={`url(#${currentGlowId})`}
@@ -266,7 +273,7 @@ export default function MunicipalityComparisonChart({
 
                         <Line
                             type="monotone"
-                            dataKey="evaluacionesTotalesAnterior"
+                            dataKey="personasTotalesAnterior"
                             stroke={`url(#${previousGradientId})`}
                             strokeWidth={2.25}
                             strokeDasharray="6 5"

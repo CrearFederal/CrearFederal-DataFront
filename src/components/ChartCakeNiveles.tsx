@@ -82,7 +82,7 @@ export default function ChartCakeNiveles({
     height = 320,
     className = "",
     title = "Niveles evaluados",
-    subtitle = "Distribución de evaluaciones por nivel",
+    subtitle = "Distribución de evaluados en cada nivel",
 }: ChartCakeNivelesProps) {
     const chartId = useId().replace(/:/g, "");
     const [selectedLevel, setSelectedLevel] = useState<string | null>(null);
@@ -124,48 +124,51 @@ export default function ChartCakeNiveles({
                 initial={{ opacity: 0, y: 12 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.8, ease: "easeOut" }}
-                className="w-full"
+                className="w-full flex flex-col gap-2 overflow-hidden"
                 style={{ height }}
             >
-                <div className="mb-3 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-background/60 px-3 py-2 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">Seleccionar nivel:</span>
-                    {chartData.map((item) => {
-                        const checked = selectedLevel === item.nivel_evaluado;
+                <div className="flex items-center gap-2 rounded-lg border border-border bg-background/60 px-2.5 py-1.5 text-xs text-muted-foreground overflow-x-auto overflow-y-hidden flex-shrink-0">
+                    <span className="font-medium text-foreground whitespace-nowrap flex-shrink-0 hidden md:inline-block">Seleccionar nivel:</span>
+                    <div className="flex items-center gap-1.5 flex-nowrap">
+                        {chartData.map((item) => {
+                            const checked = selectedLevel === item.nivel_evaluado;
 
-                        return (
-                            <button
-                                key={item.nivel_evaluado}
-                                type="button"
-                                onClick={() => setSelectedLevel(checked ? null : item.nivel_evaluado)}
-                                className={`flex items-center gap-2 rounded-lg border px-2.5 py-1 transition-all ${
-                                    checked
-                                        ? "text-foreground shadow-sm"
-                                        : "border-border/70 bg-background/70 hover:bg-muted/40"
-                                }`}
-                                style={
-                                    checked
-                                        ? {
-                                              borderColor: item.fill,
-                                              backgroundColor: `${item.fill}14`,
-                                              boxShadow: `0 0 0 1px ${item.fill}40 inset`,
-                                          }
-                                        : undefined
-                                }
-                            >
-                                <span className="h-2.5 w-2.5 rounded-full" style={{ backgroundColor: item.fill }} />
-                                <span
-                                    className={checked ? "font-semibold" : ""}
-                                    style={checked ? { color: item.fill } : undefined}
+                            return (
+                                <button
+                                    key={item.nivel_evaluado}
+                                    type="button"
+                                    onClick={() => setSelectedLevel(checked ? null : item.nivel_evaluado)}
+                                    className={`flex items-center gap-1 rounded-lg border px-1.5 py-0.5 transition-all whitespace-nowrap flex-shrink-0 text-xs ${
+                                        checked
+                                            ? "text-foreground shadow-sm"
+                                            : "border-border/70 bg-background/70 hover:bg-muted/40"
+                                    }`}
+                                    style={
+                                        checked
+                                            ? {
+                                                  borderColor: item.fill,
+                                                  backgroundColor: `${item.fill}14`,
+                                                  boxShadow: `0 0 0 1px ${item.fill}40 inset`,
+                                              }
+                                            : undefined
+                                    }
                                 >
-                                    {item.nivel_evaluado}
-                                </span>
-                            </button>
-                        );
-                    })}
+                                    <span className="h-1.5 w-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: item.fill }} />
+                                    <span
+                                        className={checked ? "font-semibold" : ""}
+                                        style={checked ? { color: item.fill } : undefined}
+                                    >
+                                        {item.nivel_evaluado}
+                                    </span>
+                                </button>
+                            );
+                        })}
+                    </div>
                 </div>
 
-                <ResponsiveContainer width="100%" height="100%">
-                    <PieChart className="-mt-6">
+                <div className="flex-1 min-h-0 w-full">
+                    <ResponsiveContainer width="100%" height="100%">
+                        <PieChart>
                         <defs>
                             <linearGradient id={`pie-center-${chartId}`} x1="0" y1="0" x2="1" y2="1">
                                 <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.95} />
@@ -231,7 +234,8 @@ export default function ChartCakeNiveles({
                             />
                         </Pie>
                     </PieChart>
-                </ResponsiveContainer>
+                    </ResponsiveContainer>
+                </div>
             </motion.div>
         </ChartShell>
     );

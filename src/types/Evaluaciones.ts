@@ -1,16 +1,3 @@
-export interface EvaluacionesMunicipioItem {
-	id_municipio: number;
-	codigopostal: string;
-	nombre: string;
-	evaluacionesTotales: number;
-	evaluacionesTotalesAnterior: number;
-	actualVsAnterior: number;
-}
-
-export interface EvaluacionesMunicipiosResponse {
-	municipios: EvaluacionesMunicipioItem[];
-}
-
 export interface EvaluacionesMunicipioTop10Item {
 	id_municipio: number;
 	codigopostal: string;
@@ -20,13 +7,25 @@ export interface EvaluacionesMunicipioTop10Item {
 	actualVsAnterior: number;
 }
 
+export interface EvaluacionesProvinciaTop10Item {
+	id_provincia: number;
+	nombre: string;
+	personasTotales: number;
+	personasTotalesAnterior: number;
+	actualVsAnterior: number;
+}
+
 export interface EvaluacionesMunicipiosTop10Response {
 	municipios: EvaluacionesMunicipioTop10Item[];
 }
 
+export interface EvaluacionesProvinciasTop10Response {
+	provincias: EvaluacionesProvinciaTop10Item[];
+}
+
 export interface EvaluacionesEvolucionMensualItem {
 	mes: string;
-	cantidadEvaluaciones: number;
+	cantidadEvaluados: number;
 	actualVsAnterior: number;
 }
 
