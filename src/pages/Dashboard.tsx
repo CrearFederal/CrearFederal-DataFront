@@ -15,7 +15,7 @@ import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, P
 import { BarChart3, Building2, Users, Medal, MapPin, X, Venus, Mars, TrendingUp, Volleyball } from "lucide-react";
 import type { ClubesTotalesResponse } from "../types/Clubes";
 import type { DeportistasGenerosResponse, DeportistasTotalesResponse } from "../types/Deportistas";
-import { getTopDeportes, getEdadesHistograma, getDeportesAll, getDeporteProvincias } from "../data/statsApi";
+import { getTopDeportes, getTopDeportesTop10, getEdadesHistograma, getDeportesAll, getDeporteProvincias } from "../data/statsApi";
 import type { TopDeporteItem, DeporteItem, DeporteProvinciasResponse } from "../data/statsApi";
 import { getMapaClubes } from "../data/mapaApi";
 import { getMunicipiosTop10 } from "../data/municipiosApi";
@@ -96,6 +96,7 @@ function Dashboard() {
   const [deportistasGeneros, setDeportistasGeneros] = useState<DeportistasGenerosResponse | null>(null);
   const [authStatus, setAuthStatus] = useState<"loading" | "ready" | "error">("loading");
   const [topDeportes, setTopDeportes] = useState<TopDeporteItem[] | null>(null);
+  const [topDeportesTop10, setTopDeportesTop10] = useState<TopDeporteItem[] | null>(null);
   const [provinciasTop10, setProvinciasTop10] = useState<ProvinciasTop10ContextoResponse | null>(null);
   const [municipiosTop10, setMunicipiosTop10] = useState<MunicipiosTop10ContextoResponse | null>(null);
   const [topClubes, setTopClubes] = useState<TopClubRankingItem[] | null>(null);
@@ -116,6 +117,7 @@ function Dashboard() {
   const [totalDeportistasModalOrigin, setTotalDeportistasModalOrigin] = useState<DOMRect | null>(null);
   const [selectedGeneroDetalle, setSelectedGeneroDetalle] = useState<"femenino" | "masculino">("femenino");
   const [genderSplitAnimated, setGenderSplitAnimated] = useState(false);
+  const [deporteLiderBarsAnimated, setDeporteLiderBarsAnimated] = useState(false);
   const [edadesFemenino, setEdadesFemenino] = useState<number[] | null>(null);
   const [edadesMasculino, setEdadesMasculino] = useState<number[] | null>(null);
   const [isDeportesRendered, setIsDeportesRendered] = useState(false);
@@ -270,6 +272,12 @@ function Dashboard() {
 
     return false;
   };
+
+  useEffect(() => {
+    const anyModalOpen = isDeportesVisible || isDeporteLiderVisible;
+    document.body.style.overflow = anyModalOpen ? "hidden" : "";
+    return () => { document.body.style.overflow = ""; };
+  }, [isDeportesVisible, isDeporteLiderVisible]);
 
   useEffect(() => {
     if (!roleConfig) return;
@@ -460,6 +468,16 @@ function Dashboard() {
   }, [isTotalDeportistasRendered, totalDeportistasContentStage]);
 
   useEffect(() => {
+    if (!isDeporteLiderRendered || deporteLiderContentStage < 3) {
+      setDeporteLiderBarsAnimated(false);
+      return;
+    }
+
+    const frame = window.requestAnimationFrame(() => setDeporteLiderBarsAnimated(true));
+    return () => window.cancelAnimationFrame(frame);
+  }, [isDeporteLiderRendered, deporteLiderContentStage]);
+
+  useEffect(() => {
     if (authStatus !== "ready") return;
 
     if (roleConfig?.role !== "municipality") {
@@ -535,6 +553,25 @@ function Dashboard() {
     };
 
     void loadTopDeportes();
+
+    return () => controller.abort();
+  }, [authStatus]);
+
+  useEffect(() => {
+    if (authStatus !== "ready") return;
+
+    const controller = new AbortController();
+
+    const loadTopDeportesTop10 = async () => {
+      try {
+        const data = await getTopDeportesTop10(controller.signal);
+        if (!controller.signal.aborted) setTopDeportesTop10(data);
+      } catch {
+        if (!controller.signal.aborted) setTopDeportesTop10(null);
+      }
+    };
+
+    void loadTopDeportesTop10();
 
     return () => controller.abort();
   }, [authStatus]);
@@ -915,6 +952,7 @@ function Dashboard() {
     }
     deporteLiderStageTimersRef.current.forEach((t) => window.clearTimeout(t));
     deporteLiderStageTimersRef.current = [];
+    setDeporteLiderBarsAnimated(false);
     setDeporteLiderModalOrigin(event.currentTarget.getBoundingClientRect());
     setIsDeporteLiderRendered(true);
     setDeporteLiderContentStage(0);
@@ -952,6 +990,7 @@ function Dashboard() {
   const closeDeporteLiderModal = () => {
     setIsDeporteLiderVisible(false);
     setDeporteLiderContentStage(0);
+    setDeporteLiderBarsAnimated(false);
     deporteLiderStageTimersRef.current.forEach((t) => window.clearTimeout(t));
     deporteLiderStageTimersRef.current = [];
     if (deporteLiderCloseTimerRef.current !== null) window.clearTimeout(deporteLiderCloseTimerRef.current);
@@ -1036,9 +1075,9 @@ function Dashboard() {
     <div className="min-h-screen bg-background flex flex-col">
 
       {/* MAIN */}
-      <div className="flex-1 flex flex-col p-4 gap-3">
+      <div className="flex-1 flex flex-col p-3 gap-3 sm:p-4">
         {/* ROW 2 — KPIs */}
-        <div className="grid grid-cols-4 gap-2.5">
+        <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2 xl:grid-cols-4">
           <KpiCard
             title="Total de Clubes"
             value={totalClubesCount}
@@ -1098,10 +1137,10 @@ function Dashboard() {
         </div>
 
         {/* ROW 3 — Map + Charts stack */}
-        <div className="flex gap-3" style={{ minHeight: "52vh" }}>
+        <div className="flex flex-col gap-3 xl:flex-row">
 
-          {/* Map — 50% */}
-          <div className="relative z-0 bg-card border border-border rounded-xl overflow-hidden" style={{ flex: "0 0 50%" }}>
+          {/* Map */}
+          <div className="relative z-0 bg-card border border-border rounded-xl overflow-hidden h-[460px] xl:h-auto xl:max-h-none xl:min-h-[52vh] xl:flex-none xl:w-1/2">
             <LeafletMap
               filters={filters}
               navigation={navigation}
@@ -1114,15 +1153,15 @@ function Dashboard() {
             />
           </div>
 
-          {/* Right charts — 50% stacked */}
-          <div className="flex flex-col gap-3 flex-1 min-w-0">
+          {/* Right charts — stacked */}
+          <div className="flex flex-col gap-3 xl:flex-1 xl:min-w-0">
             <AthletesPerSportChart data={topDeportes ?? []} />
             <AgeDistributionChart ages={edadesApiData ?? []} />
           </div>
         </div>
 
         {/* ROW 4 — Province + Gender + Gender per Sport */}
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
           {roleConfig.role === "municipality" ? (
             <MunicipioRankingChart data={municipiosTop10} />
           ) : (
@@ -1196,23 +1235,23 @@ function Dashboard() {
                   <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-primary transition-all duration-300" />
                   <div className="absolute left-0 top-0 h-1 w-full rounded-t-xl bg-primary" />
                   <div
-                    className={`flex items-start justify-between px-5 pt-5 pb-4 transition-all duration-500 ${totalClubesContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+                    className={`flex items-start justify-between px-4 pt-4 pb-3 sm:px-5 sm:pt-5 sm:pb-4 transition-all duration-500 ${totalClubesContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
                       }`}
                     style={{ transitionDelay: totalClubesContentStage >= 1 ? "0ms" : "0ms" }}
                   >
-                    <h3 className="text-xl font-semibold text-foreground">
+                    <h3 className="text-base sm:text-xl font-semibold text-foreground pr-2">
                       Contamos con un total de <span className="text-primary">{totalClubesCount.toLocaleString("es-AR")}</span> de clubes
                     </h3>
                     <button
                       type="button"
                       onClick={closeTotalClubesModal}
-                      className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors"
+                      className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center"
                       aria-label="Cerrar detalle de clubes"
                     >
                       <X className="h-4 w-4" />
                     </button>
                   </div>
-                  <div className="px-4 pb-2 pt-2 flex flex-col">
+                  <div className="px-3 pb-2 pt-2 flex flex-col sm:px-4 overflow-y-auto h-[calc(100%-68px)] sm:h-[calc(100%-76px)]">
                     <div
                       className={`transition-all duration-500 ${totalClubesContentStage >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
                         }`}
@@ -1323,23 +1362,23 @@ function Dashboard() {
                   <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-primary transition-all duration-300" />
                   <div className="absolute left-0 top-0 h-1 w-full rounded-t-xl bg-primary" />
                   <div
-                    className={`flex items-start justify-between px-5 pt-5 pb-2 transition-all duration-500 ${totalDeportistasContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
+                    className={`flex items-start justify-between px-4 pt-4 pb-2 sm:px-5 sm:pt-5 transition-all duration-500 ${totalDeportistasContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"
                       }`}
                   >
-                    <h3 className="text-xl font-semibold text-foreground">
+                    <h3 className="text-base sm:text-xl font-semibold text-foreground pr-2">
                       Contamos con <span className="text-primary">{(deportistasTotales?.deportistas ?? 0).toLocaleString("es-AR")}</span> deportistas registrados
                     </h3>
                     <button
                       type="button"
                       onClick={closeTotalDeportistasModal}
-                      className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors"
+                      className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center"
                       aria-label="Cerrar detalle de deportistas"
                     >
                       <X className="h-4 w-4" />
                     </button>
                   </div>
 
-                  <div className="px-4 pb-4 pt-1 flex flex-col h-[calc(100%-76px)] overflow-y-auto">
+                  <div className="px-3 pb-3 pt-1 flex flex-col h-[calc(100%-68px)] overflow-y-auto sm:px-4 sm:pb-4 sm:h-[calc(100%-76px)]">
                     {topProvinciasDeportistas.length > 0 && (
                       <div
                         className={`transition-all duration-500 ${totalDeportistasContentStage >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"
@@ -1487,18 +1526,18 @@ function Dashboard() {
               >
                 <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-primary" />
                 <div className="absolute left-0 top-0 h-1 w-full rounded-t-xl bg-primary" />
-                <div className={`flex items-start justify-between px-5 pt-5 pb-3 transition-all duration-500 ${deportesContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
-                  <div>
-                    <h3 className="text-xl font-semibold text-foreground">
+                <div className={`flex items-start justify-between px-4 pt-4 pb-3 sm:px-5 sm:pt-5 transition-all duration-500 ${deportesContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
+                  <div className="pr-2">
+                    <h3 className="text-base sm:text-xl font-semibold text-foreground">
                       <span className="text-primary">{deportistasTotales?.deportes ?? 0}</span> deportes activos
                     </h3>
-                    <p className="text-sm text-muted-foreground mt-0.5">Disciplinas con deportistas registrados</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground mt-0.5">Disciplinas con deportistas registrados</p>
                   </div>
-                  <button type="button" onClick={closeDeportesModal} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors" aria-label="Cerrar">
+                  <button type="button" onClick={closeDeportesModal} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center" aria-label="Cerrar">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="px-4 pb-4 flex flex-col gap-3 h-[calc(100%-80px)] overflow-y-auto">
+                <div className="px-3 pb-3 flex flex-col gap-3 h-[calc(100%-72px)] overflow-y-auto sm:px-4 sm:pb-4 sm:h-[calc(100%-80px)]">
                   {deportesInsights && (
                     <div className={`grid grid-cols-2 gap-2 transition-all duration-500 ${deportesContentStage >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
                       <div className="rounded-xl border border-pink-200 bg-pink-50 p-3">
@@ -1562,21 +1601,21 @@ function Dashboard() {
               >
                 <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-primary" />
                 <div className="absolute left-0 top-0 h-1 w-full rounded-t-xl bg-primary" />
-                <div className={`flex items-start justify-between px-5 pt-5 pb-3 transition-all duration-500 ${deporteLiderContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                <div className={`flex items-start justify-between px-4 pt-4 pb-3 sm:px-5 sm:pt-5 transition-all duration-500 ${deporteLiderContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
+                  <div className="flex items-center gap-2 sm:gap-3 min-w-0 pr-2">
+                    <div className="rounded-lg bg-primary/10 p-2 text-primary shrink-0">
                       <Medal className="h-5 w-5" />
                     </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-foreground">{deportistasTotales?.deporteLider ?? "-"}</h3>
-                      <p className="text-sm text-muted-foreground">Deporte líder en deportistas activos</p>
+                    <div className="min-w-0">
+                      <h3 className="text-base sm:text-xl font-semibold text-foreground truncate">{deportistasTotales?.deporteLider ?? "-"}</h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground">Deporte líder en deportistas activos</p>
                     </div>
                   </div>
-                  <button type="button" onClick={closeDeporteLiderModal} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors" aria-label="Cerrar">
+                  <button type="button" onClick={closeDeporteLiderModal} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center" aria-label="Cerrar">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <div className="px-4 pb-4 flex flex-col gap-3 h-[calc(100%-80px)] overflow-y-auto">
+                <div className="px-3 pb-3 flex flex-col gap-3 h-[calc(100%-72px)] overflow-y-auto sm:px-4 sm:pb-4 sm:h-[calc(100%-80px)]">
                   <div className={`transition-all duration-500 ${deporteLiderContentStage >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
                     <div className="grid grid-cols-2 gap-2 mb-3">
                       <div className="rounded-xl border border-border bg-background/70 p-3">
@@ -1586,7 +1625,7 @@ function Dashboard() {
                         </p>
                         {deporteLiderStats && (
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            <span className="font-semibold text-foreground">{deporteLiderStats.pctDelTotal}%</span> del total nacional
+                            <span className="font-bold text-sm text-foreground">{deporteLiderStats.pctDelTotal}%</span> del total nacional
                           </p>
                         )}
                       </div>
@@ -1594,8 +1633,8 @@ function Dashboard() {
                         <div className="rounded-xl border border-border bg-background/70 p-3">
                           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">2do deporte</p>
                           <p className="text-base font-semibold text-foreground">{deporteLiderStats.segundo.sport}</p>
-                          <p className="text-xs text-muted-foreground mt-0.5">
-                            {(deporteLiderStats.segundo.male + deporteLiderStats.segundo.female).toLocaleString("es-AR")} deportistas
+                          <p className="text-sm text-primary font-semibold mt-0.5">
+                            {(deporteLiderStats.segundo.male + deporteLiderStats.segundo.female).toLocaleString("es-AR")} <span className="text-muted-foreground font-normal">deportistas</span>
                           </p>
                         </div>
                       )}
@@ -1630,21 +1669,25 @@ function Dashboard() {
                         <TrendingUp className="h-3 w-3" /> Comparativa top deportes
                       </p>
                       <div className="space-y-1.5">
-                        {(topDeportes ?? []).slice(0, 5).map((d, i) => {
+                        {(topDeportesTop10 ?? []).map((d, i) => {
                           const tot = d.male + d.female;
-                          const maxTot = Math.max(...(topDeportes ?? []).map((x) => x.male + x.female), 1);
+                          const maxTot = Math.max(...(topDeportesTop10 ?? []).map((x) => x.male + x.female), 1);
                           const isLider = d.sport.toLowerCase() === (deportistasTotales?.deporteLider ?? "").toLowerCase();
                           return (
-                            <div key={d.sport} className="flex items-center gap-2">
-                              <span className="text-xs text-muted-foreground w-4 text-right">{i + 1}</span>
-                              <div className="flex-1 h-5 bg-border/40 rounded overflow-hidden">
+                            <div key={d.sport} className="flex items-center gap-1.5 sm:gap-2">
+                              <span className="text-xs text-muted-foreground w-4 text-right shrink-0">{i + 1}</span>
+                              <div className="flex-1 h-5 bg-border/40 rounded overflow-hidden min-w-0">
                                 <div
-                                  className={`h-full rounded transition-all duration-700 ${isLider ? "bg-primary" : "bg-primary/30"}`}
-                                  style={{ width: `${(tot / maxTot) * 100}%` }}
+                                  className={`h-full rounded ${isLider ? "bg-primary" : "bg-primary/30"}`}
+                                  style={{
+                                    width: `${deporteLiderBarsAnimated ? (tot / maxTot) * 100 : 0}%`,
+                                    transition: "width 900ms cubic-bezier(0.22,1,0.36,1)",
+                                    transitionDelay: `${i * 90}ms`,
+                                  }}
                                 />
                               </div>
-                              <span className={`text-xs w-28 truncate ${isLider ? "font-semibold text-primary" : "text-muted-foreground"}`}>{d.sport}</span>
-                              <span className="text-xs text-muted-foreground w-16 text-right">{tot.toLocaleString("es-AR")}</span>
+                              <span className={`text-xs w-20 sm:w-28 truncate shrink-0 ${isLider ? "font-semibold text-primary" : "text-muted-foreground"}`}>{d.sport}</span>
+                              <span className="text-xs text-muted-foreground w-12 sm:w-16 text-right shrink-0">{tot.toLocaleString("es-AR")}</span>
                             </div>
                           );
                         })}
@@ -1687,21 +1730,21 @@ function Dashboard() {
               >
                 <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-primary" />
                 <div className="absolute left-0 top-0 h-1 w-full rounded-t-xl bg-primary" />
-                <div className={`flex items-start justify-between px-5 pt-5 pb-3 transition-all duration-500 ${deporteHeatmapContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
-                  <div className="flex items-center gap-3">
-                    <div className="rounded-lg bg-primary/10 p-2 text-primary">
+                <div className={`flex items-start justify-between px-4 pt-4 pb-3 sm:px-5 sm:pt-5 transition-all duration-500 ${deporteHeatmapContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
+                  <div className="flex items-start gap-2 sm:gap-3 min-w-0 pr-2">
+                    <div className="rounded-lg bg-primary/10 p-2 text-primary shrink-0">
                       <Volleyball className="h-5 w-5" />
                     </div>
-                    <div>
-                      <h3 className="text-xl font-semibold text-foreground">{deporteProvincias?.deporte?.nombre ?? "-"}</h3>
-                      <p className="text-sm text-muted-foreground">Mapa de calor de todas las provincias que practican este deporte por cantidad de deportistas</p>
+                    <div className="min-w-0">
+                      <h3 className="text-base sm:text-xl font-semibold text-foreground truncate">{deporteProvincias?.deporte?.nombre ?? "-"}</h3>
+                      <p className="text-xs sm:text-sm text-muted-foreground">Mapa de calor de todas las provincias que practican este deporte por cantidad de deportistas</p>
                     </div>
                   </div>
-                  <button type="button" onClick={closeDeporteHeatmapModal} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors" aria-label="Cerrar">
+                  <button type="button" onClick={closeDeporteHeatmapModal} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center" aria-label="Cerrar">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <div className={`px-4 pb-4 flex flex-col gap-3 h-[calc(100%-80px)] overflow-hidden transition-all duration-500 ${deporteHeatmapContentStage >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
+                <div className={`px-3 pb-3 flex flex-col gap-3 h-[calc(100%-72px)] overflow-hidden transition-all duration-500 sm:px-4 sm:pb-4 sm:h-[calc(100%-80px)] ${deporteHeatmapContentStage >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="rounded-xl border border-border bg-background/70 p-3">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total de provincias</p>
@@ -1747,23 +1790,23 @@ function Dashboard() {
               >
                 <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-primary" />
                 <div className="absolute left-0 top-0 h-1 w-full rounded-t-xl bg-primary" />
-                <div className={`flex items-start justify-between px-5 pt-5 pb-3 transition-all duration-500 ${provinciaRankingContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
-                  <div>
-                    <div className="flex items-center gap-2 mb-0.5">
-                      <h3 className="text-xl font-semibold text-foreground">
+                <div className={`flex items-start justify-between px-4 pt-4 pb-3 sm:px-5 sm:pt-5 transition-all duration-500 ${provinciaRankingContentStage >= 1 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-2"}`}>
+                  <div className="pr-2">
+                    <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                      <h3 className="text-base sm:text-xl font-semibold text-foreground">
                         {selectedProvinciaRanking.nombre === "Ciudad Autónoma de Buenos Aires (CABA)" ? "CABA" : selectedProvinciaRanking.nombre}
                       </h3>
                       <span className="inline-flex items-center rounded-lg border border-primary/20 bg-primary/10 px-2 py-0.5 font-bold text-primary text-sm">
                         #{selectedProvinciaRanking.posicion}
                       </span>
                     </div>
-                    <p className="text-sm text-muted-foreground">Ranking por cantidad de deportistas</p>
+                    <p className="text-xs sm:text-sm text-muted-foreground">Ranking por cantidad de deportistas</p>
                   </div>
-                  <button type="button" onClick={closeProvinciaRankingModal} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors" aria-label="Cerrar">
+                  <button type="button" onClick={closeProvinciaRankingModal} className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center" aria-label="Cerrar">
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <div className={`px-4 pb-4 flex flex-col gap-3 h-[calc(100%-80px)] overflow-y-auto transition-all duration-500 ${provinciaRankingContentStage >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
+                <div className={`px-3 pb-3 flex flex-col gap-3 h-[calc(100%-72px)] overflow-y-auto transition-all duration-500 sm:px-4 sm:pb-4 sm:h-[calc(100%-80px)] ${provinciaRankingContentStage >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="rounded-xl border border-border bg-background/70 p-3">
                       <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total deportistas</p>
@@ -1807,7 +1850,7 @@ function Dashboard() {
                           <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
                             <TrendingUp className="h-3 w-3" /> Participación deportiva (Censo INDEC 2022)
                           </p>
-                            <div className="flex items-center justify-between">
+                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
                             <div>
                               <p className="text-sm text-foreground">
                                 <span className="text-2xl font-bold text-primary font-mono">{provinciaRankingStats.pctPoblacion}%</span>
@@ -1820,7 +1863,7 @@ function Dashboard() {
                               )}
                             </div>
                             {provinciaRankingStats.rankingPorPoblacion !== null && (
-                              <span className="inline-flex items-center rounded-lg border border-primary/20 bg-primary/10 px-3 py-1.5 font-bold text-primary text-base">
+                              <span className="inline-flex items-center rounded-lg border border-primary/20 bg-primary/10 px-3 py-1.5 font-bold text-primary text-base self-start sm:self-auto">
                                 #{provinciaRankingStats.rankingPorPoblacion} en este ranking
                               </span>
                             )}
@@ -1844,7 +1887,6 @@ function Dashboard() {
           />
           <ClubDetailPanel
             clubId={selectedClubId}
-            filters={filters}
             onClose={() => { if (roleConfig.role !== "club") setSelectedClubId(null); }}
           />
         </>

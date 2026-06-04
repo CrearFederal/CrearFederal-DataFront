@@ -114,4 +114,13 @@ $RECYCLE.BIN/
 
 # Windows shortcuts
 *.lnk
+
+# Claude Code / agent tooling
+.claude/
+.claude-code/
+.claude-cache/
+.ai/
+.skills/
+skills-lock.json
+.agents/
 CLAUDE.md

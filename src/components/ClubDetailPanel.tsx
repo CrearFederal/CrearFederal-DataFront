@@ -8,49 +8,62 @@ import {
   Loader2,
 } from "lucide-react";
 
-import type { Filters } from "../types/types";
-import type { ClubDetalleResponse, InfraestructuraItem } from "../types/Clubes";
+import type { ClubDetalleResponse, ConteoInfraestructura } from "../types/Clubes";
 import { getClubDetalle } from "../data/clubesApi";
 import { edadesFrecuenciaToAges } from "../data/dataUtils";
 
 import KpiCard from "./KpiCard";
 import {
   AthletesPerSportChart,
-  GenderDistributionChart,
   AgeDistributionChart,
 } from "./Charts";
 
+import imgFutbol   from "../../assets/CanchaFutbol.jpg";
+import imgTenis    from "../../assets/CanchaTenis.jpg";
+import imgNatacion from "../../assets/CanchaNatacion.jpg";
+import imgBasket   from "../../assets/CanchaBasket.jpg";
+import imgVoley    from "../../assets/CanchaVoley.jpg";
+import imgRugby    from "../../assets/CanchaRugby.jpg";
+import imgHockey   from "../../assets/CanchaHockey.jpg";
+import otros       from "../../assets/Otros.jpg";
+
 // ---------------- INFRAESTRUCTURA ----------------
 
-interface InfraIconConfig { emoji: string; color: string; bg: string; }
+interface InfraItemConfig {
+  key: keyof ConteoInfraestructura;
+  label: string;
+  image: string | null;
+  color: string;
+}
 
-const INFRA_CONFIG: Record<number, InfraIconConfig> = {
-  1:  { emoji: "🏊", color: "text-sky-700",     bg: "bg-sky-100"     }, // Pileta Olímpica
-  2:  { emoji: "🏊", color: "text-sky-700",     bg: "bg-sky-100"     }, // Pileta Semi-olímpica
-  3:  { emoji: "🏊", color: "text-sky-600",     bg: "bg-sky-50"      }, // Pileta Recreativa
-  4:  { emoji: "⚽", color: "text-green-700",   bg: "bg-green-100"   }, // Fútbol 11 Césped
-  5:  { emoji: "⚽", color: "text-green-600",   bg: "bg-green-50"    }, // Fútbol 5/7 Sintético
-  6:  { emoji: "🏀", color: "text-orange-600",  bg: "bg-orange-100"  }, // Básquet
-  7:  { emoji: "🏐", color: "text-yellow-600",  bg: "bg-yellow-100"  }, // Voley
-  8:  { emoji: "🎾", color: "text-amber-600",   bg: "bg-amber-100"   }, // Tenis
-  9:  { emoji: "🎾", color: "text-amber-500",   bg: "bg-amber-50"    }, // Padel
-  10: { emoji: "🏉", color: "text-emerald-700", bg: "bg-emerald-100" }, // Rugby
-  11: { emoji: "🏑", color: "text-teal-600",    bg: "bg-teal-100"    }, // Hockey
-  12: { emoji: "🏃", color: "text-red-500",     bg: "bg-red-100"     }, // Atletismo
-  13: { emoji: "🏹", color: "text-purple-600",  bg: "bg-purple-100"  }, // Tiro con Arco
-  14: { emoji: "💪", color: "text-violet-600",  bg: "bg-violet-100"  }, // Gimnasio Musculación
-  15: { emoji: "🏛️", color: "text-blue-600",    bg: "bg-blue-100"    }, // SUM
-  16: { emoji: "🌳", color: "text-lime-700",    bg: "bg-lime-100"    }, // Colonia de Vacaciones
-};
+const INFRA_ITEMS: InfraItemConfig[] = [
+  { key: "CanchaFutbol",   label: "CANCHAS DE FÚTBOL",    image: imgFutbol,   color: "text-green-500" },
+  { key: "CanchaBasquet",  label: "CANCHAS DE BÁSQUET",   image: imgBasket,   color: "text-orange-300" },
+  { key: "CanchaHockey",   label: "CANCHAS DE HOCKEY",    image: imgHockey,   color: "text-blue-400"   },
+  { key: "CanchaTenis",    label: "CANCHAS DE TENIS",     image: imgTenis,    color: "text-orange-500" },
+  { key: "CanchaVoley",    label: "CANCHAS DE VOLEY",     image: imgVoley,    color: "text-rose-300" },
+  { key: "CanchaNatacion", label: "PILETAS DE NATACIÓN",  image: imgNatacion, color: "text-cyan-400" },
+  { key: "CanchaRugby",    label: "CANCHAS DE RUGBY",     image: imgRugby,    color: "text-green-600"   },
+  { key: "Otros",          label: "OTRAS INSTALACIONES",  image: otros,       color: "text-gray-400" },
+];
 
-const INFRA_FALLBACK: InfraIconConfig = { emoji: "🏗️", color: "text-muted-foreground", bg: "bg-muted" };
-
-function InfraBadge({ item }: { item: InfraestructuraItem }) {
-  const { emoji, color, bg } = INFRA_CONFIG[item.id_tipo_infra] ?? INFRA_FALLBACK;
+function InfraCard({ label, count, image, color }: { label: string; count: number; image: string | null; color: string }) {
   return (
-    <div className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${bg} ${color}`}>
-      <span className="text-sm leading-none">{emoji}</span>
-      <span>{item.descripcion}</span>
+    <div className="relative rounded-xl overflow-hidden aspect-[4/2]">
+      {image ? (
+        <img src={image} alt={label} className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-600 to-slate-800" />
+      )}
+      <div className="absolute inset-0 bg-black/60" />
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1.5">
+        <span className={`text-3xl sm:text-4xl font-black leading-none ${color} drop-shadow-sm`}>
+          {count}
+        </span>
+        <span className="text-[8px] sm:text-[9px] font-semibold text-white/90 text-center uppercase tracking-widest leading-tight">
+          {label}
+        </span>
+      </div>
     </div>
   );
 }
@@ -59,7 +72,6 @@ function InfraBadge({ item }: { item: InfraestructuraItem }) {
 
 interface ClubDetailPanelProps {
   clubId: number;
-  filters: Filters;
   onClose: () => void;
 }
 
@@ -71,22 +83,16 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
   const [error, setError] = useState<string | null>(null);
 
   const isAbortError = (value: unknown): boolean => {
-    if (value instanceof DOMException && value.name === "AbortError") {
-      return true;
-    }
-
+    if (value instanceof DOMException && value.name === "AbortError") return true;
     if (typeof value === "object" && value !== null) {
       const error = value as { name?: string; code?: string };
       return error.name === "CanceledError" || error.code === "ERR_CANCELED";
     }
-
     return false;
   };
 
   useEffect(() => {
     const controller = new AbortController();
-    // active evita que una petición cancelada actualice el estado
-    // (React StrictMode ejecuta los efectos dos veces en desarrollo)
     let active = true;
 
     setLoading(true);
@@ -96,10 +102,7 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
     getClubDetalle(clubId, controller.signal)
       .then((result) => { if (active) setData(result); })
       .catch((err) => {
-        if (!active || isAbortError(err)) {
-          return;
-        }
-
+        if (!active || isAbortError(err)) return;
         if (active) setError("No se pudo cargar el detalle del club.");
         console.error("ClubDetailPanel fetch error:", err);
       })
@@ -111,7 +114,7 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
     };
   }, [clubId]);
 
-  // -------- DERIVED DATA FOR CHARTS --------
+  // -------- DERIVED DATA --------
 
   const genderPerSport = data?.generoPorDeporte.map((d) => ({
     sport: d.deporte,
@@ -119,15 +122,11 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
     female: d.femenino,
   })) ?? [];
 
-  const totalGenero = (data?.distribucionGenero.masculino ?? 0) + (data?.distribucionGenero.femenino ?? 0);
-  const genderDistribution = {
-    male: data?.distribucionGenero.masculino ?? 0,
-    female: data?.distribucionGenero.femenino ?? 0,
-    malePercent: totalGenero > 0 ? Math.round(((data?.distribucionGenero.masculino ?? 0) / totalGenero) * 100) : 0,
-    femalePercent: totalGenero > 0 ? Math.round(((data?.distribucionGenero.femenino ?? 0) / totalGenero) * 100) : 0,
-  };
-
   const rawAges = data ? edadesFrecuenciaToAges(data.edadesFrecuencia) : [];
+
+  const infraItems = data?.conteoInfraestructura
+    ? INFRA_ITEMS.filter((item) => (data.conteoInfraestructura![item.key] ?? 0) > 0)
+    : [];
 
   // -------- RENDER --------
 
@@ -146,15 +145,16 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
             <Building2 className="h-5 w-5 text-primary shrink-0" />
           )}
           <div className="min-w-0">
-            <h2 className="text-lg font-bold text-foreground leading-tight">
+            <h2 className="text-lg font-bold text-foreground leading-tight truncate">
               {data?.club.nombre ?? "Cargando..."}
             </h2>
           </div>
         </div>
 
         <button
+          type="button"
           onClick={onClose}
-          className="rounded-lg p-1.5 transition-colors hover:bg-primary/30 "
+          className="rounded-lg p-1.5 transition-colors hover:bg-primary/30 shrink-0"
         >
           <X className="h-5 w-5 text-muted-foreground hover:text-primary" />
         </button>
@@ -174,28 +174,14 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
 
         {data && (
           <>
-            {/* LOCATION + INFRA */}
-            <div className="flex items-start justify-between gap-4">
-              <div className="space-y-0.5">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="h-4 w-4 shrink-0" />
-                  <span>{data.club.nombreMunicipio}, {data.club.nombreProvincia}</span>
-                </div>
-                {data.club.direccion && (
-                  <p className="pl-6 text-xs text-muted-foreground">{data.club.direccion}</p>
-                )}
+            {/* LOCATION */}
+            <div className="space-y-0.5">
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <MapPin className="h-4 w-4 shrink-0" />
+                <span>{data.club.nombreMunicipio}, {data.club.nombreProvincia}</span>
               </div>
-              {data.infraestructura && data.infraestructura.length > 0 && (
-                <div className="flex flex-col items-start gap-1.5 shrink-0">
-                  <span className="text-sm font-semibold text-foreground">
-                    Infraestructura
-                  </span>
-                  <div className="flex flex-wrap gap-1">
-                    {data.infraestructura.map((item) => (
-                      <InfraBadge key={item.id_tipo_infra} item={item} />
-                    ))}
-                  </div>
-                </div>
+              {data.club.direccion && (
+                <p className="pl-6 text-xs text-muted-foreground">{data.club.direccion}</p>
               )}
             </div>
 
@@ -216,9 +202,31 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
             {/* CHARTS */}
             <div className="grid gap-3 lg:items-stretch lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">
               <AthletesPerSportChart data={genderPerSport} />
-              <AgeDistributionChart ages={rawAges} fillHeight />
+              <div className="h-[220px] lg:h-full">
+                <AgeDistributionChart ages={rawAges} fillHeight />
+              </div>
             </div>
-            <GenderDistributionChart data={genderDistribution} />
+
+            {/* INFRAESTRUCTURA */}
+            {infraItems.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  <Building2 className="h-5 w-5 text-primary inline-block mr-2" />
+                  Infraestructura del club
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {infraItems.map((item) => (
+                    <InfraCard
+                      key={item.key}
+                      label={item.label}
+                      count={data.conteoInfraestructura![item.key]}
+                      image={item.image}
+                      color={item.color}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
