@@ -51,6 +51,23 @@ export const getTopDeportes = async (signal?: AbortSignal): Promise<TopDeporteIt
 	}
 };
 
+export const getTopDeportesTop10 = async (signal?: AbortSignal): Promise<TopDeporteItem[]> => {
+	if (!instanceAxios.defaults.baseURL) {
+		throw new Error("VITE_API_URL no está configurada");
+	}
+
+	try {
+		const { data } = await instanceAxios.get<TopDeporteItem[]>("/stats/deportes/top10", { signal });
+		return data;
+	} catch (error: unknown) {
+		if (isAxiosError<{ message?: string }>(error)) {
+			throw new Error(error.response?.data?.message || "Error al obtener top 10 deportes");
+		}
+
+		throw new Error("Error al obtener top 10 deportes");
+	}
+};
+
 export const getDeportesAll = async (signal?: AbortSignal): Promise<DeporteItem[]> => {
 	if (!instanceAxios.defaults.baseURL) {
 		throw new Error("VITE_API_URL no está configurada");

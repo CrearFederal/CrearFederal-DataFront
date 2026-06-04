@@ -125,6 +125,16 @@ function LeafletMap({
   const [clubs, setClubs] = useState<Club[]>([]);
   const [logos, setLogos] = useState<Record<number, string | null>>({});
   const requestedLogosRef = useRef<Set<number>>(new Set());
+  const containerDivRef = useRef<HTMLDivElement>(null);
+  const initialZoom = typeof window !== "undefined" && window.innerWidth < 768 ? 4 : 6;
+
+  useEffect(() => {
+    const el = containerDivRef.current;
+    if (!el) return;
+    const prevent = (e: TouchEvent) => e.preventDefault();
+    el.addEventListener("touchmove", prevent, { passive: false });
+    return () => el.removeEventListener("touchmove", prevent);
+  }, []);
 
   const isAbortError = (error: unknown): boolean => {
     if (error instanceof DOMException && error.name === "AbortError") {
@@ -329,7 +339,7 @@ function LeafletMap({
   }, [navigation.level, isClubRole, clubForRole]);
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden h-full flex flex-col min-h-0">
+    <div ref={containerDivRef} className="rounded-xl border border-border bg-card overflow-hidden h-full flex flex-col min-h-0">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -347,12 +357,12 @@ function LeafletMap({
       {/* Mapa */}
       <MapContainer
         center={[-38.5, -63.5]}
-        zoom={6}
+        zoom={initialZoom}
         minZoom={4}
         maxZoom={18}
         maxBounds={[[-56, -76], [-20, -52]]}
         attributionControl={false}
-        className="w-full flex-1 min-h-0"
+        className="w-full flex-1 min-h-0 touch-none"
         style={{ height: "100%" }}
       >
         <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />

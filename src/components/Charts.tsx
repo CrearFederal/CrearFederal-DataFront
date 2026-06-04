@@ -387,6 +387,9 @@ export function AgeDistributionChart({ ages, fillHeight = false, showCard = true
       if (disposed || !chartDom.isConnected) return false;
       if (chartDom.clientWidth === 0 || chartDom.clientHeight === 0) return false;
 
+      const containerWidth = chartDom.clientWidth;
+      const xInterval = containerWidth < 280 ? 3 : containerWidth < 380 ? 1 : 0;
+
       chart = echarts.init(chartDom, "light");
 
       chart.setOption({
@@ -411,7 +414,7 @@ export function AgeDistributionChart({ ages, fillHeight = false, showCard = true
           data: bins.map((b) => b.label),
           axisLine: { lineStyle: { color: "hsl(215, 30%, 88%)" } },
           axisTick: { show: false },
-          axisLabel: { fontSize: 10, color: C_AXIS, fontFamily: "inherit", interval: 0 },
+          axisLabel: { fontSize: 10, color: C_AXIS, fontFamily: "inherit", interval: xInterval },
         },
         yAxis: {
           type: "value",
@@ -1151,7 +1154,8 @@ export function DeporteCoverageChart({ deportes, selectedId, provinciasData, pro
           type: "bar",
           stack: "total",
           barMaxWidth: 22,
-          data: sorted.map((d) => ({ value: d.totalHombres, itemStyle: { color: C_MALE } })),
+          itemStyle: { color: C_MALE },
+          data: sorted.map((d) => ({ value: d.totalHombres })),
           label: insideLabel(),
           emphasis: { itemStyle: { opacity: 0.85 } },
           animationDuration: 800,
@@ -1162,7 +1166,8 @@ export function DeporteCoverageChart({ deportes, selectedId, provinciasData, pro
           type: "bar",
           stack: "total",
           barMaxWidth: 22,
-          data: sorted.map((d) => ({ value: d.totalMujeres, itemStyle: { color: C_FEMALE, borderRadius: [0, 8, 8, 0] } })),
+          itemStyle: { color: C_FEMALE, borderRadius: [0, 8, 8, 0] },
+          data: sorted.map((d) => ({ value: d.totalMujeres })),
           label: insideLabel(),
           emphasis: { itemStyle: { opacity: 0.85 } },
           animationDuration: 800,
@@ -1203,15 +1208,15 @@ export function DeporteCoverageChart({ deportes, selectedId, provinciasData, pro
         )
       }
     >
-      <div className="flex gap-4" style={{ height: "380px" }}>
-        <div className="flex flex-col min-w-0" style={{ width: "40%" }}>
+      <div className="flex flex-col gap-4 sm:flex-row sm:h-[380px]">
+        <div className="flex flex-col min-w-0 h-[260px] sm:h-auto sm:w-2/5">
           <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex-none">
-            Deportes
+            Deportes en tu locación
           </p>
           <div ref={deportesChartRef} className="flex-1 min-h-0" />
         </div>
-        <div className="w-px bg-border shrink-0" />
-        <div className="flex flex-col flex-1 min-w-0">
+        <div className="hidden sm:block w-px bg-border shrink-0" />
+        <div className="flex flex-col sm:flex-1 min-w-0 h-[260px] sm:h-auto">
           {provinciasLoading ? (
             <div className="h-full flex items-center justify-center">
               <div className="h-5 w-5 animate-spin rounded-full border-2 border-primary border-t-transparent" />

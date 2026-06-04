@@ -75,6 +75,17 @@ export interface EdadFrecuenciaItem {
   cantidad: number;
 }
 
+export interface ConteoInfraestructura {
+  CanchaFutbol: number;
+  CanchaTenis: number;
+  CanchaNatacion: number;
+  CanchaBasquet: number;
+  CanchaVoley: number;
+  CanchaRugby: number;
+  CanchaHockey: number;
+  Otros: number;
+}
+
 export interface ClubDetalleResponse {
   club: ClubDetalleInfo;
   totalDeportistas: number;
@@ -86,4 +97,5 @@ export interface ClubDetalleResponse {
   generoPorDeporte: ClubDetalleGeneroPorDeporte[];
   edadesFrecuencia: EdadFrecuenciaItem[];
   infraestructura?: InfraestructuraItem[];
+  conteoInfraestructura?: ConteoInfraestructura;
 }
