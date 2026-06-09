@@ -11,7 +11,7 @@ import LeafletMap from "../components/LeafletMap";
 import ClubDetailPanel from "../components/ClubDetailPanel";
 import KpiCard from "../components/KpiCard";
 import DeporteHeatMap from "../components/DeporteHeatMap";
-import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, MunicipioRankingChart, ClubRankingChart, DeporteCoverageChart } from "../components/Charts";
+import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, MunicipioRankingChart, ClubRankingChart, DeporteCoverageChart, GenderBalanceByDeportChart } from "../components/Charts";
 import { BarChart3, Building2, Users, Medal, MapPin, X, Venus, Mars, TrendingUp, Volleyball } from "lucide-react";
 import type { ClubesTotalesResponse } from "../types/Clubes";
 import type { DeportistasGenerosResponse, DeportistasTotalesResponse } from "../types/Deportistas";
@@ -1562,7 +1562,7 @@ function Dashboard() {
                   )}
                   {deportesContentStage >= 3 && (
                     <div className="flex-1 min-h-0">
-                      <AthletesPerSportChart data={topDeportes ?? []} autoRotate={false} height={360} />
+                      <GenderBalanceByDeportChart data={topDeportesTop10 ?? topDeportes ?? []} />
                     </div>
                   )}
                 </div>
@@ -1773,7 +1773,7 @@ function Dashboard() {
         const endLeft = target?.left ?? 0;
         const endTop = target?.top ?? 0;
         const endWidth = target?.width ?? 0;
-        const endHeight = target?.height ?? 0;
+        const endHeight = Math.min(440, target?.height ?? 0);
         const modalStyle = isProvinciaRankingVisible
           ? { left: `${endLeft}px`, top: `${endTop}px`, width: `${endWidth}px`, height: `${endHeight}px` }
           : { left: `${endLeft}px`, top: `${endTop}px`, width: `${endWidth}px`, height: `${endHeight}px` };
@@ -1785,7 +1785,7 @@ function Dashboard() {
             />
             <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
               <div
-                className={`fixed z-50 overflow-hidden rounded-xl border border-border bg-card shadow-2xl transform-gpu will-change-transform will-change-opacity transition-[left,top,width,height,opacity,transform,box-shadow] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] ${isProvinciaRankingVisible ? "opacity-100 scale-100" : "opacity-0 scale-[0.96]"}`}
+                className={`fixed z-50 overflow-hidden rounded-xl border border-border bg-card shadow-2xl transform-gpu will-change-transform will-change-opacity transition-[left,top,width,height,opacity,transform,box-shadow] duration-[420ms] ease-[cubic-bezier(0.22,1,0.36,1)] flex flex-col ${isProvinciaRankingVisible ? "opacity-100 scale-100" : "opacity-0 scale-[0.96]"}`}
                 style={{ ...modalStyle, background: "linear-gradient(135deg, hsl(var(--card)) 0%, hsl(var(--surface-elevated)) 100%)" }}
               >
                 <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-primary" />
@@ -1806,65 +1806,63 @@ function Dashboard() {
                     <X className="h-4 w-4" />
                   </button>
                 </div>
-                <div className={`px-3 pb-3 flex flex-col gap-3 h-[calc(100%-72px)] overflow-y-auto transition-all duration-500 sm:px-4 sm:pb-4 sm:h-[calc(100%-80px)] ${provinciaRankingContentStage >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
+                <div className={`px-3 pb-3 flex flex-col gap-2.5 transition-all duration-500 sm:px-4 sm:pb-4 ${provinciaRankingContentStage >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="rounded-xl border border-border bg-background/70 p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total deportistas</p>
+                    <div className="rounded-lg border border-border bg-background/70 p-2.5 space-y-0.5">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total deportistas</p>
                       <p className="text-2xl font-bold text-primary font-mono">{selectedProvinciaRanking.totalAthletes.toLocaleString("es-AR")}</p>
                       {provinciaRankingStats && (
-                        <p className="text-xs text-muted-foreground mt-0.5">
-                          <span className="font-semibold text-foreground">{provinciaRankingStats.pctNacional}%</span> del total nacional
+                        <p className="text-xs text-muted-foreground">
+                          <span className="font-semibold text-foreground">{provinciaRankingStats.pctNacional}%</span> nacional
                         </p>
                       )}
                     </div>
-                    <div className="rounded-xl border border-border bg-background/70 p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Clubes</p>
+                    <div className="rounded-lg border border-border bg-background/70 p-2.5 space-y-0.5">
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Clubes</p>
                       <p className="text-2xl font-bold text-primary font-mono">{selectedProvinciaRanking.totalClubs.toLocaleString("es-AR")}</p>
                     </div>
                   </div>
                   {provinciaRankingStats && (
                     <>
-                      <div className="rounded-xl border border-border bg-background/70 p-3">
-                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2">Distribución por género</p>
-                        <div className="flex h-8 w-full overflow-hidden rounded-lg">
+                      <div className="rounded-lg border border-border bg-background/70 p-2.5 space-y-1.5">
+                        <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Distribución por género</p>
+                        <div className="flex h-7 w-full overflow-hidden rounded-md">
                           <div
-                            className="flex items-center justify-center gap-1 text-white text-xs font-semibold"
+                            className="flex items-center justify-center gap-0.5 text-white text-xs font-semibold"
                             style={{ width: `${provinciaRankingStats.pctF}%`, background: "linear-gradient(90deg, #db2777, #be185d)" }}
                           >
                             {provinciaRankingStats.pctF > 8 && <><Venus className="h-3 w-3" /><span>{provinciaRankingStats.pctF}%</span></>}
                           </div>
                           <div
-                            className="flex items-center justify-center gap-1 text-white text-xs font-semibold"
+                            className="flex items-center justify-center gap-0.5 text-white text-xs font-semibold"
                             style={{ width: `${provinciaRankingStats.pctM}%`, background: "linear-gradient(90deg, #2563eb, #1d4ed8)" }}
                           >
                             {provinciaRankingStats.pctM > 8 && <><Mars className="h-3 w-3" /><span>{provinciaRankingStats.pctM}%</span></>}
                           </div>
                         </div>
-                        <div className="flex justify-between mt-1.5 text-xs text-muted-foreground">
-                          <span><span className="font-semibold text-pink-600">{selectedProvinciaRanking.totalMujeres.toLocaleString("es-AR")}</span> mujeres</span>
-                          <span><span className="font-semibold text-blue-600">{selectedProvinciaRanking.totalHombres.toLocaleString("es-AR")}</span> hombres</span>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="text-muted-foreground"><span className="font-semibold text-pink-600">{selectedProvinciaRanking.totalMujeres.toLocaleString("es-AR")}</span> mujeres</div>
+                          <div className="text-muted-foreground"><span className="font-semibold text-blue-600">{selectedProvinciaRanking.totalHombres.toLocaleString("es-AR")}</span> hombres</div>
                         </div>
                       </div>
                       {provinciaRankingStats.pctPoblacion !== null && (
-                        <div className="rounded-xl border border-border bg-background/70 p-3">
-                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-2 flex items-center gap-1">
-                            <TrendingUp className="h-3 w-3" /> Participación deportiva (Censo INDEC 2022)
+                        <div className="rounded-lg border border-border bg-background/70 p-2.5 space-y-1.5">
+                          <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground flex items-center gap-1">
+                            <TrendingUp className="h-3 w-3" /> Participación (INDEC 2022)
                           </p>
-                            <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                          <div className="space-y-1">
                             <div>
-                              <p className="text-sm text-foreground">
-                                <span className="text-2xl font-bold text-primary font-mono">{provinciaRankingStats.pctPoblacion}%</span>
-                                <span className="text-muted-foreground ml-2">de la población es deportista</span>
-                              </p>
-                              {provinciaRankingStats.poblacion && (
-                                <p className="text-xs text-muted-foreground mt-1">
-                                  La provincia de <span className="font-semibold text-foreground">{selectedProvinciaRanking.nombre === "Ciudad Autónoma de Buenos Aires (CABA)" ? "CABA" : selectedProvinciaRanking.nombre}</span> tiene <span className="font-semibold text-foreground">{provinciaRankingStats.poblacion.toLocaleString("es-AR")}</span> habitantes
-                                </p>
-                              )}
+                              <p className="text-xs text-muted-foreground">% de la población</p>
+                              <p className="text-2xl font-bold text-primary font-mono">{provinciaRankingStats.pctPoblacion}%</p>
                             </div>
+                            {provinciaRankingStats.poblacion && (
+                              <p className="text-xs text-muted-foreground">
+                                <span className="font-semibold text-foreground">{provinciaRankingStats.poblacion.toLocaleString("es-AR")}</span> habitantes
+                              </p>
+                            )}
                             {provinciaRankingStats.rankingPorPoblacion !== null && (
-                              <span className="inline-flex items-center rounded-lg border border-primary/20 bg-primary/10 px-3 py-1.5 font-bold text-primary text-base self-start sm:self-auto">
-                                #{provinciaRankingStats.rankingPorPoblacion} en este ranking
+                              <span className="inline-flex items-center rounded-md border border-primary/20 bg-primary/10 px-2 py-0.5 font-semibold text-primary text-xs">
+                                #{provinciaRankingStats.rankingPorPoblacion} ranking
                               </span>
                             )}
                           </div>
