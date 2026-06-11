@@ -75,7 +75,8 @@ function Dashboard() {
   const DEPORTES_MODAL_ANIMATION_MS = 760;
   const DEPORTES_HEADER_DELAY_MS = 120;
   const DEPORTES_DETAIL_DELAY_MS = 280;
-  const DEPORTES_CHART_DELAY_MS = 460;
+  const DEPORTES_SUBTITLE_DELAY_MS = 460;
+  const DEPORTES_CHART_DELAY_MS = 640;
   const DEPORTE_LIDER_MODAL_ANIMATION_MS = 760;
   const DEPORTE_LIDER_HEADER_DELAY_MS = 120;
   const DEPORTE_LIDER_DETAIL_DELAY_MS = 280;
@@ -274,10 +275,10 @@ function Dashboard() {
   };
 
   useEffect(() => {
-    const anyModalOpen = isDeportesVisible || isDeporteLiderVisible;
+    const anyModalOpen = isDeportesVisible || isDeporteLiderVisible || isProvinciaRankingVisible;
     document.body.style.overflow = anyModalOpen ? "hidden" : "";
     return () => { document.body.style.overflow = ""; };
-  }, [isDeportesVisible, isDeporteLiderVisible]);
+  }, [isDeportesVisible, isDeporteLiderVisible, isProvinciaRankingVisible]);
 
   useEffect(() => {
     if (!roleConfig) return;
@@ -929,7 +930,8 @@ function Dashboard() {
     window.requestAnimationFrame(() => setIsDeportesVisible(true));
     deportesStageTimersRef.current.push(window.setTimeout(() => setDeportesContentStage(1), DEPORTES_HEADER_DELAY_MS));
     deportesStageTimersRef.current.push(window.setTimeout(() => setDeportesContentStage(2), DEPORTES_DETAIL_DELAY_MS));
-    deportesStageTimersRef.current.push(window.setTimeout(() => setDeportesContentStage(3), DEPORTES_CHART_DELAY_MS));
+    deportesStageTimersRef.current.push(window.setTimeout(() => setDeportesContentStage(3), DEPORTES_SUBTITLE_DELAY_MS));
+    deportesStageTimersRef.current.push(window.setTimeout(() => setDeportesContentStage(4), DEPORTES_CHART_DELAY_MS));
   };
 
   const closeDeportesModal = () => {
@@ -1560,11 +1562,14 @@ function Dashboard() {
                       </div>
                     </div>
                   )}
-                  {deportesContentStage >= 3 && (
-                    <div className="flex-1 min-h-0">
-                      <GenderBalanceByDeportChart data={topDeportesTop10 ?? topDeportes ?? []} />
-                    </div>
-                  )}
+                  <div className={`transition-all duration-500 ${deportesContentStage >= 3 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
+                    <p className="text-xs sm:text-sm text-muted-foreground">
+                      Distribución femenino / masculino por disciplina:
+                    </p>
+                  </div>
+                  <div className={`flex-1 min-h-0 transition-all duration-500 ${deportesContentStage >= 4 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3 pointer-events-none"}`}>
+                    <GenderBalanceByDeportChart data={topDeportesTop10 ?? topDeportes ?? []} />
+                  </div>
                 </div>
               </div>
             </div>
