@@ -8,23 +8,70 @@ import {
   Loader2,
 } from "lucide-react";
 
-import type { Filters } from "../types/types";
-import type { ClubDetalleResponse } from "../types/Clubes";
+import type { ClubDetalleResponse, ConteoInfraestructura } from "../types/Clubes";
 import { getClubDetalle } from "../data/clubesApi";
 import { edadesFrecuenciaToAges } from "../data/dataUtils";
 
 import KpiCard from "./KpiCard";
 import {
   AthletesPerSportChart,
-  GenderDistributionChart,
   AgeDistributionChart,
 } from "./Charts";
+
+import imgFutbol   from "../../assets/CanchaFutbol.jpg";
+import imgTenis    from "../../assets/CanchaTenis.jpg";
+import imgNatacion from "../../assets/CanchaNatacion.jpg";
+import imgBasket   from "../../assets/CanchaBasket.jpg";
+import imgVoley    from "../../assets/CanchaVoley.jpg";
+import imgRugby    from "../../assets/CanchaRugby.jpg";
+import imgHockey   from "../../assets/CanchaHockey.jpg";
+import otros       from "../../assets/Otros.jpg";
+
+// ---------------- INFRAESTRUCTURA ----------------
+
+interface InfraItemConfig {
+  key: keyof ConteoInfraestructura;
+  label: string;
+  image: string | null;
+  color: string;
+}
+
+const INFRA_ITEMS: InfraItemConfig[] = [
+  { key: "CanchaFutbol",   label: "CANCHAS DE FÚTBOL",    image: imgFutbol,   color: "text-green-500" },
+  { key: "CanchaBasquet",  label: "CANCHAS DE BÁSQUET",   image: imgBasket,   color: "text-orange-300" },
+  { key: "CanchaHockey",   label: "CANCHAS DE HOCKEY",    image: imgHockey,   color: "text-blue-400"   },
+  { key: "CanchaTenis",    label: "CANCHAS DE TENIS",     image: imgTenis,    color: "text-orange-500" },
+  { key: "CanchaVoley",    label: "CANCHAS DE VOLEY",     image: imgVoley,    color: "text-rose-300" },
+  { key: "CanchaNatacion", label: "PILETAS DE NATACIÓN",  image: imgNatacion, color: "text-cyan-400" },
+  { key: "CanchaRugby",    label: "CANCHAS DE RUGBY",     image: imgRugby,    color: "text-green-600"   },
+  { key: "Otros",          label: "OTRAS INSTALACIONES",  image: otros,       color: "text-gray-400" },
+];
+
+function InfraCard({ label, count, image, color }: { label: string; count: number; image: string | null; color: string }) {
+  return (
+    <div className="relative rounded-xl overflow-hidden aspect-[4/2]">
+      {image ? (
+        <img src={image} alt={label} className="absolute inset-0 h-full w-full object-cover" />
+      ) : (
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-600 to-slate-800" />
+      )}
+      <div className="absolute inset-0 bg-black/60" />
+      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1.5">
+        <span className={`text-3xl sm:text-4xl font-black leading-none ${color} drop-shadow-sm`}>
+          {count}
+        </span>
+        <span className="text-[8px] sm:text-[9px] font-semibold text-white/90 text-center uppercase tracking-widest leading-tight">
+          {label}
+        </span>
+      </div>
+    </div>
+  );
+}
 
 // ---------------- TYPES ----------------
 
 interface ClubDetailPanelProps {
   clubId: number;
-  filters: Filters;
   onClose: () => void;
 }
 
@@ -36,22 +83,16 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
   const [error, setError] = useState<string | null>(null);
 
   const isAbortError = (value: unknown): boolean => {
-    if (value instanceof DOMException && value.name === "AbortError") {
-      return true;
-    }
-
+    if (value instanceof DOMException && value.name === "AbortError") return true;
     if (typeof value === "object" && value !== null) {
       const error = value as { name?: string; code?: string };
       return error.name === "CanceledError" || error.code === "ERR_CANCELED";
     }
-
     return false;
   };
 
   useEffect(() => {
     const controller = new AbortController();
-    // active evita que una petición cancelada actualice el estado
-    // (React StrictMode ejecuta los efectos dos veces en desarrollo)
     let active = true;
 
     setLoading(true);
@@ -61,10 +102,7 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
     getClubDetalle(clubId, controller.signal)
       .then((result) => { if (active) setData(result); })
       .catch((err) => {
-        if (!active || isAbortError(err)) {
-          return;
-        }
-
+        if (!active || isAbortError(err)) return;
         if (active) setError("No se pudo cargar el detalle del club.");
         console.error("ClubDetailPanel fetch error:", err);
       })
@@ -76,7 +114,7 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
     };
   }, [clubId]);
 
-  // -------- DERIVED DATA FOR CHARTS --------
+  // -------- DERIVED DATA --------
 
   const genderPerSport = data?.generoPorDeporte.map((d) => ({
     sport: d.deporte,
@@ -84,15 +122,11 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
     female: d.femenino,
   })) ?? [];
 
-  const totalGenero = (data?.distribucionGenero.masculino ?? 0) + (data?.distribucionGenero.femenino ?? 0);
-  const genderDistribution = {
-    male: data?.distribucionGenero.masculino ?? 0,
-    female: data?.distribucionGenero.femenino ?? 0,
-    malePercent: totalGenero > 0 ? Math.round(((data?.distribucionGenero.masculino ?? 0) / totalGenero) * 100) : 0,
-    femalePercent: totalGenero > 0 ? Math.round(((data?.distribucionGenero.femenino ?? 0) / totalGenero) * 100) : 0,
-  };
-
   const rawAges = data ? edadesFrecuenciaToAges(data.edadesFrecuencia) : [];
+
+  const infraItems = data?.conteoInfraestructura
+    ? INFRA_ITEMS.filter((item) => (data.conteoInfraestructura![item.key] ?? 0) > 0)
+    : [];
 
   // -------- RENDER --------
 
@@ -100,24 +134,27 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
     <div className="panel-slide-in fixed right-0 top-0 z-[60] h-full w-full lg:w-[60vw] overflow-y-auto border-l border-border bg-card shadow-2xl">
       {/* HEADER */}
       <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/95 p-4 backdrop-blur-sm">
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-3 min-w-0">
           {data?.club.logoUrl ? (
             <img
               src={data.club.logoUrl}
               alt={data.club.nombre}
-              className="h-10 w-10 rounded-full border border-border object-cover"
+              className="h-10 w-10 rounded-full border border-border object-cover shrink-0"
             />
           ) : (
-            <Building2 className="h-5 w-5 text-primary" />
+            <Building2 className="h-5 w-5 text-primary shrink-0" />
           )}
-          <h2 className="text-lg font-bold text-foreground">
-            {data?.club.nombre ?? "Cargando..."}
-          </h2>
+          <div className="min-w-0">
+            <h2 className="text-lg font-bold text-foreground leading-tight truncate">
+              {data?.club.nombre ?? "Cargando..."}
+            </h2>
+          </div>
         </div>
 
         <button
+          type="button"
           onClick={onClose}
-          className="rounded-lg p-1.5 transition-colors hover:bg-primary/30 "
+          className="rounded-lg p-1.5 transition-colors hover:bg-primary/30 shrink-0"
         >
           <X className="h-5 w-5 text-muted-foreground hover:text-primary" />
         </button>
@@ -165,9 +202,31 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
             {/* CHARTS */}
             <div className="grid gap-3 lg:items-stretch lg:grid-cols-[minmax(0,1.6fr)_minmax(280px,1fr)]">
               <AthletesPerSportChart data={genderPerSport} />
-              <AgeDistributionChart ages={rawAges} fillHeight />
+              <div className="h-[220px] lg:h-full">
+                <AgeDistributionChart ages={rawAges} fillHeight />
+              </div>
             </div>
-            <GenderDistributionChart data={genderDistribution} />
+
+            {/* INFRAESTRUCTURA */}
+            {infraItems.length > 0 && (
+              <div>
+                <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2">
+                  <Building2 className="h-5 w-5 text-primary inline-block mr-2" />
+                  Infraestructura del club
+                </p>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+                  {infraItems.map((item) => (
+                    <InfraCard
+                      key={item.key}
+                      label={item.label}
+                      count={data.conteoInfraestructura![item.key]}
+                      image={item.image}
+                      color={item.color}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
       </div>
