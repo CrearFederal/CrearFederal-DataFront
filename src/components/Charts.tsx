@@ -1445,3 +1445,171 @@ export function MunicipioRankingChart({ data }: MunicipioRankingChartProps) {
     </ChartCard>
   );
 }
+
+interface GenderBalanceByDeportChartProps {
+  data: { sport: string; male: number; female: number }[];
+}
+
+export function GenderBalanceByDeportChart({ data }: GenderBalanceByDeportChartProps) {
+  const chartRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!chartRef.current || data.length === 0) return;
+
+    const chartData = data
+      .map((item) => {
+        const total = item.male + item.female;
+        const pctF = total > 0 ? (item.female / total) * 100 : 50;
+        const pctM = total > 0 ? (item.male / total) * 100 : 50;
+        return {
+          sport: item.sport,
+          female: item.female,
+          male: item.male,
+          pctF: parseFloat(pctF.toFixed(1)),
+          pctM: parseFloat(pctM.toFixed(1)),
+        };
+      })
+      .sort((a, b) => b.pctF - a.pctF);
+
+    const chart = echarts.init(chartRef.current, "light");
+    const labels = chartData.map((d) => d.sport);
+    const femaleData = chartData.map((d) => ({
+      value: -d.pctF,
+      sport: d.sport,
+      count: d.female,
+    }));
+    const maleData = chartData.map((d) => ({
+      value: d.pctM,
+      sport: d.sport,
+      count: d.male,
+    }));
+
+    chart.setOption({
+      backgroundColor: "transparent",
+      tooltip: {
+        trigger: "axis",
+        axisPointer: { type: "none" },
+        backgroundColor: "rgba(255, 255, 255, 0.98)",
+        borderColor: "rgba(148, 163, 184, 0.35)",
+        borderWidth: 1,
+        textStyle: { fontSize: 12, color: "#0f172a" },
+        formatter: (params: any[]) => {
+          if (!params || params.length === 0) return "";
+          const name = params[0].name;
+          const item = chartData.find((d) => d.sport === name);
+          if (!item) return "";
+          return `<span style="font-weight:700;font-size:13px;color:#0f172a;">${item.sport}</span><br/>
+            <span style="color:${C_FEMALE};font-weight:600;">♀ ${item.pctF}%</span> (${item.female.toLocaleString("es-AR")}) <br/>
+            <span style="color:${C_MALE};font-weight:600;">♂ ${item.pctM}%</span> (${item.male.toLocaleString("es-AR")})`;
+        },
+      },
+      grid: { left: 120, right: 40, top: 16, bottom: 24 },
+      xAxis: {
+        type: "value",
+        min: -100,
+        max: 100,
+        splitLine: { lineStyle: { color: "hsl(215, 20%, 85%)", type: "dashed" } },
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          fontSize: 10,
+          color: C_AXIS,
+          fontFamily: "inherit",
+          formatter: (v: number) => (v === 0 ? "50/50" : `${Math.abs(v)}%`),
+        },
+      },
+      yAxis: {
+        type: "category",
+        data: labels,
+        axisLine: { show: false },
+        axisTick: { show: false },
+        axisLabel: {
+          fontSize: 11,
+          color: "#0f172a",
+          fontWeight: 500,
+          fontFamily: "inherit",
+        },
+      },
+      series: [
+        {
+          name: "Femenino",
+          type: "bar",
+          stack: "total",
+          barMaxWidth: 18,
+          data: femaleData,
+          itemStyle: { color: C_FEMALE, borderRadius: [8, 0, 0, 8] },
+          label: {
+            show: true,
+            position: "insideLeft",
+            fontSize: 10,
+            fontWeight: 600,
+            color: "#ffffff",
+            fontFamily: "inherit",
+            formatter: (params: any) => {
+              const val = Math.abs(params.value);
+              return val > 5 ? `${val.toFixed(0)}%` : "";
+            },
+          },
+          emphasis: { itemStyle: { opacity: 0.85 } },
+          animationDuration: 900,
+          animationDurationUpdate: 1100,
+          animationDelay: (idx: number) => idx * 60,
+          animationDelayUpdate: (idx: number) => idx * 60,
+          animationEasing: "cubicOut",
+          animationEasingUpdate: "cubicOut",
+        },
+        {
+          name: "Masculino",
+          type: "bar",
+          stack: "total",
+          barMaxWidth: 18,
+          data: maleData,
+          itemStyle: { color: C_MALE, borderRadius: [0, 8, 8, 0] },
+          label: {
+            show: true,
+            position: "insideRight",
+            fontSize: 10,
+            fontWeight: 600,
+            color: "#ffffff",
+            fontFamily: "inherit",
+            formatter: (params: any) => {
+              const val = Math.abs(params.value);
+              return val > 5 ? `${val.toFixed(0)}%` : "";
+            },
+          },
+          emphasis: { itemStyle: { opacity: 0.85 } },
+          animationDuration: 900,
+          animationDurationUpdate: 1100,
+          animationDelay: (idx: number) => idx * 60,
+          animationDelayUpdate: (idx: number) => idx * 60,
+          animationEasing: "cubicOut",
+          animationEasingUpdate: "cubicOut",
+        },
+      ],
+    }, true);
+
+    const handleResize = () => chart.resize();
+    const chartContainer = chartRef.current;
+    const resizeObserver = typeof ResizeObserver !== "undefined"
+      ? new ResizeObserver(() => chart.resize())
+      : null;
+
+    resizeObserver?.observe(chartContainer);
+    window.addEventListener("resize", handleResize);
+
+    const initialResizeFrame = window.requestAnimationFrame(() => {
+      chart.resize();
+    });
+
+    return () => {
+      resizeObserver?.disconnect();
+      window.cancelAnimationFrame(initialResizeFrame);
+      window.removeEventListener("resize", handleResize);
+      chart.dispose();
+    };
+  }, [data]);
+
+  return (
+    <div ref={chartRef} style={{ width: "100%", height: "340px" }} />
+  );
+}
