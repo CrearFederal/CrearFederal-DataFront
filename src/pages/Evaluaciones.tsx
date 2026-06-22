@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { TrendingDown, TrendingUp, Users, MapPinHouse, BookUser, ClipboardCheck } from "lucide-react";
+import { useNavigate } from "react-router-dom";
+import { TrendingDown, TrendingUp, Users, MapPinHouse, BookUser, ClipboardCheck, SportShoe } from "lucide-react";
 import KpiCard from "../components/KpiCard";
 import ProvinceComparisonChart from "../components/ChartProvEvaluaciones";
 import MonthlyEvaluationsChart from "../components/ChartMesesEvaluaciones";
@@ -102,6 +103,7 @@ const emptyResumen: EvaluacionesResumenResponse = {
 };
 
 function Evaluaciones() {
+	const navigate = useNavigate();
 	const [roleConfig, setRoleConfig] = useState<UserRoleConfig | null>(null);
 	const [authStatus, setAuthStatus] = useState<"loading" | "ready" | "error">("loading");
 	const [resumen, setResumen] = useState<EvaluacionesResumenResponse | null>(null);
@@ -399,6 +401,19 @@ function Evaluaciones() {
 						}
 						icon={<MapPinHouse className="h-5 w-5" />}
 					/>
+				</div>
+
+				<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
+					<div className="flex justify-center md:col-span-2 xl:col-span-2 xl:col-start-2 -mt-1.5 -mb-2">
+						<button
+							type="button"
+							onClick={() => navigate("/evaluaciones/deportistas")}
+							className="flex w-full max-w-2xl items-center justify-center gap-2 rounded-lg bg-primary px-2 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
+						>
+							<SportShoe className="h-4 w-4" />
+							Detección de talentos
+						</button>
+					</div>
 				</div>
 
 				<div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
