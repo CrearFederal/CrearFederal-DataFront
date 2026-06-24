@@ -118,3 +118,87 @@ export const getEdadesHistograma = async (signal?: AbortSignal): Promise<EdadesH
 		throw new Error("Error al obtener histograma de edades");
 	}
 };
+
+export interface ProvinciaScopeItem {
+	id_provincia: number;
+	nombre: string;
+}
+
+export interface DeporteScopeItem {
+	id_deporte: number;
+	nombre: string;
+}
+
+export interface MunicipioClubScopeItem {
+	id: number;
+	nombre: string;
+}
+
+export interface MunicipiosClubesPorScopeResponse {
+	municipios: MunicipioClubScopeItem[];
+	clubes: MunicipioClubScopeItem[];
+}
+
+export const getProvinciasPorScope = async (signal?: AbortSignal): Promise<ProvinciaScopeItem[]> => {
+	if (!instanceAxios.defaults.baseURL) {
+		throw new Error("VITE_API_URL no está configurada");
+	}
+
+	try {
+		const { data } = await instanceAxios.get<{ provincias: ProvinciaScopeItem[] }>(
+			"/stats/provincias/por-scope",
+			{ signal }
+		);
+		return data.provincias;
+	} catch (error: unknown) {
+		if (isAxiosError<{ message?: string }>(error)) {
+			throw new Error(error.response?.data?.message || "Error al obtener provincias");
+		}
+
+		throw new Error("Error al obtener provincias");
+	}
+};
+
+export const getDeportesPorScope = async (signal?: AbortSignal): Promise<DeporteScopeItem[]> => {
+	if (!instanceAxios.defaults.baseURL) {
+		throw new Error("VITE_API_URL no está configurada");
+	}
+
+	try {
+		const { data } = await instanceAxios.get<{ deportes: DeporteScopeItem[] }>(
+			"/stats/deportes/por-scope",
+			{ signal }
+		);
+		return data.deportes;
+	} catch (error: unknown) {
+		if (isAxiosError<{ message?: string }>(error)) {
+			throw new Error(error.response?.data?.message || "Error al obtener deportes");
+		}
+
+		throw new Error("Error al obtener deportes");
+	}
+};
+
+export const getMunicipiosClubesPorScope = async (
+	idProvincia: number,
+	idDeporte: number,
+	signal?: AbortSignal
+): Promise<MunicipiosClubesPorScopeResponse> => {
+	if (!instanceAxios.defaults.baseURL) {
+		throw new Error("VITE_API_URL no está configurada");
+	}
+
+	try {
+		const { data } = await instanceAxios.get<MunicipiosClubesPorScopeResponse>(
+			"/stats/municipios-clubes/por-scope",
+			{ params: { idProvincia, idDeporte }, signal }
+		);
+		return data;
+	} catch (error: unknown) {
+		if (isAxiosError<{ message?: string }>(error)) {
+			throw new Error(error.response?.data?.message || "Error al obtener municipios y clubes");
+		}
+
+		throw new Error("Error al obtener municipios y clubes");
+	}
+};
