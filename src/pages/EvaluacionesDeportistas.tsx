@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Mars, Search, Venus, SportShoe, X, IdCardLanyard } from "lucide-react";
+import { ArrowLeft, Mars, Search, Venus, SportShoe, X, IdCardLanyard, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { authBootstrap, getAuthMe, sendLogoutOnPageClose } from "../api/session";
 import type { AuthScope } from "../types/auth";
 import type { UserRoleConfig } from "../data/roles";
@@ -39,6 +39,27 @@ const GENERO_OPTIONS: GeneroOption[] = [
 ];
 
 const MEDAL_COLORS = ["#eab308", "#94a3b8", "#c2703d"];
+
+// Mirrors the fixed aptitude list used internally by RadarAptitudesChart, kept here
+// so the comparison summary lists aptitudes in the same order as the radar axes.
+const ALL_APTITUDES = [
+	"Agilidad",
+	"Velocidad",
+	"Resistencia",
+	"Fuerza / Resistencia",
+	"Fuerza Explosiva",
+	"Flexibilidad",
+];
+
+// Mirrors AXIS_COLOR_PALETTE in RadarAptitudesChart so each aptitude shows the same color here and in the radar.
+const APTITUD_COLORS = [
+	"#2563eb",
+	"#16a34a",
+	"#d97706",
+	"#dc2626",
+	"#7c3aed",
+	"#0891b2",
+];
 
 const EDAD_MIN_LIMITE = 4;
 const EDAD_MAX_LIMITE = 99;
@@ -105,6 +126,35 @@ function EvaluacionesDeportistas() {
 	const [searchLoading, setSearchLoading] = useState(false);
 	const [searchError, setSearchError] = useState<string | null>(null);
 	const searchAbortRef = useRef<AbortController | null>(null);
+
+	const chartCardRef = useRef<HTMLDivElement>(null);
+	const [rankingCardHeight, setRankingCardHeight] = useState<number | null>(null);
+
+	useLayoutEffect(() => {
+		if (view !== "resultados" || !resultados) {
+			setRankingCardHeight(null);
+			return;
+		}
+
+		const el = chartCardRef.current;
+		if (!el) return;
+
+		const lgMediaQuery = window.matchMedia("(min-width: 1024px)");
+
+		const syncHeight = () => {
+			setRankingCardHeight(lgMediaQuery.matches ? el.getBoundingClientRect().height : null);
+		};
+
+		const resizeObserver = new ResizeObserver(syncHeight);
+		resizeObserver.observe(el);
+		lgMediaQuery.addEventListener("change", syncHeight);
+		syncHeight();
+
+		return () => {
+			resizeObserver.disconnect();
+			lgMediaQuery.removeEventListener("change", syncHeight);
+		};
+	}, [view, resultados]);
 
 	const dependentFieldsEnabled = Boolean(provinciaId && deporteId);
 	const dependentOptionsDisabledHint = !dependentFieldsEnabled
@@ -459,6 +509,19 @@ function EvaluacionesDeportistas() {
 			{ label: "Nivel evaluado", value: nivelEvaluado ? nivelOptions.find((o) => o.value === nivelEvaluado)?.label : undefined },
 		].filter((filtro): filtro is { label: string; value: string } => Boolean(filtro.value));
 
+		const medianasByAptitud = new Map(resultados.medianas.map((item) => [item.aptitudEvaluada, item.valor]));
+		const valoresByAptitud = new Map(
+			(selectedDeportista?.valoresTest ?? []).map((item) => [item.aptitudEvaluada, item.valor])
+		);
+		const comparacionAptitudes = selectedDeportista
+			? ALL_APTITUDES.map((aptitud) => {
+				const valor = valoresByAptitud.get(aptitud) ?? 0;
+				const mediana = medianasByAptitud.get(aptitud) ?? 0;
+				const delta = valor - mediana;
+				return { aptitud, valor, mediana, delta };
+			})
+			: [];
+
 		return (
 			<div className="min-h-screen bg-background flex flex-col">
 				<div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
@@ -494,7 +557,7 @@ function EvaluacionesDeportistas() {
 
 				<div className="flex-1 flex flex-col p-3 gap-3 sm:p-4 min-h-0">
 					<div className="flex-1 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] lg:items-start min-h-0">
-						<div className="flex flex-col rounded-xl border border-border bg-card p-4 h-[34rem] lg:h-[40rem]">
+						<div ref={chartCardRef} className="flex flex-col rounded-xl border border-border bg-card p-4">
 							<div className="flex items-center mb-1 shrink-0">
 								<IdCardLanyard className="h-6 w-6 mr-2 text-primary font-bold shrink-0" />
 								{selectedDeportista ? (
@@ -510,7 +573,7 @@ function EvaluacionesDeportistas() {
 								Comparativa de las aptitudes evaluadas frente a la mediana del grupo filtrado.
 							</p>
 
-							<div className="min-h-0 flex-1">
+							<div className="h-72 lg:h-96 shrink-0">
 								<RadarAptitudesChart
 									selected={selectedDeportista?.valoresTest ?? []}
 									medianas={resultados.medianas}
@@ -522,27 +585,79 @@ function EvaluacionesDeportistas() {
 								La línea punteada indica la mediana general. Activá o desactivá las referencias del gráfico para ver solo el deportista o solo la mediana.
 							</p>
 
-							{filtrosAplicados.length > 0 && (
-								<div className="mt-3 border-t border-border/60 pt-3 shrink-0 overflow-y-auto">
-									<p className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-muted-foreground">
-										Filtros aplicados
-									</p>
-									<div className="flex flex-wrap gap-1.5">
-										{filtrosAplicados.map((filtro) => (
-											<span
-												key={filtro.label}
-												className="rounded-full border border-primary/70 bg-muted/40 px-2 py-1 text-xs text-foreground"
-											>
-												<span className="text-muted-foreground">{filtro.label}: </span>
-												{filtro.value}
-											</span>
-										))}
-									</div>
+							{(filtrosAplicados.length > 0 || comparacionAptitudes.length > 0) && (
+								<div className="mt-3">
+									{filtrosAplicados.length > 0 && (
+										<div className="border-t border-border/60 pt-3">
+											<p className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-muted-foreground">
+												Filtros aplicados
+											</p>
+											<div className="flex flex-wrap gap-1.5">
+												{filtrosAplicados.map((filtro) => (
+													<span
+														key={filtro.label}
+														className="rounded-full border border-primary/70 bg-muted/40 px-2 py-1 text-xs text-foreground"
+													>
+														<span className="text-muted-foreground">{filtro.label}: </span>
+														{filtro.value}
+													</span>
+												))}
+											</div>
+										</div>
+									)}
+
+									{comparacionAptitudes.length > 0 && (
+										<div className="border-t border-border/60 pt-3 mt-3">
+											<p className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-muted-foreground">
+												{selectedDeportista?.nombre} vs mediana del grupo
+											</p>
+											<div className="space-y-1">
+												{comparacionAptitudes.map(({ aptitud, valor, mediana, delta }, index) => {
+													const isAbove = delta > 0.05;
+													const isBelow = delta < -0.05;
+													const DeltaIcon = isAbove ? TrendingUp : isBelow ? TrendingDown : Minus;
+													const deltaColor = isAbove
+														? "text-green-600"
+														: isBelow
+															? "text-red-600"
+															: "text-muted-foreground";
+													const aptitudColor = APTITUD_COLORS[index % APTITUD_COLORS.length];
+
+													return (
+														<div
+															key={aptitud}
+															className="flex items-center justify-between gap-2 rounded-md bg-muted/30 px-2 py-1 text-xs"
+														>
+															<span className="flex items-center gap-1.5 truncate text-foreground">
+																<span
+																	className="h-2 w-2 shrink-0 rounded-full"
+																	style={{ backgroundColor: aptitudColor }}
+																/>
+																{aptitud}
+															</span>
+															<div className="flex items-center gap-2 shrink-0 tabular-nums">
+																<span className="text-foreground font-semibold">{valor.toFixed(1)}</span>
+																<span className="text-muted-foreground">vs {mediana.toFixed(1)}</span>
+																<span className={`flex items-center gap-0.5 font-semibold ${deltaColor}`}>
+																	<DeltaIcon className="h-3 w-3" aria-hidden="true" />
+																	{delta > 0 ? "+" : ""}
+																	{delta.toFixed(1)}
+																</span>
+															</div>
+														</div>
+													);
+												})}
+											</div>
+										</div>
+									)}
 								</div>
 							)}
 						</div>
 
-						<div className="flex flex-col rounded-xl border border-border bg-card overflow-hidden h-[34rem] lg:h-auto lg:min-h-[40rem] lg:max-h-[calc(100vh-8rem)]">
+						<div
+							className="flex flex-col rounded-xl border border-border bg-card overflow-hidden h-[34rem] lg:h-auto"
+							style={rankingCardHeight !== null ? { height: rankingCardHeight } : undefined}
+						>
 							<div className="border-b border-border px-4 py-3 shrink-0">
 								<h3 className="text-sm font-semibold text-foreground">Ranking de deportistas</h3>
 							</div>

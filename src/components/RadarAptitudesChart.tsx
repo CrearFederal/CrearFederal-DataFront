@@ -64,8 +64,8 @@ function RadarAptitudesChart({ selected, medianas, height = 320 }: RadarAptitude
 			const token = `axisName${index}`;
 			richStyles[token] = {
 				color: AXIS_COLOR_PALETTE[index % AXIS_COLOR_PALETTE.length],
-				fontSize: 13,
-				fontWeight: 600,
+				fontSize: 14,
+				fontWeight: 800,
 				fontFamily: "inherit",
 			};
 			tokenByName.set(name, token);
@@ -150,7 +150,7 @@ function RadarAptitudesChart({ selected, medianas, height = 320 }: RadarAptitude
 							name?: string;
 							data?: { vertexIndex?: number };
 						};
-						const label = seriesName ?? name ?? "";
+						const label = name ?? seriesName ?? "";
 						const vertexIndex = data?.vertexIndex;
 
 						if (vertexIndex !== undefined) {
