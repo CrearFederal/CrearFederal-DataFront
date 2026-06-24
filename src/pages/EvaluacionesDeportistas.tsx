@@ -492,8 +492,8 @@ function EvaluacionesDeportistas() {
 					</button>
 				</div>
 
-				<div className="flex-1 flex flex-col p-3 gap-3 sm:p-4">
-					<div className="grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] lg:items-stretch">
+				<div className="flex-1 flex flex-col p-3 gap-3 sm:p-4 min-h-0">
+					<div className="flex-1 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] lg:items-start min-h-0">
 						<div className="flex flex-col rounded-xl border border-border bg-card p-4 h-[34rem] lg:h-[40rem]">
 							<div className="flex items-center mb-1 shrink-0">
 								<IdCardLanyard className="h-6 w-6 mr-2 text-primary font-bold shrink-0" />
@@ -542,7 +542,7 @@ function EvaluacionesDeportistas() {
 							)}
 						</div>
 
-						<div className="flex flex-col rounded-xl border border-border bg-card overflow-hidden h-[34rem] lg:h-[40rem]">
+						<div className="flex flex-col rounded-xl border border-border bg-card overflow-hidden h-[34rem] lg:h-auto lg:min-h-[40rem] lg:max-h-[calc(100vh-8rem)]">
 							<div className="border-b border-border px-4 py-3 shrink-0">
 								<h3 className="text-sm font-semibold text-foreground">Ranking de deportistas</h3>
 							</div>
@@ -561,8 +561,9 @@ function EvaluacionesDeportistas() {
 										{ranking.map((deportista, index) => {
 											const isSelected = deportista.idDeportista === selectedDeportistaId;
 											const barWidth = maxMediana > 0 ? (deportista.medianaTest / maxMediana) * 100 : 0;
-											const GeneroIcon = deportista.genero === "M" ? Mars : Venus;
-											const generoColor = deportista.genero === "M" ? "#3b82f6" : "#ec4899";
+											const isMale = deportista.genero?.toUpperCase().startsWith("M");
+											const GeneroIcon = isMale ? Mars : Venus;
+											const generoColor = isMale ? "#3b82f6" : "#ec4899";
 
 											return (
 												<tr

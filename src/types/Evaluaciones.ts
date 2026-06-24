@@ -79,7 +79,7 @@ export interface DeportistaEvaluadoItem {
 	club: string;
 	deporte: string;
 	edad: number;
-	genero: "M" | "F";
+	genero: string;
 	provincia: string;
 	municipio: string;
 	medianaTest: number;

@@ -19,6 +19,15 @@ const AXIS_COLOR_PALETTE = [
 const RADAR_CENTER: [string, string] = ["50%", "45%"];
 const RADAR_RADIUS_RATIO = 0.68;
 
+const ALL_APTITUDES = [
+	"Agilidad",
+	"Velocidad",
+	"Resistencia",
+	"Fuerza / Resistencia",
+	"Fuerza Explosiva",
+	"Flexibilidad",
+];
+
 interface AptitudValor {
 	aptitudEvaluada: string;
 	valor: number;
@@ -37,22 +46,21 @@ function RadarAptitudesChart({ selected, medianas, height = 320 }: RadarAptitude
 		if (!chartRef.current) return;
 		if (selected.length === 0 && medianas.length === 0) return;
 
-		const indicatorSource = selected.length > 0 ? selected : medianas;
 		const medianasByName = new Map(medianas.map((item) => [item.aptitudEvaluada, item.valor]));
 		const selectedByName = new Map(selected.map((item) => [item.aptitudEvaluada, item.valor]));
 
-		const allValues = indicatorSource.flatMap((item) => [
-			selectedByName.get(item.aptitudEvaluada) ?? 0,
-			medianasByName.get(item.aptitudEvaluada) ?? 0,
+		const allValues = ALL_APTITUDES.flatMap((name) => [
+			selectedByName.get(name) ?? 0,
+			medianasByName.get(name) ?? 0,
 		]);
 		const globalMax = Math.max(...allValues, 1) * 1.2;
-		const indicator = indicatorSource.map((item) => ({ name: item.aptitudEvaluada, max: globalMax }));
+		const indicator = ALL_APTITUDES.map((name) => ({ name, max: globalMax }));
 
 		const richStyles: Record<string, { color: string; fontSize: number; fontWeight: number; fontFamily: string }> = {
 			axisNameDefault: { color: C_AXIS, fontSize: 13, fontWeight: 600, fontFamily: "inherit" },
 		};
 		const tokenByName = new Map<string, string>();
-		indicatorSource.forEach((item, index) => {
+		ALL_APTITUDES.forEach((name, index) => {
 			const token = `axisName${index}`;
 			richStyles[token] = {
 				color: AXIS_COLOR_PALETTE[index % AXIS_COLOR_PALETTE.length],
@@ -60,11 +68,11 @@ function RadarAptitudesChart({ selected, medianas, height = 320 }: RadarAptitude
 				fontWeight: 600,
 				fontFamily: "inherit",
 			};
-			tokenByName.set(item.aptitudEvaluada, token);
+			tokenByName.set(name, token);
 		});
 
-		const selectedValues = indicatorSource.map((item) => selectedByName.get(item.aptitudEvaluada) ?? 0);
-		const medianaValues = indicatorSource.map((item) => medianasByName.get(item.aptitudEvaluada) ?? 0);
+		const selectedValues = ALL_APTITUDES.map((name) => selectedByName.get(name) ?? 0);
+		const medianaValues = ALL_APTITUDES.map((name) => medianasByName.get(name) ?? 0);
 
 		const buildHoverHotspots = (values: number[], seriesName: string) =>
 			values.map((value, index) => ({
@@ -78,14 +86,21 @@ function RadarAptitudesChart({ selected, medianas, height = 320 }: RadarAptitude
 
 		const chart = echarts.init(chartRef.current, "light");
 
+		const vertexColors = ALL_APTITUDES.map((_, i) => AXIS_COLOR_PALETTE[i % AXIS_COLOR_PALETTE.length]);
+
 		const series: echarts.RadarSeriesOption["data"] = [];
 		if (selected.length > 0) {
 			series.push({
 				name: "Atleta seleccionado",
 				value: selectedValues,
-				symbolSize: 0,
+				symbolSize: 10,
+				symbol: "circle",
 				lineStyle: { color: C_BLUE_MAIN, width: 2 },
-				itemStyle: { color: C_BLUE_MAIN },
+				itemStyle: {
+					color: (params) => vertexColors[params.dataIndex ?? 0],
+					borderColor: "#fff",
+					borderWidth: 1.5,
+				},
 				areaStyle: { color: C_BLUE_MAIN, opacity: 0.15 },
 			});
 			series.push(...buildHoverHotspots(selectedValues, "Atleta seleccionado"));
@@ -93,9 +108,15 @@ function RadarAptitudesChart({ selected, medianas, height = 320 }: RadarAptitude
 		series.push({
 			name: "Mediana",
 			value: medianaValues,
-			symbolSize: 0,
+			symbolSize: 7,
+			symbol: "circle",
 			lineStyle: { color: C_GRAY_NEUTRAL, width: 2, type: "dashed" },
-			itemStyle: { color: C_GRAY_NEUTRAL },
+			itemStyle: {
+				color: (params) => vertexColors[params.dataIndex ?? 0],
+				borderColor: "#fff",
+				borderWidth: 1.5,
+				opacity: 0.65,
+			},
 			areaStyle: { color: C_GRAY_NEUTRAL, opacity: 0.05 },
 		});
 		series.push(...buildHoverHotspots(medianaValues, "Mediana"));
@@ -179,51 +200,8 @@ function RadarAptitudesChart({ selected, medianas, height = 320 }: RadarAptitude
 			true
 		);
 
-		const drawVertexDots = () => {
-			if (!chartRef.current) return;
-			const width = chartRef.current.clientWidth;
-			const containerHeight = chartRef.current.clientHeight;
-			const outerRadius = (Math.min(width, containerHeight) / 2) * RADAR_RADIUS_RATIO;
-			const centerX = width * 0.5;
-			const centerY = containerHeight * 0.45;
-			const axisCount = indicator.length;
-
-			const dotFor = (values: number[], index: number, symbolRadius: number, opacity: number) => {
-				const angle = -Math.PI / 2 + index * ((2 * Math.PI) / axisCount);
-				const pointRadius = outerRadius * (values[index] / globalMax);
-				return {
-					type: "circle" as const,
-					silent: true,
-					shape: {
-						cx: centerX + pointRadius * Math.cos(angle),
-						cy: centerY + pointRadius * Math.sin(angle),
-						r: symbolRadius,
-					},
-					style: {
-						fill: AXIS_COLOR_PALETTE[index % AXIS_COLOR_PALETTE.length],
-						opacity,
-						stroke: "#fff",
-						lineWidth: 1.5,
-					},
-					z: 10,
-				};
-			};
-
-			const buildDots = (values: number[], symbolRadius: number, opacity: number) =>
-				values.map((_, index) => dotFor(values, index, symbolRadius, opacity));
-
-			const elements = [
-				...(selected.length > 0 ? buildDots(selectedValues, 5, 1) : []),
-				...buildDots(medianaValues, 3.5, 0.65),
-			];
-
-			chart.setOption({ graphic: elements });
-		};
-		drawVertexDots();
-
 		const handleResize = () => {
 			chart.resize();
-			drawVertexDots();
 		};
 		window.addEventListener("resize", handleResize);
 
