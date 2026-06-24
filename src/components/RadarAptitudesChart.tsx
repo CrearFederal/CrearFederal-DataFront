@@ -88,19 +88,33 @@ function RadarAptitudesChart({ selected, medianas, height = 320 }: RadarAptitude
 
 		const vertexColors = ALL_APTITUDES.map((_, i) => AXIS_COLOR_PALETTE[i % AXIS_COLOR_PALETTE.length]);
 
+		const buildVertexDotSeries = (values: number[], size: number, opacity: number): echarts.RadarSeriesOption[] =>
+			values.map((_, i) => ({
+				type: "radar" as const,
+				silent: true,
+				data: [{
+					value: values.map((v, j) => j === i ? v : null) as (number | null)[],
+					symbolSize: size,
+					symbol: "circle",
+					lineStyle: { opacity: 0 },
+					areaStyle: { opacity: 0 },
+					itemStyle: {
+						color: vertexColors[i],
+						borderColor: "#fff",
+						borderWidth: 1.5,
+						opacity,
+					},
+				}],
+			}));
+
 		const series: echarts.RadarSeriesOption["data"] = [];
 		if (selected.length > 0) {
 			series.push({
 				name: "Atleta seleccionado",
 				value: selectedValues,
-				symbolSize: 10,
-				symbol: "circle",
+				symbolSize: 0,
 				lineStyle: { color: C_BLUE_MAIN, width: 2 },
-				itemStyle: {
-					color: (params) => vertexColors[params.dataIndex ?? 0],
-					borderColor: "#fff",
-					borderWidth: 1.5,
-				},
+				itemStyle: { color: C_BLUE_MAIN },
 				areaStyle: { color: C_BLUE_MAIN, opacity: 0.15 },
 			});
 			series.push(...buildHoverHotspots(selectedValues, "Atleta seleccionado"));
@@ -108,18 +122,17 @@ function RadarAptitudesChart({ selected, medianas, height = 320 }: RadarAptitude
 		series.push({
 			name: "Mediana",
 			value: medianaValues,
-			symbolSize: 7,
-			symbol: "circle",
+			symbolSize: 0,
 			lineStyle: { color: C_GRAY_NEUTRAL, width: 2, type: "dashed" },
-			itemStyle: {
-				color: (params) => vertexColors[params.dataIndex ?? 0],
-				borderColor: "#fff",
-				borderWidth: 1.5,
-				opacity: 0.65,
-			},
+			itemStyle: { color: C_GRAY_NEUTRAL },
 			areaStyle: { color: C_GRAY_NEUTRAL, opacity: 0.05 },
 		});
 		series.push(...buildHoverHotspots(medianaValues, "Mediana"));
+
+		const dotSeries = [
+			...(selected.length > 0 ? buildVertexDotSeries(selectedValues, 10, 1) : []),
+			...buildVertexDotSeries(medianaValues, 7, 0.65),
+		];
 
 		chart.setOption(
 			{
@@ -195,6 +208,7 @@ function RadarAptitudesChart({ selected, medianas, height = 320 }: RadarAptitude
 						animationDuration: 700,
 						animationEasing: "cubicOut",
 					},
+					...dotSeries,
 				],
 			},
 			true
