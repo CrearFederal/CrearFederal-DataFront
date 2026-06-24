@@ -2,6 +2,8 @@ import { isAxiosError } from "axios";
 
 import { instanceAxios } from "../api/axios";
 import type {
+	DeportistasEvaluadosParams,
+	DeportistasEvaluadosResponse,
 	EvaluacionesDistribucionGeneroResponse,
 	EvaluacionesEvolucionMensualResponse,
 	EvaluacionesPorNivelResponse,
@@ -143,5 +145,29 @@ export const getEvaluacionesDistribucionGenero = async (
 		}
 
 		throw new Error("Error al obtener la distribución por género de evaluaciones");
+	}
+};
+
+export const getDeportistasEvaluados = async (
+	params: DeportistasEvaluadosParams,
+	signal?: AbortSignal
+): Promise<DeportistasEvaluadosResponse> => {
+	if (!instanceAxios.defaults.baseURL) {
+		throw new Error("VITE_API_URL no está configurada");
+	}
+
+	try {
+		const { data } = await instanceAxios.get<DeportistasEvaluadosResponse>(
+			"/evaluaciones/deportistas-evaluados",
+			{ params, signal }
+		);
+
+		return data;
+	} catch (error: unknown) {
+		if (isAxiosError<{ message?: string }>(error)) {
+			throw new Error(error.response?.data?.message || "Error al obtener los deportistas evaluados");
+		}
+
+		throw new Error("Error al obtener los deportistas evaluados");
 	}
 };

@@ -66,3 +66,38 @@ export interface EvaluacionesResumenResponse {
 	municipiosAlcanzados: number;
 	municipiosVsTotalPct: number;
 }
+
+export interface AptitudValorItem {
+	idTest: number[];
+	aptitudEvaluada: string;
+	valor: number;
+}
+
+export interface DeportistaEvaluadoItem {
+	idDeportista: number;
+	nombre: string;
+	club: string;
+	deporte: string;
+	edad: number;
+	genero: string;
+	provincia: string;
+	municipio: string;
+	medianaTest: number;
+	valoresTest: AptitudValorItem[];
+}
+
+export interface DeportistasEvaluadosResponse {
+	deportistas: DeportistaEvaluadoItem[];
+	medianas: AptitudValorItem[];
+}
+
+export interface DeportistasEvaluadosParams {
+	idDeporte: number;
+	idProvincia: number;
+	edadMin: number;
+	edadMax: number;
+	genero?: "M" | "F";
+	idClub?: number;
+	idMunicipio?: number;
+	nivelEvaluado?: string;
+}
