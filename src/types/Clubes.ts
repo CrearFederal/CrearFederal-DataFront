@@ -83,6 +83,13 @@ export interface ConteoInfraestructura {
   CanchaVoley: number;
   CanchaRugby: number;
   CanchaHockey: number;
+  CanchaPadel: number;
+  CanchaAtletismo: number;
+  CanchaTiroConArco: number;
+  CanchaHandball: number;
+  CanchaFutsal: number;
+  CanchaBochas: number;
+  CanchaMultiples: number;
   Otros: number;
 }
 
