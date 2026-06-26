@@ -524,23 +524,24 @@ function EvaluacionesDeportistas() {
 
 		return (
 			<div className="min-h-screen bg-background flex flex-col">
-				<div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3 sm:px-6">
-					<div className="flex items-center gap-3 min-w-0">
+				<div className="flex items-center justify-between gap-2 border-b border-border px-3 py-3 sm:gap-3 sm:px-6">
+					<div className="flex items-center gap-2 min-w-0 sm:gap-3">
 						<button
 							type="button"
 							onClick={handleVolverABusqueda}
-							className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground shrink-0"
+							aria-label="Volver a la búsqueda"
+							className="flex items-center gap-1.5 rounded-lg px-2 py-1.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground shrink-0 sm:px-2.5"
 						>
 							<ArrowLeft className="h-4 w-4" />
-							Volver a la búsqueda
+							<span className="hidden sm:inline">Volver a la búsqueda</span>
 						</button>
-						<div className="h-6 w-px bg-border shrink-0" />
-						<div className="rounded-lg bg-primary/10 p-2 text-primary shrink-0">
+						<div className="hidden h-6 w-px bg-border shrink-0 sm:block" />
+						<div className="hidden rounded-lg bg-primary/10 p-2 text-primary shrink-0 sm:flex">
 							<SportShoe className="h-5 w-5" />
 						</div>
 						<div className="min-w-0">
-							<h1 className="text-lg font-semibold text-foreground truncate">Detección y seguimiento de talentos</h1>
-							<p className="text-sm text-muted-foreground">
+							<h1 className="text-base font-semibold text-foreground truncate sm:text-lg">Detección y seguimiento de talentos</h1>
+							<p className="truncate text-xs text-muted-foreground sm:text-sm">
 								Evaluación multidimensional de aptitudes físicas. <span className="font-semibold text-primary">{ranking.length}</span> {ranking.length === 1 ? "deportista encontrado" : "deportistas encontrados"}
 							</p>
 						</div>

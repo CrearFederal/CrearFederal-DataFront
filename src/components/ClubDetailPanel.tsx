@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { motion } from "framer-motion";
 import {
   X,
   Building2,
@@ -18,14 +19,21 @@ import {
   AgeDistributionChart,
 } from "./Charts";
 
-import imgFutbol   from "../../assets/CanchaFutbol.jpg";
-import imgTenis    from "../../assets/CanchaTenis.jpg";
-import imgNatacion from "../../assets/CanchaNatacion.jpg";
-import imgBasket   from "../../assets/CanchaBasket.jpg";
-import imgVoley    from "../../assets/CanchaVoley.jpg";
-import imgRugby    from "../../assets/CanchaRugby.jpg";
-import imgHockey   from "../../assets/CanchaHockey.jpg";
-import otros       from "../../assets/Otros.jpg";
+import imgFutbol   from "../../assets/Futbol.png";
+import imgTenis    from "../../assets/Tenis.png";
+import imgNatacion from "../../assets/Pileta.png";
+import imgBasket   from "../../assets/Basket.png";
+import imgVoley    from "../../assets/Voley.png";
+import imgRugby    from "../../assets/Rugby.png";
+import imgHockey   from "../../assets/Hockey.png";
+import imgPadel    from "../../assets/Padel.png";
+import imgAtletismo from "../../assets/Atletismo.png";
+import imgArco from "../../assets/TiroConArco.png";
+import imgHandball from "../../assets/Handball.png";
+import imgFutsal from "../../assets/Futsal.png";
+import imgBochas from "../../assets/Bochas.png";
+import imgSUM from "../../assets/SUM.png";
+import otros       from "../../assets/Otras.png";
 
 // ---------------- INFRAESTRUCTURA ----------------
 
@@ -34,37 +42,76 @@ interface InfraItemConfig {
   label: string;
   image: string | null;
   color: string;
+  accentHex: string;
+  ring: string;
+  blurred?: boolean;
 }
 
 const INFRA_ITEMS: InfraItemConfig[] = [
-  { key: "CanchaFutbol",   label: "CANCHAS DE FÚTBOL",    image: imgFutbol,   color: "text-green-500" },
-  { key: "CanchaBasquet",  label: "CANCHAS DE BÁSQUET",   image: imgBasket,   color: "text-orange-300" },
-  { key: "CanchaHockey",   label: "CANCHAS DE HOCKEY",    image: imgHockey,   color: "text-blue-400"   },
-  { key: "CanchaTenis",    label: "CANCHAS DE TENIS",     image: imgTenis,    color: "text-orange-500" },
-  { key: "CanchaVoley",    label: "CANCHAS DE VOLEY",     image: imgVoley,    color: "text-rose-300" },
-  { key: "CanchaNatacion", label: "PILETAS DE NATACIÓN",  image: imgNatacion, color: "text-cyan-400" },
-  { key: "CanchaRugby",    label: "CANCHAS DE RUGBY",     image: imgRugby,    color: "text-green-600"   },
-  { key: "Otros",          label: "OTRAS INSTALACIONES",  image: otros,       color: "text-gray-400" },
+  { key: "CanchaFutbol",   label: "CANCHAS DE FÚTBOL",    image: imgFutbol,   color: "text-green-600",   accentHex: "#16a34a", ring: "hover:ring-green-600" },
+  { key: "CanchaBasquet",  label: "CANCHAS DE BÁSQUET",   image: imgBasket,   color: "text-orange-400",  accentHex: "#f97316", ring: "hover:ring-orange-400" },
+  { key: "CanchaHockey",   label: "CANCHAS DE HOCKEY",    image: imgHockey,   color: "text-green-700",   accentHex: "#0b6e2f", ring: "hover:ring-green-700" },
+  { key: "CanchaTenis",    label: "CANCHAS DE TENIS",     image: imgTenis,    color: "text-amber-600",   accentHex: "#d97706", ring: "hover:ring-amber-600" },
+  { key: "CanchaVoley",    label: "CANCHAS DE VOLEY",     image: imgVoley,    color: "text-orange-400",  accentHex: "#f97316", ring: "hover:ring-orange-400" },
+  { key: "CanchaNatacion", label: "PILETAS DE NATACIÓN",  image: imgNatacion, color: "text-cyan-600",    accentHex: "#0891b2", ring: "hover:ring-cyan-600" },
+  { key: "CanchaRugby",    label: "CANCHAS DE RUGBY",     image: imgRugby,    color: "text-green-600",   accentHex: "#059669", ring: "hover:ring-green-600" },
+  { key: "CanchaPadel",    label: "CANCHAS DE PÁDEL",     image: imgPadel,    color: "text-indigo-700", accentHex: "#4338ca", ring: "hover:ring-indigo-700" },
+  { key: "CanchaAtletismo",label: "PISTAS DE ATLETISMO", image: imgAtletismo, color: "text-amber-600",    accentHex: "#d97706", ring: "hover:ring-amber-600" },
+  { key: "CanchaTiroConArco",     label: "CAMPO DE TIRO CON ARCO", image: imgArco, color: "text-green-600", accentHex: "#16a34a", ring: "hover:ring-green-600" },
+  { key: "CanchaHandball", label: "CANCHAS DE HANDBALL",  image: imgHandball, color: "text-sky-600", accentHex: "#0284c7", ring: "hover:ring-sky-600" },
+  { key: "CanchaFutsal",   label: "CANCHAS DE FUTSAL",    image: imgFutsal,   color: "text-orange-300",   accentHex: "#f97316", ring: "hover:ring-orange-300" },
+  { key: "CanchaBochas",   label: "CANCHAS DE BOCHAS",    image: imgBochas,   color: "text-sky-700", accentHex: "#056196", ring: "hover:ring-sky-700" },
+  { key: "CanchaMultiples", label: "SALÓN DE USOS MÚLTIPLES", image: imgSUM,   color: "text-yellow-600",     accentHex: "#c7910e", ring: "hover:ring-yellow-600" },
+  { key: "Otros",          label: "OTRAS INSTALACIONES",  image: otros,       color: "text-slate-500",   accentHex: "#64748b", ring: "hover:ring-slate-400", blurred: true },
 ];
 
-function InfraCard({ label, count, image, color }: { label: string; count: number; image: string | null; color: string }) {
+function InfraCard({ label, count, image, color, accentHex, ring, index, blurred }: { label: string; count: number; image: string | null; color: string; accentHex: string; ring: string; index: number; blurred?: boolean }) {
   return (
-    <div className="relative rounded-xl overflow-hidden aspect-[4/2]">
-      {image ? (
-        <img src={image} alt={label} className="absolute inset-0 h-full w-full object-cover" />
-      ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-slate-600 to-slate-800" />
-      )}
-      <div className="absolute inset-0 bg-black/60" />
-      <div className="absolute inset-0 flex flex-col items-center justify-center gap-0.5 px-1.5">
-        <span className={`text-3xl sm:text-4xl font-black leading-none ${color} drop-shadow-sm`}>
-          {count}
-        </span>
-        <span className="text-[8px] sm:text-[9px] font-semibold text-white/90 text-center uppercase tracking-widest leading-tight">
+    <motion.div
+      initial={{ opacity: 0, y: 14, scale: 0.96 }}
+      animate={{ opacity: 1, y: 0, scale: 1 }}
+      transition={{ duration: 0.35, delay: index * 0.05, ease: "easeOut" }}
+      className="group relative isolate rounded-xl border border-border bg-card overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-md"
+    >
+      {/* Per-sport accent bar, mirrors .kpi-card::before */}
+      <div
+        className="absolute top-0 left-0 right-0 h-[3px] z-[1]"
+        style={{ background: `linear-gradient(90deg, ${accentHex}, ${accentHex}99)` }}
+      />
+
+      {/* Framed viewport: light matte around the image so its native black canvas reads as an
+          intentional "showcase slot" rather than a clashing full-bleed background. */}
+      <div className="p-2 pt-2.5">
+        <div
+          className={`relative aspect-[4/3] overflow-hidden rounded-lg bg-gradient-to-br from-slate-200 to-slate-400 ring-1 ring-black/10 transition-all duration-300 group-hover:ring-2 ${ring}`}
+        >
+          {image ? (
+            <img
+              src={image}
+              alt={label}
+              className={`absolute inset-0 h-full w-full object-cover transition-transform duration-500 ease-out group-hover:scale-110 ${
+                blurred ? "scale-125 opacity-35 blur-md" : ""
+              }`}
+            />
+          ) : (
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-700 to-slate-900" />
+          )}
+          {blurred && (
+            <div className="absolute inset-0 bg-gradient-to-br from-slate-300/70 via-slate-400/60 to-slate-500/70" />
+          )}
+        </div>
+      </div>
+
+      {/* Info footer, on the light card chrome */}
+      <div className="relative flex items-center justify-between gap-2 px-2.5 pb-2.5">
+        <span className="text-[9px] sm:text-[10px] font-semibold uppercase tracking-wide leading-tight text-muted-foreground">
           {label}
         </span>
+        <span className={`shrink-0 text-xl sm:text-2xl font-black leading-none tabular-nums ${color}`}>
+          {count}
+        </span>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
@@ -133,7 +180,7 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
   return (
     <div className="panel-slide-in fixed right-0 top-0 z-[60] h-full w-full lg:w-[60vw] overflow-y-auto border-l border-border bg-card shadow-2xl">
       {/* HEADER */}
-      <div className="sticky top-0 z-10 flex items-center justify-between border-b border-border bg-card/95 p-4 backdrop-blur-sm">
+      <div className="sticky top-0 z-20 flex items-center justify-between border-b border-border bg-card/95 p-4 backdrop-blur-sm">
         <div className="flex items-center gap-3 min-w-0">
           {data?.club.logoUrl ? (
             <img
@@ -210,18 +257,25 @@ function ClubDetailPanel({ clubId, onClose }: ClubDetailPanelProps) {
             {/* INFRAESTRUCTURA */}
             {infraItems.length > 0 && (
               <div>
-                <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground mb-2">
-                  <Building2 className="h-5 w-5 text-primary inline-block mr-2" />
-                  Infraestructura del club
-                </p>
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                  {infraItems.map((item) => (
+                <div className="mb-3 flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-primary/10">
+                    <Building2 className="h-4 w-4 text-primary" />
+                  </div>
+                  <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                    Infraestructura del club
+                  </p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+                  {infraItems.map((item, index) => (
                     <InfraCard
                       key={item.key}
+                      index={index}
                       label={item.label}
                       count={data.conteoInfraestructura![item.key]}
                       image={item.image}
                       color={item.color}
+                      accentHex={item.accentHex}
+                      ring={item.ring}
                     />
                   ))}
                 </div>
