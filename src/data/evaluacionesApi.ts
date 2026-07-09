@@ -157,9 +157,16 @@ export const getDeportistasEvaluados = async (
 	}
 
 	try {
+		// Backend expects multiple sports as a single comma-joined value (idDeporte=5,8,12).
 		const { data } = await instanceAxios.get<DeportistasEvaluadosResponse>(
 			"/evaluaciones/deportistas-evaluados",
-			{ params, signal }
+			{
+				params: {
+					...params,
+					idDeporte: Array.isArray(params.idDeporte) ? params.idDeporte.join(",") : params.idDeporte,
+				},
+				signal,
+			}
 		);
 
 		return data;

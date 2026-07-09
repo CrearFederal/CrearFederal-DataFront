@@ -1,5 +1,6 @@
 import * as echarts from "echarts";
 import { useEffect, useRef } from "react";
+import type { PuntajeAptitud, MedianaAptitud } from "../types/Evaluaciones";
 
 const C_BLUE_MAIN = "hsl(215, 85%, 52%)";
 const C_AXIS = "hsl(215, 20%, 55%)";
@@ -19,48 +20,50 @@ const AXIS_COLOR_PALETTE = [
 const RADAR_CENTER: [string, string] = ["50%", "45%"];
 const RADAR_RADIUS_RATIO = 0.68;
 
-const ALL_APTITUDES = [
-	"Agilidad",
-	"Velocidad",
-	"Resistencia",
-	"Fuerza / Resistencia",
-	"Fuerza Explosiva",
-	"Flexibilidad",
-];
+const APTITUDES_POR_NIVEL: Record<string, string[]> = {
+	Escolar:    ["Fuerza / Resistencia", "Fuerza Explosiva", "Velocidad"],
+	Base:       ["Agilidad", "Flexibilidad", "Fuerza / Resistencia", "Fuerza Explosiva", "Resistencia", "Velocidad"],
+	Intermedio: ["Agilidad", "Calidad de Movimiento", "Flexibilidad", "Fuerza / Resistencia", "Fuerza Explosiva", "Resistencia", "Velocidad"],
+	Avanzado:   ["Agilidad", "Calidad de Movimiento", "Flexibilidad", "Fuerza / Resistencia", "Fuerza Explosiva", "Resistencia", "Velocidad"],
+};
 
-interface AptitudValor {
-	aptitudEvaluada: string;
-	valor: number;
-}
+export const getAptitudesPorNivel = (nivel: string): string[] =>
+	APTITUDES_POR_NIVEL[nivel] ?? APTITUDES_POR_NIVEL.Base;
+
+const APTITUD_DISPLAY_MAP: Record<string, string> = {
+	"Calidad del Patrones de Movimiento": "Calidad de Movimiento",
+};
+
+export const normalizeAptitudName = (nombre: string): string =>
+	APTITUD_DISPLAY_MAP[nombre] ?? nombre;
 
 interface RadarAptitudesChartProps {
-	selected: AptitudValor[];
-	medianas: AptitudValor[];
+	selected: PuntajeAptitud[];
+	medianas: MedianaAptitud[];
 	height?: number | string;
+	nivel: string;
 }
 
-function RadarAptitudesChart({ selected, medianas, height = 320 }: RadarAptitudesChartProps) {
+function RadarAptitudesChart({ selected, medianas, height = 320, nivel }: RadarAptitudesChartProps) {
 	const chartRef = useRef<HTMLDivElement>(null);
 
 	useEffect(() => {
 		if (!chartRef.current) return;
 		if (selected.length === 0 && medianas.length === 0) return;
 
-		const medianasByName = new Map(medianas.map((item) => [item.aptitudEvaluada, item.valor]));
-		const selectedByName = new Map(selected.map((item) => [item.aptitudEvaluada, item.valor]));
+		const aptitudes = getAptitudesPorNivel(nivel);
 
-		const allValues = ALL_APTITUDES.flatMap((name) => [
-			selectedByName.get(name) ?? 0,
-			medianasByName.get(name) ?? 0,
-		]);
-		const globalMax = Math.max(...allValues, 1) * 1.2;
-		const indicator = ALL_APTITUDES.map((name) => ({ name, max: globalMax }));
+		const medianasByName = new Map(medianas.map((item) => [normalizeAptitudName(item.aptitudEvaluada), item.mediana]));
+		const selectedByName = new Map(selected.map((item) => [normalizeAptitudName(item.aptitudEvaluada), item.puntajePromedio]));
+		const testsByAptitud = new Map(selected.map((item) => [normalizeAptitudName(item.aptitudEvaluada), item.Tests]));
+
+		const indicator = aptitudes.map((name) => ({ name, max: 10 }));
 
 		const richStyles: Record<string, { color: string; fontSize: number; fontWeight: number; fontFamily: string }> = {
 			axisNameDefault: { color: C_AXIS, fontSize: 13, fontWeight: 600, fontFamily: "inherit" },
 		};
 		const tokenByName = new Map<string, string>();
-		ALL_APTITUDES.forEach((name, index) => {
+		aptitudes.forEach((name, index) => {
 			const token = `axisName${index}`;
 			richStyles[token] = {
 				color: AXIS_COLOR_PALETTE[index % AXIS_COLOR_PALETTE.length],
@@ -71,68 +74,48 @@ function RadarAptitudesChart({ selected, medianas, height = 320 }: RadarAptitude
 			tokenByName.set(name, token);
 		});
 
-		const selectedValues = ALL_APTITUDES.map((name) => selectedByName.get(name) ?? 0);
-		const medianaValues = ALL_APTITUDES.map((name) => medianasByName.get(name) ?? 0);
-
-		const buildHoverHotspots = (values: number[], seriesName: string) =>
-			values.map((value, index) => ({
-				name: seriesName,
-				value: values.map((_, i) => (i === index ? value : null)) as number[],
-				vertexIndex: index,
-				symbol: "none",
-				lineStyle: { opacity: 0 },
-				areaStyle: { opacity: 0 },
-			})) as unknown as NonNullable<echarts.RadarSeriesOption["data"]>;
+		const selectedValues = aptitudes.map((name) => selectedByName.get(name) ?? 0);
+		const medianaValues = aptitudes.map((name) => medianasByName.get(name) ?? 0);
 
 		const chart = echarts.init(chartRef.current, "light");
 
-		const vertexColors = ALL_APTITUDES.map((_, i) => AXIS_COLOR_PALETTE[i % AXIS_COLOR_PALETTE.length]);
-
-		const buildVertexDotSeries = (values: number[], size: number, opacity: number): echarts.RadarSeriesOption[] =>
-			values.map((_, i) => ({
-				type: "radar" as const,
-				silent: true,
-				data: [{
-					value: values.map((v, j) => j === i ? v : null) as (number | null)[],
-					symbolSize: size,
-					symbol: "circle",
-					lineStyle: { opacity: 0 },
-					areaStyle: { opacity: 0 },
-					itemStyle: {
-						color: vertexColors[i],
-						borderColor: "#fff",
-						borderWidth: 1.5,
-						opacity,
-					},
-				}],
-			}));
-
-		const series: echarts.RadarSeriesOption["data"] = [];
+		// Main series: line + area only. ECharts applies symbol/symbolSize/itemStyle
+		// uniformly to every vertex of a radar data item (there is no per-vertex styling
+		// API), so per-aptitude colored dots are drawn separately below via `graphic`.
+		const mainSeriesData: echarts.RadarSeriesOption["data"] = [];
 		if (selected.length > 0) {
-			series.push({
+			mainSeriesData.push({
 				name: "Atleta seleccionado",
 				value: selectedValues,
-				symbolSize: 0,
-				lineStyle: { color: C_BLUE_MAIN, width: 2 },
+				symbol: "none",
 				itemStyle: { color: C_BLUE_MAIN },
+				lineStyle: { color: C_BLUE_MAIN, width: 2 },
 				areaStyle: { color: C_BLUE_MAIN, opacity: 0.15 },
 			});
-			series.push(...buildHoverHotspots(selectedValues, "Atleta seleccionado"));
 		}
-		series.push({
+		mainSeriesData.push({
 			name: "Mediana",
 			value: medianaValues,
-			symbolSize: 0,
+			symbol: "circle",
+			symbolSize: 7,
 			lineStyle: { color: C_GRAY_NEUTRAL, width: 2, type: "dashed" },
-			itemStyle: { color: C_GRAY_NEUTRAL },
+			itemStyle: { color: C_GRAY_NEUTRAL, borderColor: "#fff", borderWidth: 1.5, opacity: 0.65 },
 			areaStyle: { color: C_GRAY_NEUTRAL, opacity: 0.05 },
 		});
-		series.push(...buildHoverHotspots(medianaValues, "Mediana"));
 
-		const dotSeries = [
-			...(selected.length > 0 ? buildVertexDotSeries(selectedValues, 10, 1) : []),
-			...buildVertexDotSeries(medianaValues, 7, 0.65),
-		];
+		// Tooltip content for a vertex dot, shown via the `graphic` circle's own tooltip config below
+		const buildVertexTooltip = (axisName: string, axisColor: string) => {
+			const header = `<div style="font-weight:700;color:${axisColor};margin-bottom:4px;font-size:13px;">${axisName}</div>`;
+			const tests = testsByAptitud.get(axisName) ?? [];
+			if (tests.length === 0) return `${header}<span style="color:${C_AXIS};">Sin datos</span>`;
+			const rows = tests.map((t) =>
+				`<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:2px;">
+					<span style="color:${C_AXIS};max-width:180px;white-space:normal;">${t.nombre}</span>
+					<span style="font-weight:600;white-space:nowrap;">${t.valor} ${t.unidad_medida}</span>
+				</div>`
+			).join("");
+			return `${header}${rows}`;
+		};
 
 		chart.setOption(
 			{
@@ -143,34 +126,12 @@ function RadarAptitudesChart({ selected, medianas, height = 320 }: RadarAptitude
 					borderColor: "rgba(148, 163, 184, 0.35)",
 					borderWidth: 1,
 					textStyle: { fontSize: 12, color: "#0f172a" },
-					formatter: (params: unknown) => {
-						const { value, seriesName, name, data } = params as {
-							value: number[];
-							seriesName?: string;
-							name?: string;
-							data?: { vertexIndex?: number };
-						};
-						const label = name ?? seriesName ?? "";
-						const vertexIndex = data?.vertexIndex;
-
-						if (vertexIndex !== undefined) {
-							const axisColor = AXIS_COLOR_PALETTE[vertexIndex % AXIS_COLOR_PALETTE.length];
-							const axisName = indicator[vertexIndex]?.name ?? "";
-							return `<div style="font-weight:600;margin-bottom:2px;">${label}</div><div style="color:${C_AXIS};margin-bottom:2px;">${axisName}</div><span style="color:${axisColor};font-weight:700;font-size:13px;">${Number(value[vertexIndex]).toFixed(1)}</span>`;
-						}
-
-						const rows = value
-							.map((entryValue, index) => {
-								const axisColor = AXIS_COLOR_PALETTE[index % AXIS_COLOR_PALETTE.length];
-								return `<div style="display:flex;align-items:center;justify-content:space-between;gap:10px;"><span><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${axisColor};margin-right:6px;"></span>${indicator[index]?.name ?? ""}</span><span style="font-weight:600;">${Number(entryValue).toFixed(1)}</span></div>`;
-							})
-							.join("");
-						return `<div style="font-weight:600;margin-bottom:4px;">${label}</div>${rows}`;
-					},
+					formatter: () => "",
 				},
 				legend: {
 					bottom: 4,
 					left: "center",
+					data: ["Atleta seleccionado", "Mediana"],
 					itemWidth: 16,
 					itemHeight: 10,
 					itemGap: 20,
@@ -189,33 +150,56 @@ function RadarAptitudesChart({ selected, medianas, height = 320 }: RadarAptitude
 						rich: richStyles,
 					},
 					axisLine: { lineStyle: { color: "hsl(215, 20%, 85%)" } },
-					axisLabel: {
-						show: true,
-						color: C_AXIS,
-						fontSize: 11,
-						fontFamily: "inherit",
-						backgroundColor: "rgba(255, 255, 255, 0.82)",
-						padding: [1, 3],
-						formatter: (value: number | string) => Number(value).toFixed(1),
-					},
+					axisLabel: { show: false },
 					splitLine: { lineStyle: { color: "hsl(215, 20%, 88%)" } },
 					splitArea: { areaStyle: { color: ["transparent", "rgba(148, 163, 184, 0.04)"] } },
 				},
 				series: [
 					{
 						type: "radar",
-						data: series,
+						data: mainSeriesData,
 						animationDuration: 700,
 						animationEasing: "cubicOut",
 					},
-					...dotSeries,
 				],
 			},
 			true
 		);
 
+		// ECharts has no per-vertex symbol styling on radar series, so the colored
+		// dot per aptitude for the selected athlete is drawn as an overlay using the
+		// radar's own coordinate system to place one circle per axis.
+		const drawVertexMarkers = () => {
+			if (selected.length === 0) {
+				chart.setOption({ graphic: { elements: [] } });
+				return;
+			}
+			const radarComponent = (chart as unknown as { getModel: () => { getComponent: (type: string) => unknown } })
+				.getModel()
+				.getComponent("radar") as {
+					coordinateSystem: { dataToPoint: (value: number, indicatorIndex: number) => [number, number] };
+				};
+			const elements = selectedValues.map((value, i) => {
+				const [x, y] = radarComponent.coordinateSystem.dataToPoint(value, i);
+				const axisName = aptitudes[i];
+				const color = AXIS_COLOR_PALETTE[i % AXIS_COLOR_PALETTE.length];
+				return {
+					type: "circle" as const,
+					position: [x, y] as [number, number],
+					shape: { cx: 0, cy: 0, r: 5 },
+					style: { fill: color, stroke: "#fff", lineWidth: 1.5 },
+					z: 100,
+					tooltip: { formatter: () => buildVertexTooltip(axisName, color) },
+				};
+			});
+			chart.setOption({ graphic: { elements } } as echarts.EChartsOption);
+		};
+
+		drawVertexMarkers();
+
 		const handleResize = () => {
 			chart.resize();
+			drawVertexMarkers();
 		};
 		window.addEventListener("resize", handleResize);
 
@@ -223,7 +207,7 @@ function RadarAptitudesChart({ selected, medianas, height = 320 }: RadarAptitude
 			window.removeEventListener("resize", handleResize);
 			chart.dispose();
 		};
-	}, [selected, medianas]);
+	}, [selected, medianas, nivel]);
 
 	const resolvedHeight = typeof height === "number" ? `${height}px` : height;
 

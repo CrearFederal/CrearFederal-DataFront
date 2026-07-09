@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback, startTransition } from "react";
 import type { Filters, NavigationState } from "../types/types";
 import { canClickProvince, canClickMunicipio, getInitialNavigation } from "../data/roles";
 import type { UserRoleConfig } from "../data/roles";
@@ -857,8 +857,10 @@ function Dashboard() {
 
   const handleProvinceClick = useCallback((provinciaId: number) => {
     if (!roleConfig || !canClickProvince(roleConfig)) return;
-    setNavigation({ level: "province", provinciaId });
-    setSelectedClubId(null);
+    startTransition(() => {
+      setNavigation({ level: "province", provinciaId });
+      setSelectedClubId(null);
+    });
   }, [roleConfig]);
 
   const handleMunicipioClick = useCallback((municipioId: number) => {
@@ -1142,7 +1144,9 @@ function Dashboard() {
         <div className="flex flex-col gap-3 xl:flex-row">
 
           {/* Map */}
-          <div className="relative z-0 bg-card border border-border rounded-xl overflow-hidden h-[460px] xl:h-auto xl:max-h-none xl:min-h-[52vh] xl:flex-none xl:w-1/2">
+          {/* No z-index here: it would create a stacking context that traps the map's
+              fixed-position fullscreen overlay below later siblings (charts below it). */}
+          <div className="relative bg-card border border-border rounded-xl overflow-hidden h-[460px] xl:h-auto xl:max-h-none xl:min-h-[52vh] xl:flex-none xl:w-1/2">
             <LeafletMap
               filters={filters}
               navigation={navigation}

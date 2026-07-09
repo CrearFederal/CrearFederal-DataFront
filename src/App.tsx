@@ -10,7 +10,7 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/evaluaciones" element={<Evaluaciones />} />
-        <Route path="/evaluaciones/deportistas" element={<EvaluacionesDeportistas />} />
+        <Route path="/deteccion-talentos" element={<EvaluacionesDeportistas />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

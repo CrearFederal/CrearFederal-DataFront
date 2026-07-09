@@ -27,7 +27,9 @@ const toProvinciaResumen = (item: ProvinciaResumenRaw): ProvinciaResumen => ({
 
 export const getMapaClubes = async (
   filters: Filters,
-  signal?: AbortSignal
+  signal?: AbortSignal,
+  provinciaId?: number,
+  municipioId?: number
 ): Promise<MapaClub[]> => {
   const { data } = await instanceAxios.get<MapaClubRaw[]>("/mapa/clubes", {
     signal,
@@ -36,6 +38,8 @@ export const getMapaClubes = async (
       gender: filters.gender.join(","),
       ageMin: filters.ageRange[0],
       ageMax: filters.ageRange[1],
+      ...(provinciaId !== undefined && { provinciaId }),
+      ...(municipioId !== undefined && { municipioId }),
     },
   });
 

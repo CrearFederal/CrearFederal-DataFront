@@ -53,24 +53,41 @@ export interface EvaluacionesDistribucionGeneroResponse {
 export interface EvaluacionesResumenResponse {
 	evaluacionesTotales: number;
 	evaluacionesAnterior: number;
-	evaluacionesVsAnteriorPct: number;
+	evaluacionesVsAnteriorPct: number | null;
 	lotesTotales: number;
 	lotesAnterior: number;
-	lotesVsAnteriorPct: number;
+	lotesVsAnteriorPct: number | null;
 	personasEvaluadas: number;
 	mesActual: string;
 	personasAnterior: number;
 	mesAnterior: string;
-	personasVsAnteriorPct: number;
+	personasVsAnteriorPct: number | null;
 	totalMunicipios: number;
 	municipiosAlcanzados: number;
-	municipiosVsTotalPct: number;
+	municipiosVsTotalPct: number | null;
+	personasEvaluadasAño: number;
+	añoActual: number;
+	personasEvaluadasAñoAnterior: number;
+	añoAnterior: number;
+	personasVsAnteiorAñoPct: number | null;
 }
 
-export interface AptitudValorItem {
-	idTest: number[];
-	aptitudEvaluada: string;
+export interface TestItem {
+	id: number;
+	nombre: string;
+	unidad_medida: string;
 	valor: number;
+}
+
+export interface PuntajeAptitud {
+	aptitudEvaluada: string;
+	puntajePromedio: number;
+	Tests: TestItem[];
+}
+
+export interface MedianaAptitud {
+	aptitudEvaluada: string;
+	mediana: number;
 }
 
 export interface DeportistaEvaluadoItem {
@@ -82,17 +99,17 @@ export interface DeportistaEvaluadoItem {
 	genero: string;
 	provincia: string;
 	municipio: string;
-	medianaTest: number;
-	valoresTest: AptitudValorItem[];
+	ranking: number;
+	puntajes: PuntajeAptitud[];
 }
 
 export interface DeportistasEvaluadosResponse {
 	deportistas: DeportistaEvaluadoItem[];
-	medianas: AptitudValorItem[];
+	medianas: MedianaAptitud[];
 }
 
 export interface DeportistasEvaluadosParams {
-	idDeporte: number;
+	idDeporte: number | number[];
 	idProvincia: number;
 	edadMin: number;
 	edadMax: number;

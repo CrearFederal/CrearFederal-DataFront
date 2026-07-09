@@ -1,17 +1,34 @@
 import { memo, useMemo, useCallback, useEffect, useState, useRef } from "react";
-import { MapContainer, TileLayer, GeoJSON, useMapEvents } from "react-leaflet";
+import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet";
 import L from "leaflet";
-import { Globe } from "lucide-react";
+import { Globe, Maximize2, Minimize2 } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import type { NavigationState, Filters, Club } from "../types/types";
 import type { UserRoleConfig } from "../data/roles";
 import { canClickProvince } from "../data/roles";
-import { getMapaClubes, getMapaProvinciasResumen, getMapaClubesLogos } from "../data/mapaApi";
+import { getMapaClubes, getMapaProvinciasResumen } from "../data/mapaApi";
 import { argentinaProvinces } from "../data/argentinaGeoJson";
 import MarkerClusterGroup from "./ClusterGroup";
 import MapViewController from "./MapViewController";
+
+// ------- Reajusta el tamaño interno de Leaflet cuando el contenedor cambia de tamaño
+// (p. ej. al alternar pantalla completa), ya que Leaflet no lo detecta solo.
+function MapAutoResize() {
+  const map = useMap();
+
+  useEffect(() => {
+    const container = map.getContainer();
+    const observer = new ResizeObserver(() => {
+      map.invalidateSize();
+    });
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [map]);
+
+  return null;
+}
 
 // --------- Type
 interface LeafletMapProps {
@@ -23,90 +40,6 @@ interface LeafletMapProps {
   onMunicipioClick: (munId: number) => void;
   onClubClick: (clubId: number) => void;
   onNavigateCountry?: () => void;
-}
-
-// Componente para detectar cambios de zoom y viewport
-function MapEventListener({
-  clubs,
-  logos,
-  setLogos,
-  navigation,
-  requestedLogosRef,
-}: {
-  clubs: Club[];
-  logos: Record<number, string | null>;
-  setLogos: (logos: Record<number, string | null>) => void;
-  navigation: NavigationState;
-  requestedLogosRef: React.MutableRefObject<Set<number>>;
-}) {
-  const map = useMapEvents({
-    zoomend: () => {
-      checkAndRequestLogos();
-    },
-    moveend: () => {
-      checkAndRequestLogos();
-    },
-  });
-
-  const checkAndRequestLogos = () => {
-    const zoom = map.getZoom();
-    const bounds = map.getBounds();
-    
-    // Solicitar logos según el nivel de navegación
-    let visibleClubIds: number[] = [];
-    
-    if (navigation.level === "country") {
-      // En vista país, solo solicitar logos si zoom es alto
-      if (zoom >= 11) {
-        visibleClubIds = getVisibleClubsInBounds(clubs, bounds);
-      }
-    } else if (navigation.level === "province") {
-      // En vista provincia, siempre solicitar logos de todos los clubes
-      visibleClubIds = clubs.map(c => c.id_club);
-    } else if (navigation.level === "city") {
-      // En vista ciudad, siempre solicitar logos de todos los clubes visibles
-      visibleClubIds = clubs.map(c => c.id_club);
-    }
-
-    if (visibleClubIds.length > 0) {
-      requestLogos(visibleClubIds);
-    }
-  };
-
-  const requestLogos = async (clubIds: number[]) => {
-    // Filtrar solo los que no hemos pedido ya
-    const idsToRequest = clubIds.filter(
-      (id) => !requestedLogosRef.current.has(id) && !(id in logos)
-    );
-
-    if (idsToRequest.length === 0) return;
-
-    try {
-      const newLogos = await getMapaClubesLogos(idsToRequest);
-      requestedLogosRef.current = new Set([
-        ...requestedLogosRef.current,
-        ...idsToRequest,
-      ]);
-      setLogos({ ...logos, ...newLogos });
-    } catch (error) {
-      console.error("Error fetching logos:", error);
-    }
-  };
-
-  return null;
-}
-
-// Helper: obtener clubes visibles dentro de los bounds del mapa
-function getVisibleClubsInBounds(
-  clubs: Club[],
-  bounds: L.LatLngBounds
-): number[] {
-  return clubs
-    .filter((club) => {
-      const latLng = L.latLng(club.lat, club.lng);
-      return bounds.contains(latLng);
-    })
-    .map((club) => club.id_club);
 }
 
 // ------- Componente de mapa con Leaflet
@@ -123,8 +56,7 @@ function LeafletMap({
     Array<{ id_provincia: number; totalClubs: number; totalAthletes: number }>
   >([]);
   const [clubs, setClubs] = useState<Club[]>([]);
-  const [logos, setLogos] = useState<Record<number, string | null>>({});
-  const requestedLogosRef = useRef<Set<number>>(new Set());
+  const [isFullscreen, setIsFullscreen] = useState(false);
   const containerDivRef = useRef<HTMLDivElement>(null);
   const initialZoom = typeof window !== "undefined" && window.innerWidth < 768 ? 4 : 6;
 
@@ -135,6 +67,27 @@ function LeafletMap({
     el.addEventListener("touchmove", prevent, { passive: false });
     return () => el.removeEventListener("touchmove", prevent);
   }, []);
+
+  // Permite salir de pantalla completa con Escape
+  useEffect(() => {
+    if (!isFullscreen) return;
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setIsFullscreen(false);
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [isFullscreen]);
+
+  // El panel de detalle del club se renderiza fuera del mapa (z-index menor al
+  // del overlay de pantalla completa), así que hay que salir de pantalla completa
+  // antes de abrirlo o quedaría oculto detrás del mapa.
+  const handleClubMarkerClick = useCallback(
+    (clubId: number) => {
+      setIsFullscreen(false);
+      onClubClick(clubId);
+    },
+    [onClubClick]
+  );
 
   const isAbortError = (error: unknown): boolean => {
     if (error instanceof DOMException && error.name === "AbortError") {
@@ -149,28 +102,15 @@ function LeafletMap({
     return false;
   };
 
+  // Fetch province summary only when filters change — not on navigation drill-down
   useEffect(() => {
     const controller = new AbortController();
 
-    const loadData = async () => {
+    const loadProvinceSummary = async () => {
       try {
-        const [provinceSummary, clubesRaw] = await Promise.all([
-          getMapaProvinciasResumen(filters, controller.signal),
-          getMapaClubes(filters, controller.signal),
-        ]);
+        const provinceSummary = await getMapaProvinciasResumen(filters, controller.signal);
 
         if (controller.signal.aborted) return;
-
-        const scopedClubs = clubesRaw
-          .filter((club) => (navigation.provinciaId ? club.id_provincia === navigation.provinciaId : true))
-          .filter((club) => (navigation.municipioId ? club.id_municipio === navigation.municipioId : true))
-          // Evita marcadores en 0,0 o coordenadas inválidas.
-          .filter((club) => club.lat !== 0 && club.lng !== 0)
-          .map((club) => ({
-            ...club,
-            lat: Number(club.lat),
-            lng: Number(club.lng),
-          }));
 
         setProvStats(
           provinceSummary.map((item) => ({
@@ -179,26 +119,55 @@ function LeafletMap({
             totalAthletes: item.totalAthletes,
           }))
         );
-
-        if (roleConfig.role === "club" && roleConfig.clubId) {
-          setClubs(scopedClubs.filter((club) => club.id_club === roleConfig.clubId));
-          return;
-        }
-
-        setClubs(scopedClubs);
-        
-        // Limpiar cache de logos cuando cambian los filtros o navegación
-        setLogos({});
-        requestedLogosRef.current.clear();
       } catch (error) {
         if (!isAbortError(error)) {
           setProvStats([]);
+        }
+      }
+    };
+
+    void loadProvinceSummary();
+
+    return () => controller.abort();
+  }, [filters]);
+
+  // Fetch clubs scoped to the current navigation level — re-runs on province/municipio changes
+  useEffect(() => {
+    const controller = new AbortController();
+
+    const loadClubs = async () => {
+      try {
+        const clubesRaw = await getMapaClubes(
+          filters,
+          controller.signal,
+          navigation.provinciaId,
+          navigation.municipioId
+        );
+
+        if (controller.signal.aborted) return;
+
+        const scopedClubs = clubesRaw
+          .filter((club) => club.lat !== 0 && club.lng !== 0)
+          .map((club) => ({
+            ...club,
+            lat: Number(club.lat),
+            lng: Number(club.lng),
+          }));
+
+        if (roleConfig.role === "club" && roleConfig.clubId) {
+          setClubs(scopedClubs.filter((club) => club.id_club === roleConfig.clubId));
+        } else {
+          setClubs(scopedClubs);
+        }
+
+      } catch (error) {
+        if (!isAbortError(error)) {
           setClubs([]);
         }
       }
     };
 
-    void loadData();
+    void loadClubs();
 
     return () => controller.abort();
   }, [filters, navigation.provinciaId, navigation.municipioId, roleConfig.role, roleConfig.clubId]);
@@ -218,7 +187,7 @@ function LeafletMap({
         id: c.id_club,
         name: c.nombre,
         address: c.direccion,
-        logoUrl: c.logoUrl,
+        logoUrl: `${import.meta.env.VITE_API_URL}/mapa/clubes/${c.id_club}/logo`,
       })),
     [clubs]
   );
@@ -339,7 +308,17 @@ function LeafletMap({
   }, [navigation.level, isClubRole, clubForRole]);
 
   return (
-    <div ref={containerDivRef} className="rounded-xl border border-border bg-card overflow-hidden h-full flex flex-col min-h-0">
+    <div
+      ref={containerDivRef}
+      className={
+        isFullscreen
+          ? "fixed inset-0 z-[1000] rounded-none border-0 bg-card flex flex-col min-h-0"
+          // `isolate` keeps Leaflet's own internal z-index (its zoom control sits at
+          // z-index: 1000) contained here, so it can't leak above other overlays
+          // elsewhere on the page (e.g. the club detail panel's backdrop).
+          : "isolate rounded-xl border border-border bg-card overflow-hidden h-full flex flex-col min-h-0"
+      }
+    >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
         <h3 className="text-sm font-semibold flex items-center gap-2">
@@ -347,11 +326,22 @@ function LeafletMap({
           <span>{mapTitle}</span>
         </h3>
 
-        {showClubMarkers && (
-          <span className="text-xs text-muted-foreground">
-            {clubs.length} clubes
-          </span>
-        )}
+        <div className="flex items-center gap-3">
+          {showClubMarkers && (
+            <span className="text-xs text-muted-foreground">
+              {clubs.length} clubes
+            </span>
+          )}
+          <button
+            type="button"
+            onClick={() => setIsFullscreen((prev) => !prev)}
+            aria-label={isFullscreen ? "Salir de pantalla completa" : "Ver mapa en pantalla completa"}
+            title={isFullscreen ? "Salir de pantalla completa" : "Ver mapa en pantalla completa"}
+            className="flex items-center justify-center rounded-md p-1.5 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+          >
+            {isFullscreen ? <Minimize2 className="h-4 w-4" /> : <Maximize2 className="h-4 w-4" />}
+          </button>
+        </div>
       </div>
 
       {/* Mapa */}
@@ -408,19 +398,7 @@ function LeafletMap({
         {showClubMarkers && (
           <MarkerClusterGroup
             markers={clubMarkers}
-            logos={logos}
-            onMarkerClick={onClubClick}
-          />
-        )}
-
-        {/* Detector de eventos del mapa para cargar logos bajo demanda */}
-        {showClubMarkers && (
-          <MapEventListener
-            clubs={clubs}
-            logos={logos}
-            setLogos={setLogos}
-            navigation={navigation}
-            requestedLogosRef={requestedLogosRef}
+            onMarkerClick={handleClubMarkerClick}
           />
         )}
 
@@ -431,6 +409,7 @@ function LeafletMap({
           clubForRole={clubForRole}
           onNavigateCountry={onNavigateCountry}
         />
+        <MapAutoResize />
       </MapContainer>
     </div>
   );

@@ -226,7 +226,7 @@ export default function ChartCakeNiveles({
                                                 {centerValue.toLocaleString("es-AR")}
                                             </tspan>
                                             <tspan x={viewBox.cx} y={viewBox.cy + 18} className="fill-muted-foreground text-xs">
-                                                {selectedItem ? selectedItem.nivel_evaluado : "Evaluaciones"}
+                                                {selectedItem ? selectedItem.nivel_evaluado : "Evaluados"}
                                             </tspan>
                                         </text>
                                     );

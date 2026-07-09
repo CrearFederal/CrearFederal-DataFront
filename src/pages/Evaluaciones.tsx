@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { TrendingDown, TrendingUp, Users, MapPinHouse, BookUser, ClipboardCheck, SportShoe } from "lucide-react";
+import { TrendingDown, TrendingUp, Users, MapPinHouse, BookUser, ClipboardCheck } from "lucide-react";
 import KpiCard from "../components/KpiCard";
 import ProvinceComparisonChart from "../components/ChartProvEvaluaciones";
 import MonthlyEvaluationsChart from "../components/ChartMesesEvaluaciones";
@@ -50,15 +49,17 @@ const mapScopeToRoleConfig = (scope: AuthScope): UserRoleConfig => {
 	}
 };
 
-const formatTrendPct = (value: number): string => {
+const formatTrendPct = (value: number | null | undefined): string => {
+	if (value == null || !isFinite(value)) return "+0%";
 	const sign = value < 0 ? "" : "+";
 	return `${sign}${value.toLocaleString("es-AR")}%`;
 };
 
-const TrendIndicator = ({ value }: { value: number }) => {
-	const isNegative = value < 0;
+const TrendIndicator = ({ value }: { value: number | null | undefined }) => {
+	const v = value ?? 0;
+	const isNegative = v < 0;
 	const Icon = isNegative ? TrendingDown : TrendingUp;
-	const trendText = formatTrendPct(value);
+	const trendText = formatTrendPct(v);
 
 	return (
 		<span className={`inline-flex items-center gap-1 align-middle font-bold leading-none ${isNegative ? "text-red-600" : "text-primary"}`}>
@@ -100,10 +101,14 @@ const emptyResumen: EvaluacionesResumenResponse = {
 	totalMunicipios: 0,
 	municipiosAlcanzados: 0,
 	municipiosVsTotalPct: 0,
+	personasEvaluadasAño: 0,
+	añoActual: 0,
+	personasEvaluadasAñoAnterior: 0,
+	añoAnterior: 0,
+	personasVsAnteiorAñoPct: 0
 };
 
 function Evaluaciones() {
-	const navigate = useNavigate();
 	const [roleConfig, setRoleConfig] = useState<UserRoleConfig | null>(null);
 	const [authStatus, setAuthStatus] = useState<"loading" | "ready" | "error">("loading");
 	const [resumen, setResumen] = useState<EvaluacionesResumenResponse | null>(null);
@@ -372,13 +377,13 @@ function Evaluaciones() {
 					/>
 
 					<KpiCard
-						title={`Personas evaluadas ${resumenData.mesActual || ""}`}
-						value={resumen ? resumenData.personasEvaluadas : "—"}
+						title={`Personas evaluadas en ${resumenData.añoActual || ""}`}
+						value={resumen ? resumenData.personasEvaluadasAño : "—"}
 						subtitle={
 							resumen ? (
 								<span>
-									<TrendIndicator value={resumen.personasVsAnteriorPct} />{" "}
-									vs {resumenData.mesAnterior}
+									<TrendIndicator value={resumenData.personasVsAnteiorAñoPct} />{" "}
+									vs {resumenData.añoAnterior}
 								</span>
 							) : (
 								<span>Sin datos disponibles</span>
@@ -388,7 +393,7 @@ function Evaluaciones() {
 					/>
 
 					<KpiCard
-						title="Municipios alcanzados"
+						title="Municipios participantes"
 						value={resumen ? resumenData.municipiosAlcanzados : "—"}
 						subtitle={
 							resumen ? (
@@ -403,20 +408,7 @@ function Evaluaciones() {
 					/>
 				</div>
 
-				<div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4">
-					<div className="flex justify-center md:col-span-2 xl:col-span-2 xl:col-start-2 -mt-1.5 -mb-2">
-						<button
-							type="button"
-							onClick={() => navigate("/evaluaciones/deportistas")}
-							className="flex w-full max-w-2xl items-center justify-center gap-2 rounded-lg bg-primary px-2 py-1.5 text-xs font-semibold text-primary-foreground transition-colors hover:bg-primary/90"
-						>
-							<SportShoe className="h-4 w-4" />
-							Detección de talentos
-						</button>
-					</div>
-				</div>
-
-				<div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+<div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
 					<ProvinceComparisonChart
 						data={provinciasComparativa}
 						height={360}

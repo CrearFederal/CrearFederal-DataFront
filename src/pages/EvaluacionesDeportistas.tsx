@@ -1,12 +1,13 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Mars, Search, Venus, SportShoe, X, IdCardLanyard, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { ArrowLeft, Mars, Search, Venus, SportShoe, IdCardLanyard, TrendingUp, TrendingDown, Minus } from "lucide-react";
 import { authBootstrap, getAuthMe, sendLogoutOnPageClose } from "../api/session";
 import type { AuthScope } from "../types/auth";
 import type { UserRoleConfig } from "../data/roles";
 import SearchableSelect from "../components/SearchableSelect";
 import type { SearchableSelectOption } from "../components/SearchableSelect";
-import RadarAptitudesChart from "../components/RadarAptitudesChart";
+import SearchableMultiSelect from "../components/SearchableMultiSelect";
+import RadarAptitudesChart, { getAptitudesPorNivel, normalizeAptitudName } from "../components/RadarAptitudesChart";
 import { getDeportesPorScope, getMunicipiosClubesPorScope, getProvinciasPorScope } from "../data/statsApi";
 import { getDeportistasEvaluados } from "../data/evaluacionesApi";
 import type { DeportistasEvaluadosResponse } from "../types/Evaluaciones";
@@ -18,10 +19,10 @@ interface NivelOption {
 }
 
 const NIVELES_MOCK: NivelOption[] = [
-	{ value: "escolar", label: "Escolar", color: "#3b82f6" },
-	{ value: "base", label: "Base", color: "#069c2c" },
-	{ value: "intermedio", label: "Intermedio", color: "#f59e0b" },
-	{ value: "avanzado", label: "Avanzado", color: "#8b5cf6" },
+	{ value: "Escolar", label: "Escolar", color: "#3b82f6" },
+	{ value: "Base", label: "Base", color: "#069c2c" },
+	{ value: "Intermedio", label: "Intermedio", color: "#f59e0b" },
+	{ value: "Avanzado", label: "Avanzado", color: "#8b5cf6" },
 ];
 
 type Genero = "masculino" | "femenino";
@@ -40,17 +41,6 @@ const GENERO_OPTIONS: GeneroOption[] = [
 
 const MEDAL_COLORS = ["#eab308", "#94a3b8", "#c2703d"];
 
-// Mirrors the fixed aptitude list used internally by RadarAptitudesChart, kept here
-// so the comparison summary lists aptitudes in the same order as the radar axes.
-const ALL_APTITUDES = [
-	"Agilidad",
-	"Velocidad",
-	"Resistencia",
-	"Fuerza / Resistencia",
-	"Fuerza Explosiva",
-	"Flexibilidad",
-];
-
 // Mirrors AXIS_COLOR_PALETTE in RadarAptitudesChart so each aptitude shows the same color here and in the radar.
 const APTITUD_COLORS = [
 	"#2563eb",
@@ -59,6 +49,7 @@ const APTITUD_COLORS = [
 	"#dc2626",
 	"#7c3aed",
 	"#0891b2",
+	"#db2777",
 ];
 
 const EDAD_MIN_LIMITE = 4;
@@ -112,7 +103,7 @@ function EvaluacionesDeportistas() {
 	const [dependentOptionsLoading, setDependentOptionsLoading] = useState(false);
 
 	const [provinciaId, setProvinciaId] = useState<string | null>(null);
-	const [deporteId, setDeporteId] = useState<string | null>(null);
+	const [deporteIds, setDeporteIds] = useState<string[]>([]);
 	const [edadMin, setEdadMin] = useState<string>("");
 	const [edadMax, setEdadMax] = useState<string>("");
 	const [genero, setGenero] = useState<Genero | null>(null);
@@ -156,12 +147,15 @@ function EvaluacionesDeportistas() {
 		};
 	}, [view, resultados]);
 
-	const dependentFieldsEnabled = Boolean(provinciaId && deporteId);
-	const dependentOptionsDisabledHint = !dependentFieldsEnabled
-		? "Seleccioná provincia y deporte primero"
-		: dependentOptionsLoading
-			? "Cargando clubes y municipios..."
-			: undefined;
+	const esMultiDeporte = deporteIds.length > 1;
+	const dependentFieldsEnabled = Boolean(provinciaId && deporteIds.length === 1);
+	const dependentOptionsDisabledHint = esMultiDeporte
+		? "Deshabilitado al seleccionar varios deportes"
+		: !dependentFieldsEnabled
+			? "Seleccioná provincia y un deporte primero"
+			: dependentOptionsLoading
+				? "Cargando clubes y municipios..."
+				: undefined;
 
 	const edadMinValue = edadMin === "" ? null : Number(edadMin);
 	const edadMaxValue = edadMax === "" ? null : Number(edadMax);
@@ -171,12 +165,13 @@ function EvaluacionesDeportistas() {
 	const isFormValid = useMemo(() => {
 		return Boolean(
 			provinciaId &&
-			deporteId &&
+			deporteIds.length > 0 &&
 			edadMinValue !== null &&
 			edadMaxValue !== null &&
-			!edadRangoInvalido
+			!edadRangoInvalido &&
+			nivelEvaluado
 		);
-	}, [provinciaId, deporteId, edadMinValue, edadMaxValue, edadRangoInvalido]);
+	}, [provinciaId, deporteIds, edadMinValue, edadMaxValue, edadRangoInvalido, nivelEvaluado]);
 
 	const handleProvinciaChange = useCallback((value: string | null) => {
 		setProvinciaId(value);
@@ -184,8 +179,8 @@ function EvaluacionesDeportistas() {
 		setMunicipio(null);
 	}, []);
 
-	const handleDeporteChange = useCallback((value: string | null) => {
-		setDeporteId(value);
+	const handleDeportesChange = useCallback((values: string[]) => {
+		setDeporteIds(values);
 		setClubId(null);
 		setMunicipio(null);
 	}, []);
@@ -339,7 +334,7 @@ function EvaluacionesDeportistas() {
 	}, [authStatus, isAbortError]);
 
 	useEffect(() => {
-		if (authStatus !== "ready" || !provinciaId || !deporteId) {
+		if (authStatus !== "ready" || !provinciaId || deporteIds.length !== 1) {
 			setClubOptions([]);
 			setMunicipioOptions([]);
 			return;
@@ -353,7 +348,7 @@ function EvaluacionesDeportistas() {
 			try {
 				const { municipios, clubes } = await getMunicipiosClubesPorScope(
 					Number(provinciaId),
-					Number(deporteId),
+					Number(deporteIds[0]),
 					controller.signal
 				);
 				if (!active) return;
@@ -375,7 +370,7 @@ function EvaluacionesDeportistas() {
 			active = false;
 			controller.abort();
 		};
-	}, [authStatus, provinciaId, deporteId, isAbortError]);
+	}, [authStatus, provinciaId, deporteIds, isAbortError]);
 
 	useEffect(() => {
 		return () => {
@@ -396,15 +391,18 @@ function EvaluacionesDeportistas() {
 			setSearchError(null);
 
 			try {
+				const esUnicoDeporte = deporteIds.length === 1;
 				const data = await getDeportistasEvaluados(
 					{
-						idDeporte: Number(deporteId),
+						idDeporte: esUnicoDeporte ? Number(deporteIds[0]) : deporteIds.map(Number),
 						idProvincia: Number(provinciaId),
 						edadMin: edadMinValue as number,
 						edadMax: edadMaxValue as number,
 						genero: genero === "masculino" ? "M" : genero === "femenino" ? "F" : undefined,
-						idClub: clubId ? Number(clubId) : undefined,
-						idMunicipio: municipio ? Number(municipio) : undefined,
+						// Club/municipio only make sense with a single sport selected; the
+						// backend ignores them anyway when multiple sports are sent.
+						idClub: esUnicoDeporte && clubId ? Number(clubId) : undefined,
+						idMunicipio: esUnicoDeporte && municipio ? Number(municipio) : undefined,
 						nivelEvaluado: nivelEvaluado ?? undefined,
 					},
 					controller.signal
@@ -413,7 +411,7 @@ function EvaluacionesDeportistas() {
 				if (controller.signal.aborted) return;
 
 				setResultados(data);
-				const top = [...data.deportistas].sort((a, b) => b.medianaTest - a.medianaTest)[0];
+				const top = [...data.deportistas].sort((a, b) => b.ranking - a.ranking)[0];
 				setSelectedDeportistaId(top ? top.idDeportista : null);
 				setView("resultados");
 			} catch (error) {
@@ -423,7 +421,7 @@ function EvaluacionesDeportistas() {
 				if (!controller.signal.aborted) setSearchLoading(false);
 			}
 		},
-		[isFormValid, deporteId, provinciaId, edadMinValue, edadMaxValue, genero, clubId, municipio, nivelEvaluado, isAbortError]
+		[isFormValid, deporteIds, provinciaId, edadMinValue, edadMaxValue, genero, clubId, municipio, nivelEvaluado, isAbortError]
 	);
 
 	const handleVolverABusqueda = useCallback(() => {
@@ -431,7 +429,7 @@ function EvaluacionesDeportistas() {
 	}, []);
 
 	const handleClose = useCallback(() => {
-		navigate("/evaluaciones");
+		navigate("/deteccion-talentos");
 	}, [navigate]);
 
 	if (authStatus === "loading") {
@@ -451,7 +449,7 @@ function EvaluacionesDeportistas() {
 	}
 
 	if (view === "resultados" && resultados) {
-		const ranking = [...resultados.deportistas].sort((a, b) => b.medianaTest - a.medianaTest);
+		const ranking = [...resultados.deportistas].sort((a, b) => b.ranking - a.ranking);
 
 		if (ranking.length === 0) {
 			return (
@@ -476,13 +474,6 @@ function EvaluacionesDeportistas() {
 							<div className="flex items-center gap-3">
 								<button
 									type="button"
-									onClick={handleClose}
-									className="rounded-lg px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-								>
-									Cerrar
-								</button>
-								<button
-									type="button"
 									onClick={handleVolverABusqueda}
 									className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2.5 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
 								>
@@ -496,12 +487,17 @@ function EvaluacionesDeportistas() {
 			);
 		}
 
-		const maxMediana = Math.max(...ranking.map((d) => d.medianaTest));
 		const selectedDeportista = ranking.find((d) => d.idDeportista === selectedDeportistaId) ?? null;
 
 		const filtrosAplicados = [
 			{ label: "Provincia", value: provinciaOptions.find((o) => o.value === provinciaId)?.label },
-			{ label: "Deporte", value: deporteOptions.find((o) => o.value === deporteId)?.label },
+			{
+				label: deporteIds.length > 1 ? "Deportes" : "Deporte",
+				value: deporteOptions
+					.filter((o) => deporteIds.includes(o.value))
+					.map((o) => o.label)
+					.join(", ") || undefined,
+			},
 			{ label: "Edad", value: edadMin && edadMax ? `${edadMin} a ${edadMax} años` : undefined },
 			{ label: "Género", value: genero ? GENERO_OPTIONS.find((o) => o.value === genero)?.label : undefined },
 			{ label: "Club", value: clubId ? clubOptions.find((o) => o.value === clubId)?.label : undefined },
@@ -509,13 +505,14 @@ function EvaluacionesDeportistas() {
 			{ label: "Nivel evaluado", value: nivelEvaluado ? nivelOptions.find((o) => o.value === nivelEvaluado)?.label : undefined },
 		].filter((filtro): filtro is { label: string; value: string } => Boolean(filtro.value));
 
-		const medianasByAptitud = new Map(resultados.medianas.map((item) => [item.aptitudEvaluada, item.valor]));
-		const valoresByAptitud = new Map(
-			(selectedDeportista?.valoresTest ?? []).map((item) => [item.aptitudEvaluada, item.valor])
+		const medianasByAptitud = new Map(resultados.medianas.map((item) => [normalizeAptitudName(item.aptitudEvaluada), item.mediana]));
+		const puntajesByAptitud = new Map(
+			(selectedDeportista?.puntajes ?? []).map((item) => [normalizeAptitudName(item.aptitudEvaluada), item.puntajePromedio])
 		);
+		const aptitudesPorNivel = getAptitudesPorNivel(nivelEvaluado ?? "base");
 		const comparacionAptitudes = selectedDeportista
-			? ALL_APTITUDES.map((aptitud) => {
-				const valor = valoresByAptitud.get(aptitud) ?? 0;
+			? aptitudesPorNivel.map((aptitud) => {
+				const valor = puntajesByAptitud.get(aptitud) ?? 0;
 				const mediana = medianasByAptitud.get(aptitud) ?? 0;
 				const delta = valor - mediana;
 				return { aptitud, valor, mediana, delta };
@@ -546,14 +543,6 @@ function EvaluacionesDeportistas() {
 							</p>
 						</div>
 					</div>
-					<button
-						type="button"
-						onClick={handleClose}
-						aria-label="Cerrar"
-						className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/10 hover:text-primary transition-colors shrink-0"
-					>
-						<X className="h-4 w-4" />
-					</button>
 				</div>
 
 				<div className="flex-1 flex flex-col p-3 gap-3 sm:p-4 min-h-0">
@@ -576,9 +565,10 @@ function EvaluacionesDeportistas() {
 
 							<div className="h-72 lg:h-96 shrink-0">
 								<RadarAptitudesChart
-									selected={selectedDeportista?.valoresTest ?? []}
+									selected={selectedDeportista?.puntajes ?? []}
 									medianas={resultados.medianas}
 									height="100%"
+									nivel={nivelEvaluado ?? "base"}
 								/>
 							</div>
 
@@ -613,7 +603,7 @@ function EvaluacionesDeportistas() {
 												{selectedDeportista?.nombre} vs mediana del grupo
 											</p>
 											<div className="space-y-1">
-												{comparacionAptitudes.map(({ aptitud, valor, mediana, delta }, index) => {
+												{comparacionAptitudes.map(({ aptitud, delta }, index) => {
 													const isAbove = delta > 0.05;
 													const isBelow = delta < -0.05;
 													const DeltaIcon = isAbove ? TrendingUp : isBelow ? TrendingDown : Minus;
@@ -623,6 +613,9 @@ function EvaluacionesDeportistas() {
 															? "text-red-600"
 															: "text-muted-foreground";
 													const aptitudColor = APTITUD_COLORS[index % APTITUD_COLORS.length];
+													// Aptitud scores are on a 0-10 scale, so the delta expressed as
+													// percentage points of that scale (e.g. mediana 5, valor 10 → +50%).
+													const porcentaje = Math.round((delta / 10) * 100);
 
 													return (
 														<div
@@ -636,15 +629,11 @@ function EvaluacionesDeportistas() {
 																/>
 																{aptitud}
 															</span>
-															<div className="flex items-center gap-2 shrink-0 tabular-nums">
-																<span className="text-foreground font-semibold">{valor.toFixed(1)}</span>
-																<span className="text-muted-foreground">vs {mediana.toFixed(1)}</span>
-																<span className={`flex items-center gap-0.5 font-semibold ${deltaColor}`}>
-																	<DeltaIcon className="h-3 w-3" aria-hidden="true" />
-																	{delta > 0 ? "+" : ""}
-																	{delta.toFixed(1)}
-																</span>
-															</div>
+															<span className={`flex items-center gap-1 shrink-0 font-semibold tabular-nums ${deltaColor}`}>
+																<DeltaIcon className="h-3 w-3" aria-hidden="true" />
+																{porcentaje > 0 ? "+" : ""}
+																{porcentaje}%
+															</span>
 														</div>
 													);
 												})}
@@ -670,13 +659,13 @@ function EvaluacionesDeportistas() {
 											<th className="py-2.5 px-2 font-medium">Deportista</th>
 											<th className="py-2.5 px-2 font-medium whitespace-nowrap">Edad / Sexo</th>
 											<th className="py-2.5 px-2 font-medium">Provincia</th>
-											<th className="py-2.5 px-4 font-medium">Mediana de sus evaluaciones</th>
+											<th className="py-2.5 px-2 font-medium">Municipio</th>
+											<th className="py-2.5 px-4 font-medium">Deporte</th>
 										</tr>
 									</thead>
 									<tbody>
 										{ranking.map((deportista, index) => {
 											const isSelected = deportista.idDeportista === selectedDeportistaId;
-											const barWidth = maxMediana > 0 ? (deportista.medianaTest / maxMediana) * 100 : 0;
 											const isMale = deportista.genero?.toUpperCase().startsWith("M");
 											const GeneroIcon = isMale ? Mars : Venus;
 											const generoColor = isMale ? "#3b82f6" : "#ec4899";
@@ -710,19 +699,8 @@ function EvaluacionesDeportistas() {
 														<GeneroIcon className="ml-1 inline h-4 w-4" style={{ color: generoColor }} />
 													</td>
 													<td className="py-2.5 px-2 text-muted-foreground">{deportista.provincia}</td>
-													<td className="py-2.5 px-4">
-														<div className="flex items-center gap-2 min-w-[110px]">
-															<div className="h-1.5 flex-1 rounded-full bg-muted overflow-hidden">
-																<div
-																	className="h-full rounded-full bg-green-500"
-																	style={{ width: `${barWidth}%` }}
-																/>
-															</div>
-															<span className="w-8 shrink-0 text-right text-xs font-semibold text-green-600 tabular-nums">
-																{deportista.medianaTest.toFixed(1)}
-															</span>
-														</div>
-													</td>
+													<td className="py-2.5 px-2 text-muted-foreground">{deportista.municipio}</td>
+													<td className="py-2.5 px-4 text-muted-foreground">{deportista.deporte}</td>
 												</tr>
 											);
 										})}
@@ -756,17 +734,9 @@ function EvaluacionesDeportistas() {
 							</div>
 							<div>
 								<h2 className="text-lg font-semibold text-foreground">Detección de talentos</h2>
-								<p className="text-xs text-muted-foreground mt-0.5">Completá el formulario para filtrar los resultados</p>
+								<p className="text-xs text-muted-foreground mt-0.5">Completá el formulario para obtener un grupo de deportistas</p>
 							</div>
 						</div>
-						<button
-							type="button"
-							onClick={handleClose}
-							className="rounded-md p-1.5 text-muted-foreground hover:bg-primary/30 hover:text-primary transition-colors shrink-0 min-w-[36px] min-h-[36px] flex items-center justify-center"
-							aria-label="Cerrar"
-						>
-							<X className="h-4 w-4" />
-						</button>
 					</div>
 
 					<form
@@ -787,15 +757,15 @@ function EvaluacionesDeportistas() {
 									searchPlaceholder="Buscar provincia..."
 									emptyMessage="No se encontraron provincias."
 								/>
-								<SearchableSelect
+								<SearchableMultiSelect
 									label="Deporte"
 									required
 									options={deporteOptions}
-									value={deporteId}
-									onChange={handleDeporteChange}
+									values={deporteIds}
+									onChange={handleDeportesChange}
 									disabled={deportesLoading}
 									disabledHint={deportesLoading ? "Cargando deportes..." : undefined}
-									placeholder="Seleccionar deporte"
+									placeholder="Seleccionar deporte(s)"
 									searchPlaceholder="Buscar deporte..."
 									emptyMessage="No se encontraron deportes."
 								/>
@@ -919,7 +889,10 @@ function EvaluacionesDeportistas() {
 							</div>
 
 							<div>
-								<span className="text-sm font-medium text-foreground">Nivel evaluado</span>
+								<span className="text-sm font-medium text-foreground">
+									Nivel evaluado
+									<span className="ml-0.5 text-destructive">*</span>
+								</span>
 								<div className="mt-1.5 flex flex-wrap gap-1.5" role="group" aria-label="Nivel evaluado">
 									{nivelOptions.map((nivel) => {
 										const checked = nivelEvaluado === nivel.value;
@@ -965,13 +938,6 @@ function EvaluacionesDeportistas() {
 								<span />
 							)}
 							<div className="flex items-center gap-3">
-								<button
-									type="button"
-									onClick={handleClose}
-									className="rounded-lg px-4 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-muted/50 hover:text-foreground"
-								>
-									Cancelar
-								</button>
 								<button
 									type="submit"
 									disabled={!isFormValid || searchLoading}
