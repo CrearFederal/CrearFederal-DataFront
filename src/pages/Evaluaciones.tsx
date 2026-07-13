@@ -2,15 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { TrendingDown, TrendingUp, Users, MapPinHouse, BookUser, ClipboardCheck } from "lucide-react";
 import KpiCard from "../components/KpiCard";
 import ProvinceComparisonChart from "../components/ChartProvEvaluaciones";
+import MunicipiosEvaluacionesChart from "../components/ChartMunicipiosEvaluaciones";
 import MonthlyEvaluationsChart from "../components/ChartMesesEvaluaciones";
 import ChartCakeNiveles from "../components/ChartCakeNiveles";
 import { GenderDistributionChart } from "../components/Charts";
 import { authBootstrap, getAuthMe, sendLogoutOnPageClose } from "../api/session";
-import { getEvaluacionesDistribucionGenero, getEvaluacionesEvolucionMensual, getEvaluacionesPorNivel, getEvaluacionesResumen, getEvaluacionesProvinciasTop10 } from "../data/evaluacionesApi";
+import { getEvaluacionesDistribucionGenero, getEvaluacionesEvolucionMensual, getEvaluacionesPorNivel, getEvaluacionesResumen, getEvaluacionesProvinciasTop10, getEvaluacionesMunicipiosTop10 } from "../data/evaluacionesApi";
 import type { AuthScope } from "../types/auth";
 import type {
 	EvaluacionesDistribucionGeneroResponse,
 	EvaluacionesEvolucionMensualItem,
+	EvaluacionesMunicipioTop10Item,
 	EvaluacionesProvinciaTop10Item,
 	EvaluacionesPorNivelItem,
 	EvaluacionesResumenResponse,
@@ -115,7 +117,9 @@ function Evaluaciones() {
 	const [roleConfig, setRoleConfig] = useState<UserRoleConfig | null>(null);
 	const [authStatus, setAuthStatus] = useState<"loading" | "ready" | "error">("loading");
 	const [resumen, setResumen] = useState<EvaluacionesResumenResponse | null>(null);
-	const [provinciasComparativa, setProvinciasComparativa] = useState<EvaluacionesProvinciaTop10Item[]>([]);	
+	const [provinciasComparativa, setProvinciasComparativa] = useState<EvaluacionesProvinciaTop10Item[]>([]);
+	const [municipiosComparativa, setMunicipiosComparativa] = useState<EvaluacionesMunicipioTop10Item[]>([]);
+	const [provinciaDrill, setProvinciaDrill] = useState<{ id: number; nombre: string } | null>(null);
 	const [evolucionMensual, setEvolucionMensual] = useState<EvaluacionesEvolucionMensualItem[]>([]);
 	const [nivelesEvaluados, setNivelesEvaluados] = useState<EvaluacionesPorNivelItem[]>([]);
 	const [distribucionGenero, setDistribucionGenero] = useState<EvaluacionesDistribucionGeneroResponse | null>(null);
@@ -302,6 +306,35 @@ function Evaluaciones() {
 	}, [authStatus]);
 
 	useEffect(() => {
+		if (authStatus !== "ready" || !roleConfig) return;
+
+		const isMunicipalityRole = roleConfig.role === "municipality";
+		if (!isMunicipalityRole && !provinciaDrill) {
+			setMunicipiosComparativa([]);
+			return;
+		}
+
+		const controller = new AbortController();
+
+		const loadMunicipios = async () => {
+			try {
+				const data = await getEvaluacionesMunicipiosTop10(provinciaDrill?.id, controller.signal);
+				if (!controller.signal.aborted) {
+					setMunicipiosComparativa(data.municipios ?? []);
+				}
+			} catch {
+				if (!controller.signal.aborted) {
+					setMunicipiosComparativa([]);
+				}
+			}
+		};
+
+		void loadMunicipios();
+
+		return () => controller.abort();
+	}, [authStatus, roleConfig, provinciaDrill]);
+
+	useEffect(() => {
 		if (authStatus !== "ready") return;
 
 		const handlePageHide = () => {
@@ -342,6 +375,15 @@ function Evaluaciones() {
 			</div>
 		);
 	}
+
+	const isMunicipalityRole = roleConfig.role === "municipality";
+	const clickableProvinceIds: number[] | "all" =
+		roleConfig.role === "coa"
+			? "all"
+			: roleConfig.role === "province" && roleConfig.provinciaId
+				? [roleConfig.provinciaId]
+				: [];
+	const showMunicipiosChart = isMunicipalityRole || provinciaDrill !== null;
 
 	return (
 		<div className="min-h-screen bg-background flex flex-col">
@@ -412,11 +454,25 @@ function Evaluaciones() {
 				</div>
 
 <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-					<ProvinceComparisonChart
-						data={provinciasComparativa}
-						height={360}
-						className="mt-1"
-					/>
+					{showMunicipiosChart ? (
+						<MunicipiosEvaluacionesChart
+							data={municipiosComparativa}
+							provinciaNombre={provinciaDrill?.nombre}
+							onBack={!isMunicipalityRole ? () => setProvinciaDrill(null) : undefined}
+							height={360}
+							className="mt-1"
+						/>
+					) : (
+						<ProvinceComparisonChart
+							data={provinciasComparativa}
+							clickableProvinceIds={clickableProvinceIds}
+							onProvinceClick={(provincia) =>
+								setProvinciaDrill({ id: provincia.id_provincia, nombre: provincia.nombre })
+							}
+							height={360}
+							className="mt-1"
+						/>
+					)}
 					<MonthlyEvaluationsChart
 						data={evolucionMensual}
 						height={360}

@@ -35,6 +35,7 @@ export const getEvaluacionesResumen = async (
 };
 
 export const getEvaluacionesMunicipiosTop10 = async (
+	provinciaId?: number,
 	signal?: AbortSignal
 ): Promise<EvaluacionesMunicipiosTop10Response> => {
 	if (!instanceAxios.defaults.baseURL) {
@@ -44,16 +45,19 @@ export const getEvaluacionesMunicipiosTop10 = async (
 	try {
 		const { data } = await instanceAxios.get<EvaluacionesMunicipiosTop10Response>(
 			"/stats/municipios/top10-evaluaciones",
-			{ signal }
+			{
+				params: provinciaId ? { provinciaId } : undefined,
+				signal,
+			}
 		);
 
 		return data;
 	} catch (error: unknown) {
 		if (isAxiosError<{ message?: string }>(error)) {
-			throw new Error(error.response?.data?.message || "Error al obtener el top 10 de municipios por evaluaciones");
+			throw new Error(error.response?.data?.message || "Error al obtener el ranking de municipios por evaluaciones");
 		}
 
-		throw new Error("Error al obtener el top 10 de municipios por evaluaciones");
+		throw new Error("Error al obtener el ranking de municipios por evaluaciones");
 	}
 };
 
