@@ -93,6 +93,9 @@ const emptyResumen: EvaluacionesResumenResponse = {
 	lotesTotales: 0,
 	lotesAnterior: 0,
 	lotesVsAnteriorPct: 0,
+	clubesAlcanzados: 0,
+	clubesAlcanzadosAnterior: 0,
+	clubesAlcanzadosVsAnteriorPct: 0,
 	personasEvaluadas: 0,
 	mesActual: "",
 	personasAnterior: 0,
@@ -361,12 +364,12 @@ function Evaluaciones() {
 					/>
 
 					<KpiCard
-						title="Jornadas realizadas"
-						value={resumen ? resumenData.lotesTotales : "—"}
+						title="Instituciones Alcanzadas"
+						value={resumen ? resumenData.clubesAlcanzados : "—"}
 						subtitle={
 							resumen ? (
 								<span>
-									<TrendIndicator value={resumen.evaluacionesVsAnteriorPct} />{" "}
+									<TrendIndicator value={resumen.clubesAlcanzadosVsAnteriorPct} />{" "}
 									vs año anterior
 								</span>
 							) : (

@@ -54,6 +54,9 @@ export interface EvaluacionesResumenResponse {
 	evaluacionesTotales: number;
 	evaluacionesAnterior: number;
 	evaluacionesVsAnteriorPct: number | null;
+	clubesAlcanzados: number;
+	clubesAlcanzadosAnterior: number;
+	clubesAlcanzadosVsAnteriorPct: number | null;
 	lotesTotales: number;
 	lotesAnterior: number;
 	lotesVsAnteriorPct: number | null;
