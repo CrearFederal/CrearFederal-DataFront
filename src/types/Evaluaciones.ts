@@ -54,6 +54,9 @@ export interface EvaluacionesResumenResponse {
 	evaluacionesTotales: number;
 	evaluacionesAnterior: number;
 	evaluacionesVsAnteriorPct: number | null;
+	clubesAlcanzados: number;
+	clubesAlcanzadosAnterior: number;
+	clubesAlcanzadosVsAnteriorPct: number | null;
 	lotesTotales: number;
 	lotesAnterior: number;
 	lotesVsAnteriorPct: number | null;
@@ -103,9 +106,23 @@ export interface DeportistaEvaluadoItem {
 	puntajes: PuntajeAptitud[];
 }
 
+export interface DistribucionTestValor {
+	idDeportista: number;
+	valor: number;
+}
+
+export interface DistribucionTest {
+	idTest: number;
+	nombreTest: string;
+	aptitudEvaluada: string;
+	unidadMedida: string;
+	valores: DistribucionTestValor[];
+}
+
 export interface DeportistasEvaluadosResponse {
 	deportistas: DeportistaEvaluadoItem[];
 	medianas: MedianaAptitud[];
+	distribuciones: DistribucionTest[];
 }
 
 export interface DeportistasEvaluadosParams {

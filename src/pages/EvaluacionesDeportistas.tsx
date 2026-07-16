@@ -8,6 +8,7 @@ import SearchableSelect from "../components/SearchableSelect";
 import type { SearchableSelectOption } from "../components/SearchableSelect";
 import SearchableMultiSelect from "../components/SearchableMultiSelect";
 import RadarAptitudesChart, { getAptitudesPorNivel, normalizeAptitudName } from "../components/RadarAptitudesChart";
+import ChartDistribucionesTests from "../components/ChartDistribucionesTests";
 import { getDeportesPorScope, getMunicipiosClubesPorScope, getProvinciasPorScope } from "../data/statsApi";
 import { getDeportistasEvaluados } from "../data/evaluacionesApi";
 import type { DeportistasEvaluadosResponse } from "../types/Evaluaciones";
@@ -708,6 +709,28 @@ function EvaluacionesDeportistas() {
 								</table>
 							</div>
 						</div>
+					</div>
+
+					<div className="rounded-xl border border-border bg-card p-4">
+						<h3 className="text-sm font-semibold text-foreground">
+							Distribuciones{selectedDeportista ? ` — ${selectedDeportista.nombre}` : ""}
+						</h3>
+						<p className="mb-3 mt-1 text-xs text-muted-foreground">
+							Distribución de los resultados reales de cada test dentro del grupo filtrado. La línea punteada marca el resultado del deportista seleccionado.
+						</p>
+						{selectedDeportista ? (
+							<ChartDistribucionesTests
+								distribuciones={resultados.distribuciones ?? []}
+								selectedDeportistaId={selectedDeportista.idDeportista}
+								nivel={nivelEvaluado ?? "Base"}
+							/>
+						) : (
+							<div className="flex h-40 items-center justify-center">
+								<p className="text-sm text-muted-foreground">
+									Seleccioná un deportista del ranking para ver sus distribuciones.
+								</p>
+							</div>
+						)}
 					</div>
 				</div>
 			</div>
