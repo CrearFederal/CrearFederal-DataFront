@@ -83,6 +83,10 @@
     background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--chart-2)));
   }
 
+  .kpi-card--orange::before {
+    background: linear-gradient(90deg, #f97316, #fb923c);
+  }
+
   .map-province {
     @apply cursor-pointer transition-all duration-200;
     fill: hsl(var(--map-province-base) / 0.3);
@@ -179,7 +183,7 @@
   height: 28px;
   border-radius: 50%;
   overflow: hidden;
-  border: 2px solid white;
+  border: 2.5px solid hsl(215, 70%, 50%);
   box-shadow: 0 2px 6px rgba(0,0,0,0.25);
   background: hsl(215, 30%, 95%);
   transition: transform 0.2s ease;

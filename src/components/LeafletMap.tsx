@@ -1,16 +1,18 @@
 import { memo, useMemo, useCallback, useEffect, useState, useRef } from "react";
 import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet";
 import L from "leaflet";
-import { Globe, Maximize2, Minimize2 } from "lucide-react";
+import { Globe, Maximize2, Minimize2, Building2, LandPlot } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import type { NavigationState, Filters, Club } from "../types/types";
 import type { UserRoleConfig } from "../data/roles";
 import { canClickProvince } from "../data/roles";
-import { getMapaClubes, getMapaProvinciasResumen } from "../data/mapaApi";
+import { getMapaClubes, getMapaProvinciasResumen, getMapaPolideportivos, getMapaPolideportivosLogos } from "../data/mapaApi";
+import type { Polideportivo } from "../types/Mapa";
 import { argentinaProvinces } from "../data/argentinaGeoJson";
 import MarkerClusterGroup from "./ClusterGroup";
+import PolideportivoClusterGroup from "./PolideportivoClusterGroup";
 import MapViewController from "./MapViewController";
 
 // ------- Reajusta el tamaño interno de Leaflet cuando el contenedor cambia de tamaño
@@ -39,6 +41,7 @@ interface LeafletMapProps {
   onProvinceClick: (provinciaId: number) => void;
   onMunicipioClick: (munId: number) => void;
   onClubClick: (clubId: number) => void;
+  onPolideportivoClick?: (id: number) => void;
   onNavigateCountry?: () => void;
 }
 
@@ -50,12 +53,16 @@ function LeafletMap({
   clubForRole,
   onProvinceClick,
   onClubClick,
+  onPolideportivoClick,
   onNavigateCountry,
 }: LeafletMapProps) {
   const [provStats, setProvStats] = useState<
-    Array<{ id_provincia: number; totalClubs: number; totalAthletes: number }>
+    Array<{ id_provincia: number; totalClubs: number; totalAthletes: number; totalFederaciones: number; polideportivos: Record<string, number> }>
   >([]);
   const [clubs, setClubs] = useState<Club[]>([]);
+  const [showClubLayer, setShowClubLayer] = useState(true);
+  const [polideportivos, setPolideportivos] = useState<Polideportivo[]>([]);
+  const [showPolideportivos, setShowPolideportivos] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerDivRef = useRef<HTMLDivElement>(null);
   const initialZoom = typeof window !== "undefined" && window.innerWidth < 768 ? 4 : 6;
@@ -89,6 +96,14 @@ function LeafletMap({
     [onClubClick]
   );
 
+  const handlePolideportivoMarkerClick = useCallback(
+    (id: number) => {
+      setIsFullscreen(false);
+      onPolideportivoClick?.(id);
+    },
+    [onPolideportivoClick]
+  );
+
   const isAbortError = (error: unknown): boolean => {
     if (error instanceof DOMException && error.name === "AbortError") {
       return true;
@@ -117,6 +132,8 @@ function LeafletMap({
             id_provincia: item.id_provincia,
             totalClubs: item.totalClubs,
             totalAthletes: item.totalAthletes,
+            totalFederaciones: item.totalFederaciones,
+            polideportivos: item.polideportivos,
           }))
         );
       } catch (error) {
@@ -172,7 +189,57 @@ function LeafletMap({
     return () => controller.abort();
   }, [filters, navigation.provinciaId, navigation.municipioId, roleConfig.role, roleConfig.clubId]);
 
+  // Reset al volver a vista país o cambiar de provincia
+  useEffect(() => {
+    if (navigation.level === "country") {
+      setShowPolideportivos(false);
+      setPolideportivos([]);
+    }
+    setShowClubLayer(true);
+  }, [navigation.level, navigation.provinciaId]);
+
+  // Fetch todos los polideportivos una sola vez (el backend no filtra por provincia)
+  useEffect(() => {
+    if (!showPolideportivos || polideportivos.length > 0) return;
+
+    const controller = new AbortController();
+
+    const loadPolideportivos = async () => {
+      try {
+        const data = await getMapaPolideportivos(controller.signal);
+        if (controller.signal.aborted) return;
+
+        const logos = await getMapaPolideportivosLogos(
+          data.map((p) => p.id),
+          controller.signal
+        );
+        if (controller.signal.aborted) return;
+
+        const enriched = data.map((p) => ({
+          ...p,
+          logoUrl: logos[p.id] !== undefined ? logos[p.id] : p.logoUrl,
+        }));
+        setPolideportivos(enriched);
+      } catch (error) {
+        if (!isAbortError(error)) setPolideportivos([]);
+      }
+    };
+
+    void loadPolideportivos();
+
+    return () => controller.abort();
+  }, [showPolideportivos, polideportivos.length]);
+
   // -------- Data
+
+  // Filtra client-side por provincia activa (el backend devuelve todos)
+  const polideportivosFiltrados = useMemo(
+    () =>
+      navigation.provinciaId
+        ? polideportivos.filter((p) => p.id_provincia === navigation.provinciaId)
+        : polideportivos,
+    [polideportivos, navigation.provinciaId]
+  );
 
   const maxClubs = useMemo(
     () => Math.max(...provStats.map((p) => p.totalClubs), 1),
@@ -196,8 +263,9 @@ function LeafletMap({
   const isClubRole = roleConfig.role === "club";
   const showProvinces =
     !isClubRole && navigation.level === "country";
-  const showClubMarkers =
+  const canShowClubs =
     isClubRole || navigation.level !== "country";
+  const showClubMarkers = canShowClubs && showClubLayer;
 
   const provinceClickable = canClickProvince(roleConfig);
 
@@ -253,10 +321,17 @@ function LeafletMap({
         (p) => p.id_provincia === props.id_provincia
       );
 
+      const polideportivosHtml = stat && Object.keys(stat.polideportivos).length > 0
+        ? Object.entries(stat.polideportivos)
+            .map(([tipo, cantidad]) => `${tipo}: ${cantidad}`)
+            .join("<br/>")
+        : null;
+
       layer.bindTooltip(
         `<strong style="color: hsl(215, 70%, 50%)">${props.nombre}</strong><br/>
          Clubes: ${stat?.totalClubs || 0}<br/>
-         Deportistas: ${stat?.totalAthletes || 0}`,
+         Deportistas: ${stat?.totalAthletes || 0}<br/>
+         Federaciones: ${stat?.totalFederaciones || 0}${polideportivosHtml ? `<br/><span style="color: hsl(215, 20%, 55%); font-size: 11px;">─────</span><br/>${polideportivosHtml}` : ""}`,
         { sticky: true }
       );
 
@@ -326,11 +401,44 @@ function LeafletMap({
           <span>{mapTitle}</span>
         </h3>
 
-        <div className="flex items-center gap-3">
-          {showClubMarkers && (
-            <span className="text-xs text-muted-foreground">
-              {clubs.length} clubes
-            </span>
+        <div className="flex items-center gap-2">
+          {canShowClubs && (
+            <button
+              type="button"
+              onClick={() => setShowClubLayer((prev) => !prev)}
+              aria-label={showClubLayer ? "Ocultar clubes" : "Mostrar clubes"}
+              title={showClubLayer ? "Ocultar clubes" : "Mostrar clubes"}
+              className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                showClubLayer
+                  ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <Building2 className="h-3.5 w-3.5" />
+              {showClubLayer && clubs.length > 0 && (
+                <span className="font-bold">{clubs.length}</span>
+              )}
+              Clubes
+            </button>
+          )}
+          {canShowClubs && !isClubRole && (
+            <button
+              type="button"
+              onClick={() => setShowPolideportivos((prev) => !prev)}
+              aria-label={showPolideportivos ? "Ocultar polideportivos" : "Mostrar polideportivos"}
+              title={showPolideportivos ? "Ocultar polideportivos" : "Mostrar polideportivos"}
+              className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
+                showPolideportivos
+                  ? "bg-orange-100 text-orange-700 hover:bg-orange-200"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              }`}
+            >
+              <LandPlot className="h-3.5 w-3.5" />
+              {showPolideportivos && polideportivosFiltrados.length > 0 && (
+                <span className="font-bold">{polideportivosFiltrados.length}</span>
+              )}
+              Polideportivos
+            </button>
           )}
           <button
             type="button"
@@ -394,11 +502,19 @@ function LeafletMap({
             );
           })()}
 
-        {/* Marcadores */}
+        {/* Marcadores clubes */}
         {showClubMarkers && (
           <MarkerClusterGroup
             markers={clubMarkers}
             onMarkerClick={handleClubMarkerClick}
+          />
+        )}
+
+        {/* Marcadores polideportivos */}
+        {showPolideportivos && polideportivosFiltrados.length > 0 && (
+          <PolideportivoClusterGroup
+            polideportivos={polideportivosFiltrados}
+            onPolideportivoClick={handlePolideportivoMarkerClick}
           />
         )}
 

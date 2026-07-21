@@ -2,8 +2,8 @@ export interface EvaluacionesMunicipioTop10Item {
 	id_municipio: number;
 	codigopostal: string;
 	nombre: string;
-	evaluacionesTotales: number;
-	evaluacionesTotalesAnterior: number;
+	personasTotales: number;
+	personasTotalesAnterior: number;
 	actualVsAnterior: number;
 }
 

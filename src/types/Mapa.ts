@@ -1,3 +1,5 @@
+import type { ConteoInfraestructura } from "./Clubes";
+
 export interface MapaClub {
   id_club: number;
   nombre: string;
@@ -29,6 +31,8 @@ export interface ProvinciaResumen {
   totalNodos: number;
   totalMujeres: number;
   totalHombres: number;
+  totalFederaciones: number;
+  polideportivos: Record<string, number>;
 }
 
 export interface ProvinciaResumenRaw {
@@ -40,6 +44,32 @@ export interface ProvinciaResumenRaw {
   totalNodos: number;
   totalMujeres: number;
   totalHombres: number;
+  totalFederaciones: number;
+  polideportivos: Record<string, number>;
+}
+
+export interface Polideportivo {
+  id: number;
+  nombre: string;
+  id_provincia: number;
+  id_nodo: number;
+  id_municipio: number;
+  direccion: string;
+  lat: number;
+  lng: number;
+  logoUrl: string | null;
+}
+
+export interface PolideportivoRaw {
+  id: number;
+  nombre: string;
+  id_provincia: number;
+  id_nodo: number;
+  id_municipio: number;
+  direccion: string;
+  lat: string | number;
+  lng: string | number;
+  logoUrl: string | null;
 }
 
 export interface ClubLogo {
@@ -49,4 +79,35 @@ export interface ClubLogo {
 
 export interface ClubLogosResponse {
   logos: ClubLogo[];
+}
+
+export interface PolideportivoLogo {
+  id: number;
+  logoUrl: string | null;
+}
+
+export interface PolideportivoLogosResponse {
+  logos: PolideportivoLogo[];
+}
+
+export interface InfraestructuraItem {
+  id_tipo_infra: number;
+  descripcion: string;
+  categoria: string;
+}
+
+export interface PolideportivoDetalle {
+  id: number;
+  tipo: string;
+  nombre: string;
+  direccion: string;
+  logoUrl: string | null;
+  nombreMunicipio: string;
+  nombreProvincia: string;
+}
+
+export interface PolideportivoDetalleResponse {
+  polideportivo: PolideportivoDetalle;
+  infraestructura: InfraestructuraItem[];
+  conteoInfraestructura: ConteoInfraestructura;
 }
