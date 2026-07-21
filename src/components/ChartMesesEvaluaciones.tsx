@@ -205,7 +205,7 @@ export default function MonthlyEvaluationsChart({
                         style={{ left: hoveredX }}
                     />
                 )}
-                <ResponsiveContainer width="100%" height="100%">
+                <ResponsiveContainer width="100%" height={height} debounce={50}>
                     <AreaChart
                         data={chartData}
                         margin={{ top: 24, right: 16, left: 0, bottom: 8 }}

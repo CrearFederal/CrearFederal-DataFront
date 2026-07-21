@@ -47,7 +47,7 @@ interface InfraItemConfig {
   blurred?: boolean;
 }
 
-const INFRA_ITEMS: InfraItemConfig[] = [
+export const INFRA_ITEMS: InfraItemConfig[] = [
   { key: "CanchaFutbol",   label: "CANCHAS DE FÚTBOL",    image: imgFutbol,   color: "text-green-600",   accentHex: "#16a34a", ring: "hover:ring-green-600" },
   { key: "CanchaBasquet",  label: "CANCHAS DE BÁSQUET",   image: imgBasket,   color: "text-orange-400",  accentHex: "#f97316", ring: "hover:ring-orange-400" },
   { key: "CanchaHockey",   label: "CANCHAS DE HOCKEY",    image: imgHockey,   color: "text-green-700",   accentHex: "#0b6e2f", ring: "hover:ring-green-700" },
@@ -65,7 +65,7 @@ const INFRA_ITEMS: InfraItemConfig[] = [
   { key: "Otros",          label: "OTRAS INSTALACIONES",  image: otros,       color: "text-slate-500",   accentHex: "#64748b", ring: "hover:ring-slate-400", blurred: true },
 ];
 
-function InfraCard({ label, count, image, color, accentHex, ring, index, blurred }: { label: string; count: number; image: string | null; color: string; accentHex: string; ring: string; index: number; blurred?: boolean }) {
+export function InfraCard({ label, count, image, color, accentHex, ring, index, blurred }: { label: string; count: number; image: string | null; color: string; accentHex: string; ring: string; index: number; blurred?: boolean }) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 14, scale: 0.96 }}

@@ -54,10 +54,16 @@ function createMarkerIcon(marker: MarkerData) {
 }
 
 function createTooltip(marker: MarkerData) {
+  const logo = marker.logoUrl
+    ? `<img src="${marker.logoUrl}" class="club-tooltip-logo" />`
+    : "";
+  const address = marker.address
+    ? `<br/><span style="color:#64748b;font-size:11px">${marker.address}</span>`
+    : "";
   return `
     <div class="club-tooltip-content">
-      ${marker.logoUrl ? `<img src="${marker.logoUrl}" class="club-tooltip-logo" />` : ""}
-      <span>${marker.name}</span>
+      ${logo}
+      <div><strong style="color:hsl(215,70%,45%)">${marker.name}</strong>${address}</div>
     </div>
   `;
 }

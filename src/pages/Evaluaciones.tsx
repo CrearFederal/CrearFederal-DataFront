@@ -314,11 +314,14 @@ function Evaluaciones() {
 			return;
 		}
 
+		// Municipality usa sesión (sin param). COA y Province pasan el provinciaId del drill.
+		const provinciaIdParam = isMunicipalityRole ? undefined : provinciaDrill?.id;
+
 		const controller = new AbortController();
 
 		const loadMunicipios = async () => {
 			try {
-				const data = await getEvaluacionesMunicipiosTop10(provinciaDrill?.id, controller.signal);
+				const data = await getEvaluacionesMunicipiosTop10(provinciaIdParam, controller.signal);
 				if (!controller.signal.aborted) {
 					setMunicipiosComparativa(data.municipios ?? []);
 				}

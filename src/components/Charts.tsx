@@ -364,15 +364,26 @@ function buildHistogramBins(ages: number[]): { label: string; count: number }[] 
 
 interface AgeDistributionChartProps {
   ages: number[];
+  siblingAges?: number[];
   fillHeight?: boolean;
   showCard?: boolean;
   genero?: "femenino" | "masculino";
 }
 
-export function AgeDistributionChart({ ages, fillHeight = false, showCard = true, genero }: AgeDistributionChartProps) {
+export function AgeDistributionChart({ ages, siblingAges, fillHeight = false, showCard = true, genero }: AgeDistributionChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const bins = useMemo(() => buildHistogramBins(ages), [ages]);
-  
+  const siblingBins = useMemo(() => buildHistogramBins(siblingAges ?? []), [siblingAges]);
+
+  const sharedYMax = useMemo(() => {
+    const myMax = bins.length > 0 ? Math.max(...bins.map((b) => b.count)) : 0;
+    const sibMax = siblingBins.length > 0 ? Math.max(...siblingBins.map((b) => b.count)) : 0;
+    const raw = Math.max(myMax, sibMax);
+    if (!raw) return undefined;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    return Math.ceil(raw / mag) * mag;
+  }, [bins, siblingBins]);
+
   const barColor = genero === "femenino" ? C_FEMALE : C_MALE;
   const tooltipColor = genero === "femenino" ? C_FEMALE : C_MALE;
 
@@ -418,6 +429,7 @@ export function AgeDistributionChart({ ages, fillHeight = false, showCard = true
         },
         yAxis: {
           type: "value",
+          max: sharedYMax,
           splitLine: { lineStyle: { color: "hsl(215, 20%, 85%)", type: "dashed" } },
           axisLine: { show: false },
           axisTick: { show: false },
@@ -495,7 +507,7 @@ export function AgeDistributionChart({ ages, fillHeight = false, showCard = true
       disposed = true;
       cleanup();
     };
-  }, [bins, barColor, tooltipColor]);
+  }, [bins, barColor, tooltipColor, sharedYMax]);
 
   const chartContent = (
     <div

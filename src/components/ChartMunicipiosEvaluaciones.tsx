@@ -62,8 +62,8 @@ function ChartShell({
 function CustomTooltip({ active, payload, label }: any) {
     if (!active || !payload?.length) return null;
     const item = payload?.[0]?.payload as EvaluacionesMunicipioTop10Item | undefined;
-    const curr = item?.evaluacionesTotales ?? 0;
-    const prev = item?.evaluacionesTotalesAnterior ?? 0;
+    const curr = item?.personasTotales ?? 0;
+    const prev = item?.personasTotalesAnterior ?? 0;
     const pct = item?.actualVsAnterior ?? (prev === 0 ? 0 : ((curr - prev) / Math.max(prev, 1)) * 100);
     const up = pct >= 0;
     return (
@@ -125,8 +125,8 @@ export default function MunicipiosEvaluacionesChart({
     const top = useMemo(
         () =>
             [...data]
-                .filter((m) => m.evaluacionesTotales > 0 || m.evaluacionesTotalesAnterior > 0)
-                .sort((a, b) => b.evaluacionesTotales - a.evaluacionesTotales),
+                .filter((m) => m.personasTotales > 0 || m.personasTotalesAnterior > 0)
+                .sort((a, b) => b.personasTotales - a.personasTotales),
         [data]
     );
 
@@ -215,8 +215,8 @@ export default function MunicipiosEvaluacionesChart({
             className={className}
         >
             <div className="overflow-x-auto overflow-y-hidden">
-                <div style={{ height, minWidth: Math.max(top.length * BAR_SLOT_WIDTH, 480) }}>
-                <ResponsiveContainer width="100%" height="100%">
+                <div style={{ minWidth: Math.max(top.length * BAR_SLOT_WIDTH, 480) }}>
+                <ResponsiveContainer width="100%" height={height} debounce={50}>
                     <ComposedChart
                         data={top}
                         margin={{ top: 26, right: 16, left: 0, bottom: 8 }}
@@ -283,7 +283,7 @@ export default function MunicipiosEvaluacionesChart({
                         />
 
                         <Bar
-                            dataKey="evaluacionesTotales"
+                            dataKey="personasTotales"
                             radius={[8, 8, 4, 4]}
                             fill={`url(#${currentGradientId})`}
                             filter={`url(#${currentGlowId})`}
@@ -305,7 +305,7 @@ export default function MunicipiosEvaluacionesChart({
 
                         <Line
                             type="monotone"
-                            dataKey="evaluacionesTotalesAnterior"
+                            dataKey="personasTotalesAnterior"
                             stroke={`url(#${previousGradientId})`}
                             strokeWidth={2.25}
                             strokeDasharray="6 5"

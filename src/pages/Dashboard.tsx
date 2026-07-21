@@ -9,6 +9,7 @@ import { authBootstrap, getAuthMe, sendLogoutOnPageClose } from "../api/session"
 import type { AuthScope } from "../types/auth";
 import LeafletMap from "../components/LeafletMap";
 import ClubDetailPanel from "../components/ClubDetailPanel";
+import PolideportivoDetailPanel from "../components/PolideportivoDetailPanel";
 import KpiCard from "../components/KpiCard";
 import DeporteHeatMap from "../components/DeporteHeatMap";
 import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, MunicipioRankingChart, ClubRankingChart, DeporteCoverageChart, GenderBalanceByDeportChart } from "../components/Charts";
@@ -92,6 +93,7 @@ function Dashboard() {
   const [navigation, setNavigation] = useState<NavigationState>({ level: "country" });
   const [filters, setFilters] = useState<Filters>({ sports: [], gender: [], ageRange: [6, 60] });
   const [selectedClubId, setSelectedClubId] = useState<number | null>(null);
+  const [selectedPolideportivoId, setSelectedPolideportivoId] = useState<number | null>(null);
   const [clubesTotales, setClubesTotales] = useState<ClubesTotalesResponse | null>(null);
   const [deportistasTotales, setDeportistasTotales] = useState<DeportistasTotalesResponse | null>(null);
   const [deportistasGeneros, setDeportistasGeneros] = useState<DeportistasGenerosResponse | null>(null);
@@ -285,6 +287,7 @@ function Dashboard() {
 
     setNavigation(getInitialNavigation(roleConfig));
     setSelectedClubId(null);
+    setSelectedPolideportivoId(null);
 
     if (roleConfig.role === "club" && roleConfig.clubId) {
       setSelectedClubId(roleConfig.clubId);
@@ -860,6 +863,7 @@ function Dashboard() {
     startTransition(() => {
       setNavigation({ level: "province", provinciaId });
       setSelectedClubId(null);
+      setSelectedPolideportivoId(null);
     });
   }, [roleConfig]);
 
@@ -867,14 +871,17 @@ function Dashboard() {
     if (!roleConfig || !canClickMunicipio(roleConfig)) return;
     setNavigation((prev) => ({ level: "city", provinciaId: prev.provinciaId, municipioId }));
     setSelectedClubId(null);
+    setSelectedPolideportivoId(null);
   }, [roleConfig]);
 
   const handleClubClick = useCallback((clubId: number) => setSelectedClubId(clubId), []);
+  const handlePolideportivoClick = useCallback((id: number) => setSelectedPolideportivoId(id), []);
 
   const handleNavigateCountry = useCallback(() => {
     if (!roleConfig || roleConfig.role !== "coa") return;
     setNavigation({ level: "country" });
     setSelectedClubId(null);
+    setSelectedPolideportivoId(null);
   }, [roleConfig?.role]);
 
   const handleGenderSelect = useCallback(
@@ -1155,6 +1162,7 @@ function Dashboard() {
               onProvinceClick={handleProvinceClick}
               onMunicipioClick={handleMunicipioClick}
               onClubClick={handleClubClick}
+              onPolideportivoClick={handlePolideportivoClick}
               onNavigateCountry={handleNavigateCountry}
             />
           </div>
@@ -1484,9 +1492,10 @@ function Dashboard() {
                                 </p>
                               </div>
                               <div className="h-[180px]">
-                                <AgeDistributionChart 
-                                  ages={selectedGeneroDetalle === "femenino" ? (edadesFemenino ?? []) : (edadesMasculino ?? [])} 
-                                  fillHeight 
+                                <AgeDistributionChart
+                                  ages={selectedGeneroDetalle === "femenino" ? (edadesFemenino ?? []) : (edadesMasculino ?? [])}
+                                  siblingAges={selectedGeneroDetalle === "femenino" ? (edadesMasculino ?? []) : (edadesFemenino ?? [])}
+                                  fillHeight
                                   showCard={false}
                                   genero={selectedGeneroDetalle}
                                 />
@@ -1895,6 +1904,19 @@ function Dashboard() {
           <ClubDetailPanel
             clubId={selectedClubId}
             onClose={() => { if (roleConfig.role !== "club") setSelectedClubId(null); }}
+          />
+        </>
+      )}
+
+      {selectedPolideportivoId && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-background/50 backdrop-blur-sm"
+            onClick={() => setSelectedPolideportivoId(null)}
+          />
+          <PolideportivoDetailPanel
+            polideportivoId={selectedPolideportivoId}
+            onClose={() => setSelectedPolideportivoId(null)}
           />
         </>
       )}

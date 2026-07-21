@@ -15,7 +15,6 @@ import { TrendingDown, TrendingUp, MapPinHouse } from "lucide-react";
 import type { EvaluacionesProvinciaTop10Item } from "../types/Evaluaciones";
 
 const formatNumber = (value: number): string => value.toLocaleString("es-AR");
-const USE_MOCK_DATA = false;
 
 /** Ancho reservado por provincia: ~12 barras visibles en media card, el resto con scroll horizontal */
 const BAR_SLOT_WIDTH = 56;
@@ -31,19 +30,6 @@ export interface ProvinceComparisonChartProps {
     clickableProvinceIds?: number[] | "all";
     onProvinceClick?: (provincia: EvaluacionesProvinciaTop10Item) => void;
 }
-
-const MOCK_PROVINCIAS: EvaluacionesProvinciaTop10Item[] = [
-    { id_provincia: 1, nombre: "Santa Fe", personasTotales: 4987, personasTotalesAnterior: 2493, actualVsAnterior: 50.1},
-    { id_provincia: 2, nombre: "CABA", personasTotales: 4860, personasTotalesAnterior: 4510, actualVsAnterior: 7.8 },
-    { id_provincia: 3, nombre: "Cordoba", personasTotales: 3710, personasTotalesAnterior: 3120, actualVsAnterior: 18.9 },
-    { id_provincia: 4, nombre: "Mendoza", personasTotales: 3320, personasTotalesAnterior: 3490, actualVsAnterior: -4.9 },
-    { id_provincia: 5, nombre: "Corrientes", personasTotales: 2890, personasTotalesAnterior: 2510, actualVsAnterior: 15.1 },
-    { id_provincia: 1, nombre: "San Juan", personasTotales: 3000, personasTotalesAnterior: 1500, actualVsAnterior: 50 },
-    { id_provincia: 2, nombre: "Buenos Aires", personasTotales: 4860, personasTotalesAnterior: 4510, actualVsAnterior: 7.8 },
-    { id_provincia: 3, nombre: "Entre Ríos", personasTotales: 3710, personasTotalesAnterior: 3120, actualVsAnterior: 18.9 },
-    { id_provincia: 4, nombre: "Misiones", personasTotales: 3320, personasTotalesAnterior: 3490, actualVsAnterior: -4.9 },
-    { id_provincia: 5, nombre: "Formosa", personasTotales: 2890, personasTotalesAnterior: 2510, actualVsAnterior: 15.1 },
-];
 
 function ChartShell({
     title,
@@ -129,14 +115,14 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 export default function ProvinceComparisonChart({
-    data = MOCK_PROVINCIAS,
+    data = [],
     height = 340,
     className = "",
     clickableProvinceIds,
     onProvinceClick,
 }: ProvinceComparisonChartProps) {
     const chartId = useId().replace(/:/g, "");
-    const sourceData = USE_MOCK_DATA ? MOCK_PROVINCIAS : data;
+    const sourceData = data;
     const top = useMemo(
         () => [...sourceData].sort((a, b) => b.personasTotales - a.personasTotales),
         [sourceData]
@@ -144,7 +130,8 @@ export default function ProvinceComparisonChart({
 
     const isClickable = (item: EvaluacionesProvinciaTop10Item): boolean =>
         Boolean(onProvinceClick) &&
-        (clickableProvinceIds === "all" || (clickableProvinceIds ?? []).includes(item.id_provincia));
+        (clickableProvinceIds === "all" ||
+            (clickableProvinceIds ?? []).some((id) => Number(id) === Number(item.id_provincia)));
 
     const currentGradientId = `mc-current-${chartId}`;
     const previousGradientId = `mc-previous-${chartId}`;
@@ -214,8 +201,8 @@ export default function ProvinceComparisonChart({
             className={className}
         >
             <div className="overflow-x-auto overflow-y-hidden">
-                <div style={{ height, minWidth: Math.max(top.length * BAR_SLOT_WIDTH, 480) }}>
-                <ResponsiveContainer width="100%" height="100%">
+                <div style={{ minWidth: Math.max(top.length * BAR_SLOT_WIDTH, 480) }}>
+                <ResponsiveContainer width="100%" height={height} debounce={50}>
                     <ComposedChart
                         data={top}
                         margin={{ top: 26, right: 16, left: 0, bottom: 8 }}
