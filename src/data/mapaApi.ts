@@ -1,20 +1,7 @@
 import { instanceAxios } from "../api/axios";
 import type { Filters } from "../types/types";
 import type { MapaClub, MapaClubRaw, ProvinciaResumen, ProvinciaResumenRaw, ClubLogosResponse, Polideportivo, PolideportivoRaw, PolideportivoLogosResponse } from "../types/Mapa";
-
-const toNumber = (value: string | number): number => {
-  if (typeof value === "number") return value;
-  const parsed = Number.parseFloat(value);
-  return Number.isFinite(parsed) ? parsed : 0;
-};
-
-// Coordenadas pueden venir como enteros escalados (×10^N). Divide por 10
-// iterativamente hasta quedar dentro del rango válido (±90 lat, ±180 lng).
-const normalizeCoord = (value: number, max: number): number => {
-  let v = value;
-  while (Math.abs(v) > max) v /= 10;
-  return v;
-};
+import { toNumber, normalizeCoord } from "./coords";
 
 const toClub = (club: MapaClubRaw): MapaClub => ({
   ...club,
