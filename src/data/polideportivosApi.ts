@@ -1,6 +1,19 @@
 import { instanceAxios } from "../api/axios";
 import type { PolideportivoDetalleResponse, PolideportivoPorInfraestructura } from "../types/Mapa";
-import { toNumber, normalizeCoordOrNull } from "./coords";
+
+const toNumber = (value: string | number): number => {
+  if (typeof value === "number") return value;
+  const parsed = Number.parseFloat(value);
+  return Number.isFinite(parsed) ? parsed : 0;
+};
+
+// Coordenadas pueden venir como enteros escalados (×10^N). Divide por 10
+// iterativamente hasta quedar dentro del rango válido (±90 lat, ±180 lng).
+const normalizeCoord = (value: number, max: number): number => {
+  let v = value;
+  while (Math.abs(v) > max) v /= 10;
+  return v;
+};
 
 export const getPolideportivoDetalle = async (
   id: number,
@@ -28,7 +41,7 @@ export const getPolideportivosPorInfraestructura = async (
 
   return data.map((p) => ({
     ...p,
-    lat: p.lat !== null ? normalizeCoordOrNull(toNumber(p.lat), 90) : null,
-    lng: p.lng !== null ? normalizeCoordOrNull(toNumber(p.lng), 180) : null,
+    lat: p.lat !== null ? normalizeCoord(toNumber(p.lat), 90) : null,
+    lng: p.lng !== null ? normalizeCoord(toNumber(p.lng), 180) : null,
   }));
 };
