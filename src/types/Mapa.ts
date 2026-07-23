@@ -111,3 +111,16 @@ export interface PolideportivoDetalleResponse {
   infraestructura: InfraestructuraItem[];
   conteoInfraestructura: ConteoInfraestructura;
 }
+
+export interface PolideportivoPorInfraestructura {
+  id: number;
+  nombre: string;
+  id_provincia: number;
+  nombreProvincia: string;
+  id_municipio: number;
+  nombreMunicipio: string;
+  direccion: string;
+  lat: number | null;
+  lng: number | null;
+  logoUrl: string | null;
+}
