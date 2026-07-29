@@ -446,6 +446,8 @@ function Infraestructura() {
                                                                     <PolideportivoClusterGroup
                                                                             polideportivos={polideportivoMapMarkers}
                                                                             onPolideportivoClick={handlePolideportivoMarkerClick}
+                                                                            color="#f97316"
+                                                                            colorDark="#c2410c"
                                                                     />
                                                             )}
                                                     </MapContainer>
