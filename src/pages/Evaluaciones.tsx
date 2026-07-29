@@ -486,7 +486,7 @@ function Evaluaciones() {
 				<div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
 					<ChartCakeNiveles
 						data={nivelesEvaluados}
-						height={360}
+						height={420}
 						className="mt-1"
 					/>
 					<GenderDistributionChart

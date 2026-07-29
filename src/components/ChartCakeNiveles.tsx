@@ -167,7 +167,7 @@ export default function ChartCakeNiveles({
                 </div>
 
                 <div className="flex-1 min-h-0 w-full">
-                    <ResponsiveContainer width="100%" height={height} debounce={50}>
+                    <ResponsiveContainer width="100%" height="100%" debounce={50}>
                         <PieChart>
                         <defs>
                             <linearGradient id={`pie-center-${chartId}`} x1="0" y1="0" x2="1" y2="1">

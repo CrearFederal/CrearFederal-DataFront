@@ -80,11 +80,7 @@
   .kpi-card::before {
     content: '';
     @apply absolute top-0 left-0 w-full h-1 rounded-t-xl;
-    background: linear-gradient(90deg, hsl(var(--primary)), hsl(var(--chart-2)));
-  }
-
-  .kpi-card--orange::before {
-    background: linear-gradient(90deg, #f97316, #fb923c);
+    background: var(--kpi-top-line, linear-gradient(90deg, hsl(var(--primary)), hsl(var(--chart-2))));
   }
 
   .map-province {

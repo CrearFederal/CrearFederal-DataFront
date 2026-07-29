@@ -4,6 +4,8 @@ import { instanceAxios } from "../api/axios";
 import type {
 	DeportistasEvaluadosParams,
 	DeportistasEvaluadosResponse,
+	DeportistasBiotipoParams,
+	DeportistasBiotipoResponse,
 	EvaluacionesDistribucionGeneroResponse,
 	EvaluacionesEvolucionMensualResponse,
 	EvaluacionesPorNivelResponse,
@@ -180,5 +182,35 @@ export const getDeportistasEvaluados = async (
 		}
 
 		throw new Error("Error al obtener los deportistas evaluados");
+	}
+};
+
+export const getDeportistasBiotipo = async (
+	params: DeportistasBiotipoParams,
+	signal?: AbortSignal
+): Promise<DeportistasBiotipoResponse> => {
+	if (!instanceAxios.defaults.baseURL) {
+		throw new Error("VITE_API_URL no está configurada");
+	}
+
+	try {
+		const { data } = await instanceAxios.get<DeportistasBiotipoResponse>(
+			"/evaluaciones/deportistas-biotipo",
+			{
+				params: {
+					...params,
+					idDeporte: Array.isArray(params.idDeporte) ? params.idDeporte.join(",") : params.idDeporte,
+				},
+				signal,
+			}
+		);
+
+		return data;
+	} catch (error: unknown) {
+		if (isAxiosError<{ message?: string }>(error)) {
+			throw new Error(error.response?.data?.message || "Error al obtener los deportistas (biotipo)");
+		}
+
+		throw new Error("Error al obtener los deportistas (biotipo)");
 	}
 };

@@ -85,6 +85,7 @@ export interface TestItem {
 export interface PuntajeAptitud {
 	aptitudEvaluada: string;
 	puntajePromedio: number;
+	percentil: number;
 	Tests: TestItem[];
 }
 
@@ -119,10 +120,22 @@ export interface DistribucionTest {
 	valores: DistribucionTestValor[];
 }
 
+export interface CalidadMovimientoValor {
+	valor: number;
+	cantidadDeportistas: number;
+}
+
+export interface CalidadMovimientoTest {
+	idTest: number;
+	nombre: string;
+	distribucion: CalidadMovimientoValor[];
+}
+
 export interface DeportistasEvaluadosResponse {
 	deportistas: DeportistaEvaluadoItem[];
 	medianas: MedianaAptitud[];
 	distribuciones: DistribucionTest[];
+	calidadPatronesMovimiento?: CalidadMovimientoTest[];
 }
 
 export interface DeportistasEvaluadosParams {
@@ -134,4 +147,45 @@ export interface DeportistasEvaluadosParams {
 	idClub?: number;
 	idMunicipio?: number;
 	nivelEvaluado?: string;
+}
+
+export interface TestBiotipoItem {
+	id: number;
+	nombre: string;
+	unidad_medida: string;
+	valor: number;
+	puntajePromedio: number;
+	percentil: number;
+}
+
+export interface DeportistaBiotipoItem {
+	idDeportista: number;
+	nombre: string;
+	club: string;
+	deporte: string;
+	edad: number;
+	genero: string;
+	provincia: string;
+	municipio: string;
+	tests: TestBiotipoItem[];
+}
+
+export interface MedianaBiotipoItem {
+	testEvaluado: string;
+	mediana: number;
+}
+
+export interface DeportistasBiotipoResponse {
+	deportistas: DeportistaBiotipoItem[];
+	medianas: MedianaBiotipoItem[];
+}
+
+export interface DeportistasBiotipoParams {
+	idDeporte: number | number[];
+	idProvincia: number;
+	edadMin: number;
+	edadMax: number;
+	genero?: "M" | "F";
+	idClub?: number;
+	idMunicipio?: number;
 }

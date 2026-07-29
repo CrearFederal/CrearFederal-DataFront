@@ -23,8 +23,8 @@ const RADAR_RADIUS_RATIO = 0.68;
 const APTITUDES_POR_NIVEL: Record<string, string[]> = {
 	Escolar:    ["Fuerza / Resistencia", "Fuerza Explosiva", "Velocidad"],
 	Base:       ["Agilidad", "Flexibilidad", "Fuerza / Resistencia", "Fuerza Explosiva", "Resistencia", "Velocidad"],
-	Intermedio: ["Agilidad", "Calidad de Movimiento", "Flexibilidad", "Fuerza / Resistencia", "Fuerza Explosiva", "Resistencia", "Velocidad"],
-	Avanzado:   ["Agilidad", "Calidad de Movimiento", "Flexibilidad", "Fuerza / Resistencia", "Fuerza Explosiva", "Resistencia", "Velocidad"],
+	Intermedio: ["Agilidad", "Flexibilidad", "Fuerza / Resistencia", "Fuerza Explosiva", "Resistencia", "Velocidad"],
+	Avanzado:   ["Agilidad", "Flexibilidad", "Fuerza / Resistencia", "Fuerza Explosiva", "Resistencia", "Velocidad"],
 };
 
 export const getAptitudesPorNivel = (nivel: string): string[] =>
@@ -141,7 +141,7 @@ function RadarAptitudesChart({ selected, medianas, height = 320, nivel }: RadarA
 					indicator,
 					center: RADAR_CENTER,
 					radius: `${RADAR_RADIUS_RATIO * 100}%`,
-					splitNumber: 4,
+					splitNumber: 5,
 					axisName: {
 						color: C_AXIS,
 						fontSize: 13,
