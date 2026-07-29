@@ -1,14 +1,22 @@
 import { memo, useMemo, useCallback, useEffect, useState, useRef } from "react";
+import { createPortal } from "react-dom";
 import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet";
 import L from "leaflet";
-import { Globe, Maximize2, Minimize2, Building2, LandPlot } from "lucide-react";
+import { Globe, Maximize2, Minimize2, Layers2 } from "lucide-react";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
 import type { NavigationState, Filters, Club } from "../types/types";
 import type { UserRoleConfig } from "../data/roles";
 import { canClickProvince } from "../data/roles";
-import { getMapaClubes, getMapaProvinciasResumen, getMapaPolideportivos, getMapaPolideportivosLogos } from "../data/mapaApi";
+import {
+  getMapaClubes,
+  getMapaProvinciasResumen,
+  getMapaPolideportivos,
+  getMapaPolideportivosLogos,
+  getMapaConveniosDeUso,
+  getMapaGimnasiosUrbanos,
+} from "../data/mapaApi";
 import type { Polideportivo } from "../types/Mapa";
 import { argentinaProvinces } from "../data/argentinaGeoJson";
 import MarkerClusterGroup from "./ClusterGroup";
@@ -16,7 +24,6 @@ import PolideportivoClusterGroup from "./PolideportivoClusterGroup";
 import MapViewController from "./MapViewController";
 
 // ------- Reajusta el tamaño interno de Leaflet cuando el contenedor cambia de tamaño
-// (p. ej. al alternar pantalla completa), ya que Leaflet no lo detecta solo.
 function MapAutoResize() {
   const map = useMap();
 
@@ -32,6 +39,167 @@ function MapAutoResize() {
   return null;
 }
 
+// ------- Layer selector
+
+const LAYER_OPTIONS = [
+  { value: "clubes",         label: "Clubes",           color: "#3b82f6" },
+  { value: "polideportivos", label: "Polideportivos",   color: "#f97316" },
+  { value: "convenios",      label: "Convenios De Uso", color: "#8b5cf6" },
+  { value: "gimnasios",      label: "Gimnasios Urbanos",color: "#16a34a" },
+] as const;
+
+function LayerSelector({
+  selected,
+  onChange,
+  showInfraLayers = true,
+}: {
+  selected: string[];
+  onChange: (layers: string[]) => void;
+  showInfraLayers?: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [dropdownPos, setDropdownPos] = useState<{ top: number; right: number }>({ top: 0, right: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+  const options = showInfraLayers
+    ? LAYER_OPTIONS
+    : LAYER_OPTIONS.filter((o) => o.value === "clubes");
+
+  const handleOpen = () => {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setDropdownPos({
+        top: rect.bottom + 4,
+        right: window.innerWidth - rect.right,
+      });
+    }
+    setOpen((o) => !o);
+  };
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      const target = e.target as Node;
+      if (
+        triggerRef.current && !triggerRef.current.contains(target) &&
+        dropdownRef.current && !dropdownRef.current.contains(target)
+      ) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, [open]);
+
+  const toggle = (value: string) => {
+    onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
+  };
+
+  const selectedOptions = selected
+    .map((v) => options.find((o) => o.value === v))
+    .filter(Boolean) as (typeof LAYER_OPTIONS)[number][];
+
+  const dropdown = open ? (
+    <div
+      ref={dropdownRef}
+      role="listbox"
+      aria-multiselectable="true"
+      style={{
+        position: "fixed",
+        top: dropdownPos.top,
+        right: dropdownPos.right,
+        zIndex: 99999,
+      }}
+      className="min-w-[190px] rounded-md border border-border bg-card shadow-lg py-1"
+    >
+      {options.map((opt) => {
+        const isSelected = selected.includes(opt.value);
+        return (
+          <button
+            key={opt.value}
+            type="button"
+            role="option"
+            aria-selected={isSelected}
+            onClick={() => toggle(opt.value)}
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-xs text-left hover:bg-muted transition-colors"
+          >
+            <span
+              className="flex h-3.5 w-3.5 shrink-0 items-center justify-center rounded border transition-colors"
+              style={
+                isSelected
+                  ? { background: opt.color, borderColor: opt.color }
+                  : { borderColor: "hsl(var(--border))" }
+              }
+            >
+              {isSelected && (
+                <svg width="8" height="6" viewBox="0 0 8 6" fill="none" aria-hidden="true">
+                  <path
+                    d="M1 3L3 5L7 1"
+                    stroke="white"
+                    strokeWidth="1.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
+            </span>
+            <span style={{ color: opt.color }} aria-hidden="true">●</span>
+            <span className="text-foreground">{opt.label}</span>
+          </button>
+        );
+      })}
+    </div>
+  ) : null;
+
+  return (
+    <div className="relative">
+      <button
+        ref={triggerRef}
+        type="button"
+        onClick={handleOpen}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex items-center gap-1.5 rounded-md border border-border bg-card px-2 py-1.5 text-xs font-medium transition-colors hover:bg-muted"
+      >
+        <div className="flex items-center gap-1.5 min-w-0">
+          {selectedOptions.length === 0 ? (
+            <span className="flex items-center gap-1.5 text-muted-foreground">
+              <Layers2 className="h-3.5 w-3.5 text-blue-500 shrink-0" />
+              Capas
+            </span>
+          ) : (
+            selectedOptions.map((opt) => (
+              <span key={opt.value} className="flex items-center gap-0.5 text-foreground">
+                <span style={{ color: opt.color }} aria-hidden="true">●</span>
+                <span>{opt.label}</span>
+                <span
+                  role="button"
+                  tabIndex={0}
+                  aria-label={`Quitar ${opt.label}`}
+                  onClick={(e) => { e.stopPropagation(); toggle(opt.value); }}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      toggle(opt.value);
+                    }
+                  }}
+                  className="ml-0.5 cursor-pointer opacity-50 hover:opacity-100 transition-opacity"
+                >
+                  ×
+                </span>
+              </span>
+            ))
+          )}
+        </div>
+        <span className="text-muted-foreground shrink-0 ml-0.5">▾</span>
+      </button>
+
+      {typeof document !== "undefined" && createPortal(dropdown, document.body)}
+    </div>
+  );
+}
+
 // --------- Type
 interface LeafletMapProps {
   filters: Filters;
@@ -42,6 +210,8 @@ interface LeafletMapProps {
   onMunicipioClick: (munId: number) => void;
   onClubClick: (clubId: number) => void;
   onPolideportivoClick?: (id: number) => void;
+  onConvenioClick?: (id: number) => void;
+  onGimnasioClick?: (id: number) => void;
   onNavigateCountry?: () => void;
 }
 
@@ -54,15 +224,18 @@ function LeafletMap({
   onProvinceClick,
   onClubClick,
   onPolideportivoClick,
+  onConvenioClick,
+  onGimnasioClick,
   onNavigateCountry,
 }: LeafletMapProps) {
   const [provStats, setProvStats] = useState<
     Array<{ id_provincia: number; totalClubs: number; totalAthletes: number; totalFederaciones: number; polideportivos: Record<string, number> }>
   >([]);
   const [clubs, setClubs] = useState<Club[]>([]);
-  const [showClubLayer, setShowClubLayer] = useState(true);
+  const [selectedLayers, setSelectedLayers] = useState<string[]>(["clubes"]);
   const [polideportivos, setPolideportivos] = useState<Polideportivo[]>([]);
-  const [showPolideportivos, setShowPolideportivos] = useState(false);
+  const [convenios, setConvenios] = useState<Polideportivo[]>([]);
+  const [gimnasios, setGimnasios] = useState<Polideportivo[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerDivRef = useRef<HTMLDivElement>(null);
   const initialZoom = typeof window !== "undefined" && window.innerWidth < 768 ? 4 : 6;
@@ -75,7 +248,6 @@ function LeafletMap({
     return () => el.removeEventListener("touchmove", prevent);
   }, []);
 
-  // Permite salir de pantalla completa con Escape
   useEffect(() => {
     if (!isFullscreen) return;
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -85,9 +257,6 @@ function LeafletMap({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [isFullscreen]);
 
-  // El panel de detalle del club se renderiza fuera del mapa (z-index menor al
-  // del overlay de pantalla completa), así que hay que salir de pantalla completa
-  // antes de abrirlo o quedaría oculto detrás del mapa.
   const handleClubMarkerClick = useCallback(
     (clubId: number) => {
       setIsFullscreen(false);
@@ -104,29 +273,41 @@ function LeafletMap({
     [onPolideportivoClick]
   );
 
+  const handleConvenioMarkerClick = useCallback(
+    (id: number) => {
+      setIsFullscreen(false);
+      onConvenioClick?.(id);
+    },
+    [onConvenioClick]
+  );
+
+  const handleGimnasioMarkerClick = useCallback(
+    (id: number) => {
+      setIsFullscreen(false);
+      onGimnasioClick?.(id);
+    },
+    [onGimnasioClick]
+  );
+
   const isAbortError = (error: unknown): boolean => {
     if (error instanceof DOMException && error.name === "AbortError") {
       return true;
     }
-
     if (typeof error === "object" && error !== null) {
       const err = error as { name?: string; code?: string };
       return err.name === "CanceledError" || err.code === "ERR_CANCELED";
     }
-
     return false;
   };
 
-  // Fetch province summary only when filters change — not on navigation drill-down
+  // Fetch province summary only when filters change
   useEffect(() => {
     const controller = new AbortController();
 
     const loadProvinceSummary = async () => {
       try {
         const provinceSummary = await getMapaProvinciasResumen(filters, controller.signal);
-
         if (controller.signal.aborted) return;
-
         setProvStats(
           provinceSummary.map((item) => ({
             id_provincia: item.id_provincia,
@@ -137,18 +318,15 @@ function LeafletMap({
           }))
         );
       } catch (error) {
-        if (!isAbortError(error)) {
-          setProvStats([]);
-        }
+        if (!isAbortError(error)) setProvStats([]);
       }
     };
 
     void loadProvinceSummary();
-
     return () => controller.abort();
   }, [filters]);
 
-  // Fetch clubs scoped to the current navigation level — re-runs on province/municipio changes
+  // Fetch clubs scoped to the current navigation level
   useEffect(() => {
     const controller = new AbortController();
 
@@ -160,7 +338,6 @@ function LeafletMap({
           navigation.provinciaId,
           navigation.municipioId
         );
-
         if (controller.signal.aborted) return;
 
         const scopedClubs = clubesRaw
@@ -176,31 +353,28 @@ function LeafletMap({
         } else {
           setClubs(scopedClubs);
         }
-
       } catch (error) {
-        if (!isAbortError(error)) {
-          setClubs([]);
-        }
+        if (!isAbortError(error)) setClubs([]);
       }
     };
 
     void loadClubs();
-
     return () => controller.abort();
   }, [filters, navigation.provinciaId, navigation.municipioId, roleConfig.role, roleConfig.clubId]);
 
   // Reset al volver a vista país o cambiar de provincia
   useEffect(() => {
     if (navigation.level === "country") {
-      setShowPolideportivos(false);
+      setSelectedLayers(["clubes"]);
       setPolideportivos([]);
+      setConvenios([]);
+      setGimnasios([]);
     }
-    setShowClubLayer(true);
   }, [navigation.level, navigation.provinciaId]);
 
-  // Fetch todos los polideportivos una sola vez (el backend no filtra por provincia)
+  // Lazy-load polideportivos when the layer is activated
   useEffect(() => {
-    if (!showPolideportivos || polideportivos.length > 0) return;
+    if (!selectedLayers.includes("polideportivos") || polideportivos.length > 0) return;
 
     const controller = new AbortController();
 
@@ -226,13 +400,50 @@ function LeafletMap({
     };
 
     void loadPolideportivos();
-
     return () => controller.abort();
-  }, [showPolideportivos, polideportivos.length]);
+  }, [selectedLayers, polideportivos.length]);
+
+  // Lazy-load convenios when the layer is activated
+  useEffect(() => {
+    if (!selectedLayers.includes("convenios") || convenios.length > 0) return;
+
+    const controller = new AbortController();
+
+    const load = async () => {
+      try {
+        const data = await getMapaConveniosDeUso(controller.signal);
+        if (!controller.signal.aborted) setConvenios(data);
+      } catch (error) {
+        if (!isAbortError(error)) setConvenios([]);
+      }
+    };
+
+    void load();
+    return () => controller.abort();
+  }, [selectedLayers, convenios.length]);
+
+  // Lazy-load gimnasios when the layer is activated
+  useEffect(() => {
+    if (!selectedLayers.includes("gimnasios") || gimnasios.length > 0) return;
+
+    const controller = new AbortController();
+
+    const load = async () => {
+      try {
+        const data = await getMapaGimnasiosUrbanos(controller.signal);
+        if (!controller.signal.aborted) setGimnasios(data);
+      } catch (error) {
+        if (!isAbortError(error)) setGimnasios([]);
+      }
+    };
+
+    void load();
+    return () => controller.abort();
+  }, [selectedLayers, gimnasios.length]);
 
   // -------- Data
 
-  // Filtra client-side por provincia activa (el backend devuelve todos)
+  // Client-side province filter for polideportivos (backend returns all)
   const polideportivosFiltrados = useMemo(
     () =>
       navigation.provinciaId
@@ -261,11 +472,9 @@ function LeafletMap({
 
   // -------- Flags por rol y nivel de navegación
   const isClubRole = roleConfig.role === "club";
-  const showProvinces =
-    !isClubRole && navigation.level === "country";
-  const canShowClubs =
-    isClubRole || navigation.level !== "country";
-  const showClubMarkers = canShowClubs && showClubLayer;
+  const showProvinces = !isClubRole && navigation.level === "country";
+  const canShowClubs = isClubRole || navigation.level !== "country";
+  const showClubMarkers = canShowClubs && selectedLayers.includes("clubes");
 
   const provinceClickable = canClickProvince(roleConfig);
 
@@ -275,17 +484,9 @@ function LeafletMap({
       if (!feature?.properties) return {};
 
       const provId = feature.properties.id_provincia;
-      const stat = provStats.find(
-        (p) => p.id_provincia === provId
-      );
-
-      const intensity = stat
-        ? stat.totalClubs / maxClubs
-        : 0;
-
-      const isSelected =
-        navigation.provinciaId === provId;
-
+      const stat = provStats.find((p) => p.id_provincia === provId);
+      const intensity = stat ? stat.totalClubs / maxClubs : 0;
+      const isSelected = navigation.provinciaId === provId;
       const dimmed = !!navigation.provinciaId;
 
       if (isSelected) {
@@ -300,9 +501,7 @@ function LeafletMap({
 
       return {
         fillColor: `hsl(215, 30%, ${90 - intensity * 25}%)`,
-        fillOpacity: dimmed
-          ? 0.15
-          : 0.35 + intensity * 0.3,
+        fillOpacity: dimmed ? 0.15 : 0.35 + intensity * 0.3,
         color: "rgba(255,255,255,0.7)",
         weight: 1,
         opacity: dimmed ? 0.4 : 0.8,
@@ -317,15 +516,13 @@ function LeafletMap({
       const props = feature.properties;
       if (!props) return;
 
-      const stat = provStats.find(
-        (p) => p.id_provincia === props.id_provincia
-      );
-
-      const polideportivosHtml = stat && Object.keys(stat.polideportivos).length > 0
-        ? Object.entries(stat.polideportivos)
-            .map(([tipo, cantidad]) => `${tipo}: ${cantidad}`)
-            .join("<br/>")
-        : null;
+      const stat = provStats.find((p) => p.id_provincia === props.id_provincia);
+      const polideportivosHtml =
+        stat && Object.keys(stat.polideportivos).length > 0
+          ? Object.entries(stat.polideportivos)
+              .map(([tipo, cantidad]) => `${tipo}: ${cantidad}`)
+              .join("<br/>")
+          : null;
 
       layer.bindTooltip(
         `<strong style="color: hsl(215, 70%, 50%)">${props.nombre}</strong><br/>
@@ -338,7 +535,6 @@ function LeafletMap({
       (layer as L.Path).on({
         mouseover: (e) => {
           if (!provinceClickable) return;
-
           const target = e.target as L.Path;
           target.setStyle({
             fillColor: "hsl(215, 50%, 65%)",
@@ -348,16 +544,12 @@ function LeafletMap({
           });
           target.bringToFront();
         },
-
         mouseout: (e) => {
           const target = e.target as L.Path;
           target.setStyle(getProvinceStyle(feature));
         },
-
         click: () => {
-          if (provinceClickable) {
-            onProvinceClick(props.id_provincia);
-          }
+          if (provinceClickable) onProvinceClick(props.id_provincia);
         },
       });
     },
@@ -366,10 +558,7 @@ function LeafletMap({
 
   // -------- Titulo de mapa según nivel de navegación
   const mapTitle = useMemo(() => {
-    if (isClubRole) {
-      return `Club: ${clubForRole?.nombre || ""}`;
-    }
-
+    if (isClubRole) return `Club: ${clubForRole?.nombre || ""}`;
     switch (navigation.level) {
       case "country":
         return "Argentina — Clubes y Deportistas por Provincia";
@@ -388,9 +577,6 @@ function LeafletMap({
       className={
         isFullscreen
           ? "fixed inset-0 z-[1000] rounded-none border-0 bg-card flex flex-col min-h-0"
-          // `isolate` keeps Leaflet's own internal z-index (its zoom control sits at
-          // z-index: 1000) contained here, so it can't leak above other overlays
-          // elsewhere on the page (e.g. the club detail panel's backdrop).
           : "isolate rounded-xl border border-border bg-card overflow-hidden h-full flex flex-col min-h-0"
       }
     >
@@ -403,42 +589,11 @@ function LeafletMap({
 
         <div className="flex items-center gap-2">
           {canShowClubs && (
-            <button
-              type="button"
-              onClick={() => setShowClubLayer((prev) => !prev)}
-              aria-label={showClubLayer ? "Ocultar clubes" : "Mostrar clubes"}
-              title={showClubLayer ? "Ocultar clubes" : "Mostrar clubes"}
-              className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-                showClubLayer
-                  ? "bg-blue-100 text-blue-700 hover:bg-blue-200"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              <Building2 className="h-3.5 w-3.5" />
-              {showClubLayer && clubs.length > 0 && (
-                <span className="font-bold">{clubs.length}</span>
-              )}
-              Clubes
-            </button>
-          )}
-          {canShowClubs && !isClubRole && (
-            <button
-              type="button"
-              onClick={() => setShowPolideportivos((prev) => !prev)}
-              aria-label={showPolideportivos ? "Ocultar polideportivos" : "Mostrar polideportivos"}
-              title={showPolideportivos ? "Ocultar polideportivos" : "Mostrar polideportivos"}
-              className={`flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors ${
-                showPolideportivos
-                  ? "bg-orange-100 text-orange-700 hover:bg-orange-200"
-                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
-              }`}
-            >
-              <LandPlot className="h-3.5 w-3.5" />
-              {showPolideportivos && polideportivosFiltrados.length > 0 && (
-                <span className="font-bold">{polideportivosFiltrados.length}</span>
-              )}
-              Polideportivos
-            </button>
+            <LayerSelector
+              selected={selectedLayers}
+              onChange={setSelectedLayers}
+              showInfraLayers={!isClubRole}
+            />
           )}
           <button
             type="button"
@@ -465,7 +620,7 @@ function LeafletMap({
       >
         <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
 
-        {/* Provincias*/}
+        {/* Provincias */}
         {showProvinces && (
           <GeoJSON
             key={`provinces-${provStats.length}`}
@@ -477,16 +632,14 @@ function LeafletMap({
 
         {/* Provincia Seleccionada */}
         {navigation.provinciaId &&
-          navigation.level !== "country" && (() => {
+          navigation.level !== "country" &&
+          (() => {
             const selectedProvince = {
               type: "FeatureCollection" as const,
               features: argentinaProvinces.features.filter(
-                (f) =>
-                  f.properties.id_provincia ===
-                  navigation.provinciaId
+                (f) => f.properties.id_provincia === navigation.provinciaId
               ),
             };
-
             return (
               <GeoJSON
                 key={`selected-${navigation.provinciaId}`}
@@ -511,10 +664,32 @@ function LeafletMap({
         )}
 
         {/* Marcadores polideportivos */}
-        {showPolideportivos && polideportivosFiltrados.length > 0 && (
+        {selectedLayers.includes("polideportivos") && (
           <PolideportivoClusterGroup
             polideportivos={polideportivosFiltrados}
+            color="#f97316"
+            colorDark="#c2410c"
             onPolideportivoClick={handlePolideportivoMarkerClick}
+          />
+        )}
+
+        {/* Marcadores convenios de uso */}
+        {selectedLayers.includes("convenios") && (
+          <PolideportivoClusterGroup
+            polideportivos={convenios}
+            color="#8b5cf6"
+            colorDark="#6d28d9"
+            onPolideportivoClick={handleConvenioMarkerClick}
+          />
+        )}
+
+        {/* Marcadores gimnasios urbanos */}
+        {selectedLayers.includes("gimnasios") && (
+          <PolideportivoClusterGroup
+            polideportivos={gimnasios}
+            color="#16a34a"
+            colorDark="#15803d"
+            onPolideportivoClick={handleGimnasioMarkerClick}
           />
         )}
 

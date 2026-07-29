@@ -327,8 +327,12 @@ export function GenderDistributionChart({ data, subtitle = "Porcentajes de depor
     const handleResize = () => chart.resize();
     window.addEventListener("resize", handleResize);
 
+    const ro = new ResizeObserver(() => chart.resize());
+    if (chartRef.current) ro.observe(chartRef.current);
+
     return () => {
       window.removeEventListener("resize", handleResize);
+      ro.disconnect();
       chart.dispose();
     };
   }, [data]);
@@ -339,7 +343,7 @@ export function GenderDistributionChart({ data, subtitle = "Porcentajes de depor
       subtitle={subtitle}
       icon={<Users className="h-4 w-4 text-primary" />}
     >
-      <div ref={chartRef} style={{ width: "100%", height: "360px" }} />
+      <div ref={chartRef} className="flex-1 min-h-[360px]" style={{ width: "100%" }} />
     </ChartCard>
   );
 }

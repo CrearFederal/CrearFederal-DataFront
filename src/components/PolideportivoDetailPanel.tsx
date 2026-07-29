@@ -1,19 +1,26 @@
 import { useEffect, useState } from "react";
-import { X, MapPin, LandPlot, Loader2, Building2 } from "lucide-react";
+import { X, MapPin, LandPlot, Loader2, Building2, Network, Dumbbell } from "lucide-react";
+import type { LucideIcon } from "lucide-react";
 import type { PolideportivoDetalleResponse } from "../types/Mapa";
 import { getPolideportivoDetalle } from "../data/polideportivosApi";
 import { INFRA_ITEMS, InfraCard } from "./ClubDetailPanel";
 
-// -------- PROPS --------
+const TYPE_CONFIG: Record<string, { color: string; Icon: LucideIcon }> = {
+  "Polideportivo":    { color: "#f97316", Icon: LandPlot },
+  "Convenios de Uso": { color: "#8b5cf6", Icon: Network  },
+  "Gimnasios Urbanos":{ color: "#16a34a", Icon: Dumbbell },
+};
+const DEFAULT_CONFIG = { color: "#f97316", Icon: LandPlot };
 
 interface PolideportivoDetailPanelProps {
   polideportivoId: number;
   onClose: () => void;
 }
 
-// -------- COMPONENT --------
-
-function PolideportivoDetailPanel({ polideportivoId, onClose }: PolideportivoDetailPanelProps) {
+function PolideportivoDetailPanel({
+  polideportivoId,
+  onClose,
+}: PolideportivoDetailPanelProps) {
   const [data, setData] = useState<PolideportivoDetalleResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -39,7 +46,7 @@ function PolideportivoDetailPanel({ polideportivoId, onClose }: PolideportivoDet
       .then((result) => { if (active) setData(result); })
       .catch((err) => {
         if (!active || isAbortError(err)) return;
-        if (active) setError("No se pudo cargar el detalle del polideportivo.");
+        if (active) setError("No se pudo cargar el detalle.");
       })
       .finally(() => { if (active) setLoading(false); });
 
@@ -49,9 +56,16 @@ function PolideportivoDetailPanel({ polideportivoId, onClose }: PolideportivoDet
     };
   }, [polideportivoId]);
 
+  const { color, Icon } = data?.polideportivo.tipo
+    ? (TYPE_CONFIG[data.polideportivo.tipo] ?? DEFAULT_CONFIG)
+    : DEFAULT_CONFIG;
+
   const infraItems = data?.conteoInfraestructura
     ? INFRA_ITEMS.filter((item) => (data.conteoInfraestructura[item.key] ?? 0) > 0)
     : [];
+
+  const colorBg10 = color + "1a";
+  const colorBg15 = color + "26";
 
   return (
     <div className="panel-slide-in fixed right-0 top-0 z-[60] h-full w-full lg:w-[60vw] overflow-y-auto border-l border-border bg-card shadow-2xl">
@@ -62,10 +76,11 @@ function PolideportivoDetailPanel({ polideportivoId, onClose }: PolideportivoDet
             <img
               src={data.polideportivo.logoUrl}
               alt={data.polideportivo.nombre}
-              className="h-10 w-10 rounded-full border-2 border-orange-400 object-cover shrink-0"
+              className="h-10 w-10 rounded-full border-2 object-cover shrink-0"
+              style={{ borderColor: color }}
             />
           ) : (
-            <LandPlot className="h-5 w-5 text-orange-400 shrink-0" />
+            <Icon className="h-5 w-5 shrink-0" style={{ color }} />
           )}
           <div className="min-w-0">
             <h2 className="text-lg font-bold text-foreground leading-tight truncate">
@@ -77,9 +92,16 @@ function PolideportivoDetailPanel({ polideportivoId, onClose }: PolideportivoDet
         <button
           type="button"
           onClick={onClose}
-          className="rounded-lg p-1.5 transition-colors hover:bg-orange-500/20 shrink-0"
+          className="rounded-lg p-1.5 transition-colors shrink-0"
+          style={{ ["--hover-bg" as string]: color + "4d" }}
+          onMouseEnter={(e) => { (e.currentTarget as HTMLButtonElement).style.background = color + "4d"; }}
+          onMouseLeave={(e) => { (e.currentTarget as HTMLButtonElement).style.background = ""; }}
         >
-          <X className="h-5 w-5 text-muted-foreground hover:text-orange-500" />
+          <X
+            className="h-5 w-5 text-muted-foreground transition-colors"
+            onMouseEnter={(e) => { (e.currentTarget as SVGSVGElement).style.color = color; }}
+            onMouseLeave={(e) => { (e.currentTarget as SVGSVGElement).style.color = ""; }}
+          />
         </button>
       </div>
 
@@ -87,7 +109,7 @@ function PolideportivoDetailPanel({ polideportivoId, onClose }: PolideportivoDet
       <div className="space-y-5 p-4">
         {loading && (
           <div className="flex items-center justify-center py-16">
-            <Loader2 className="h-6 w-6 animate-spin text-orange-400" />
+            <Loader2 className="h-6 w-6 animate-spin" style={{ color }} />
           </div>
         )}
 
@@ -109,8 +131,14 @@ function PolideportivoDetailPanel({ polideportivoId, onClose }: PolideportivoDet
             </div>
 
             {/* TIPO */}
-            <div className="kpi-card kpi-card--orange fade-up group">
-              <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-orange-400/60 transition-all duration-300 group-hover:bg-orange-400" />
+            <div
+              className="kpi-card fade-up group"
+              style={{ "--kpi-top-line": `linear-gradient(90deg, ${color}, ${color}cc)` } as React.CSSProperties}
+            >
+              <div
+                className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl transition-all duration-300"
+                style={{ background: color }}
+              />
               <div className="flex items-start justify-between gap-2 pl-2 text-left w-full">
                 <div className="min-w-0 flex-1">
                   <p className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">Tipo</p>
@@ -118,8 +146,13 @@ function PolideportivoDetailPanel({ polideportivoId, onClose }: PolideportivoDet
                     {data.polideportivo.tipo}
                   </p>
                 </div>
-                <div className="rounded-lg bg-orange-500/10 p-2 text-orange-500 transition-colors group-hover:bg-orange-500/15 shrink-0">
-                  <LandPlot className="h-4 w-4" />
+                <div
+                  className="rounded-lg p-2 transition-colors shrink-0"
+                  style={{ background: colorBg10, color }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLDivElement).style.background = colorBg15; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLDivElement).style.background = colorBg10; }}
+                >
+                  <Icon className="h-4 w-4" />
                 </div>
               </div>
             </div>
@@ -128,8 +161,11 @@ function PolideportivoDetailPanel({ polideportivoId, onClose }: PolideportivoDet
             {infraItems.length > 0 && (
               <div>
                 <div className="mb-3 flex items-center gap-2">
-                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-orange-500/10">
-                    <Building2 className="h-4 w-4 text-orange-500" />
+                  <div
+                    className="flex h-7 w-7 items-center justify-center rounded-lg"
+                    style={{ background: colorBg10 }}
+                  >
+                    <Building2 className="h-4 w-4" style={{ color }} />
                   </div>
                   <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                     Infraestructura del polideportivo

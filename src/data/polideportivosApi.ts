@@ -26,6 +26,28 @@ export const getPolideportivoDetalle = async (
   return data;
 };
 
+export const getConvenioDetalle = async (
+  id: number,
+  signal?: AbortSignal
+): Promise<PolideportivoDetalleResponse> => {
+  const { data } = await instanceAxios.get<PolideportivoDetalleResponse>(
+    `/ConveniosDeUso/${id}/detalle`,
+    { signal }
+  );
+  return data;
+};
+
+export const getGimnasioDetalle = async (
+  id: number,
+  signal?: AbortSignal
+): Promise<PolideportivoDetalleResponse> => {
+  const { data } = await instanceAxios.get<PolideportivoDetalleResponse>(
+    `/GimnasiosUrbanos/${id}/detalle`,
+    { signal }
+  );
+  return data;
+};
+
 export const getPolideportivosPorInfraestructura = async (
   idsTipoInfra: number[],
   signal?: AbortSignal

@@ -158,6 +158,7 @@ function ChartDistribucionesTests({ distribuciones, selectedDeportistaId, nivel 
 				type: "value",
 				min: -X_RANGE,
 				max: X_RANGE,
+				inverse: row.aptitud === "Velocidad",
 				// El eje estandarizado nunca muestra valores (metodología)
 				axisLabel: { show: false },
 				axisTick: { show: false },

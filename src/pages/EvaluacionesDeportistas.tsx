@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Mars, Search, Venus, SportShoe, IdCardLanyard, TrendingUp, TrendingDown, Minus } from "lucide-react";
+import { ArrowLeft, Mars, Search, Venus, SportShoe, IdCardLanyard, Activity, ChartSpline } from "lucide-react";
 import { authBootstrap, getAuthMe, sendLogoutOnPageClose } from "../api/session";
 import type { AuthScope } from "../types/auth";
 import type { UserRoleConfig } from "../data/roles";
@@ -9,6 +9,7 @@ import type { SearchableSelectOption } from "../components/SearchableSelect";
 import SearchableMultiSelect from "../components/SearchableMultiSelect";
 import RadarAptitudesChart, { getAptitudesPorNivel, normalizeAptitudName } from "../components/RadarAptitudesChart";
 import ChartDistribucionesTests from "../components/ChartDistribucionesTests";
+import ChartCalidadMovimiento from "../components/ChartCalidadMovimiento";
 import { getDeportesPorScope, getMunicipiosClubesPorScope, getProvinciasPorScope } from "../data/statsApi";
 import { getDeportistasEvaluados } from "../data/evaluacionesApi";
 import type { DeportistasEvaluadosResponse } from "../types/Evaluaciones";
@@ -506,18 +507,15 @@ function EvaluacionesDeportistas() {
 			{ label: "Nivel evaluado", value: nivelEvaluado ? nivelOptions.find((o) => o.value === nivelEvaluado)?.label : undefined },
 		].filter((filtro): filtro is { label: string; value: string } => Boolean(filtro.value));
 
-		const medianasByAptitud = new Map(resultados.medianas.map((item) => [normalizeAptitudName(item.aptitudEvaluada), item.mediana]));
-		const puntajesByAptitud = new Map(
-			(selectedDeportista?.puntajes ?? []).map((item) => [normalizeAptitudName(item.aptitudEvaluada), item.puntajePromedio])
+		const percentilesByAptitud = new Map(
+			(selectedDeportista?.puntajes ?? []).map((item) => [normalizeAptitudName(item.aptitudEvaluada), item.percentil])
 		);
 		const aptitudesPorNivel = getAptitudesPorNivel(nivelEvaluado ?? "base");
 		const comparacionAptitudes = selectedDeportista
-			? aptitudesPorNivel.map((aptitud) => {
-				const valor = puntajesByAptitud.get(aptitud) ?? 0;
-				const mediana = medianasByAptitud.get(aptitud) ?? 0;
-				const delta = valor - mediana;
-				return { aptitud, valor, mediana, delta };
-			})
+			? aptitudesPorNivel.map((aptitud) => ({
+				aptitud,
+				percentil: percentilesByAptitud.get(aptitud) ?? null,
+			}))
 			: [];
 
 		return (
@@ -601,22 +599,13 @@ function EvaluacionesDeportistas() {
 									{comparacionAptitudes.length > 0 && (
 										<div className="border-t border-border/60 pt-3 mt-3">
 											<p className="mb-1.5 text-[12px] font-medium uppercase tracking-wide text-muted-foreground">
-												{selectedDeportista?.nombre} vs mediana del grupo
+												Percentil del deportista en cada aptitud
 											</p>
 											<div className="space-y-1">
-												{comparacionAptitudes.map(({ aptitud, delta }, index) => {
-													const isAbove = delta > 0.05;
-													const isBelow = delta < -0.05;
-													const DeltaIcon = isAbove ? TrendingUp : isBelow ? TrendingDown : Minus;
-													const deltaColor = isAbove
-														? "text-green-600"
-														: isBelow
-															? "text-red-600"
-															: "text-muted-foreground";
+												{comparacionAptitudes.map(({ aptitud, percentil }, index) => {
 													const aptitudColor = APTITUD_COLORS[index % APTITUD_COLORS.length];
-													// Aptitud scores are on a 0-10 scale, so the delta expressed as
-													// percentage points of that scale (e.g. mediana 5, valor 10 → +50%).
-													const porcentaje = Math.round((delta / 10) * 100);
+													const display = percentil !== null ? 100 - percentil : null;
+													const isGood = percentil !== null && percentil >= 50;
 
 													return (
 														<div
@@ -630,11 +619,19 @@ function EvaluacionesDeportistas() {
 																/>
 																{aptitud}
 															</span>
-															<span className={`flex items-center gap-1 shrink-0 font-semibold tabular-nums ${deltaColor}`}>
-																<DeltaIcon className="h-3 w-3" aria-hidden="true" />
-																{porcentaje > 0 ? "+" : ""}
-																{porcentaje}%
-															</span>
+															{display !== null ? (
+																isGood ? (
+																	<span className="shrink-0 font-semibold tabular-nums text-green-600">
+																		Top {display}%
+																	</span>
+																) : (
+																	<span className="shrink-0 font-semibold tabular-nums text-orange-500">
+																		Área de mejora {display}%
+																	</span>
+																)
+															) : (
+																<span className="shrink-0 text-muted-foreground">—</span>
+															)}
 														</div>
 													);
 												})}
@@ -712,9 +709,12 @@ function EvaluacionesDeportistas() {
 					</div>
 
 					<div className="rounded-xl border border-border bg-card p-4">
-						<h3 className="text-sm font-semibold text-foreground">
-							Distribuciones{selectedDeportista ? ` — ${selectedDeportista.nombre}` : ""}
-						</h3>
+						<div className="flex items-center gap-2">
+							<ChartSpline className="h-4 w-4 shrink-0 text-primary" />
+							<h3 className="text-sm font-semibold text-foreground">
+								Distribuciones{selectedDeportista ? ` — ${selectedDeportista.nombre}` : ""}
+							</h3>
+						</div>
 						<p className="mb-3 mt-1 text-xs text-muted-foreground">
 							Distribución de los resultados reales de cada test dentro del grupo filtrado. La línea punteada marca el resultado del deportista seleccionado.
 						</p>
@@ -732,6 +732,21 @@ function EvaluacionesDeportistas() {
 							</div>
 						)}
 					</div>
+
+					{(resultados.calidadPatronesMovimiento ?? []).length > 0 && (
+						<div className="rounded-xl border border-border bg-card p-4">
+						<div className="flex items-center gap-2">
+							<Activity className="h-4 w-4 shrink-0 text-rose-500" />
+							<h3 className="text-sm font-semibold text-foreground">
+								Calidad de Patrones de Movimiento del grupo seleccionado
+							</h3>
+						</div>
+							<p className="mb-4 mt-1 text-xs text-muted-foreground">
+								Distribución de puntajes FMS por test.
+							</p>
+							<ChartCalidadMovimiento tests={resultados.calidadPatronesMovimiento ?? []} />
+						</div>
+					)}
 				</div>
 			</div>
 		);

@@ -118,6 +118,16 @@ export const getMapaPolideportivosLogos = async (
 };
 
 
+export const getMapaConveniosDeUso = async (signal?: AbortSignal): Promise<Polideportivo[]> => {
+  const { data } = await instanceAxios.get<PolideportivoRaw[]>("/mapa/ConveniosDeUso", { signal });
+  return data.map(toPolideportivo);
+};
+
+export const getMapaGimnasiosUrbanos = async (signal?: AbortSignal): Promise<Polideportivo[]> => {
+  const { data } = await instanceAxios.get<PolideportivoRaw[]>("/mapa/GimnasiosUrbanos", { signal });
+  return data.map(toPolideportivo);
+};
+
 export const getMapaClubesLogos = async (
   clubIds: number[],
   signal?: AbortSignal
