@@ -105,6 +105,7 @@ export interface DeportistaEvaluadoItem {
 	municipio: string;
 	ranking: number;
 	puntajes: PuntajeAptitud[];
+	fms: FmsDeportista | null;
 }
 
 export interface DistribucionTestValor {
@@ -131,11 +132,27 @@ export interface CalidadMovimientoTest {
 	distribucion: CalidadMovimientoValor[];
 }
 
+export interface CalidadMovimientoResult {
+	tests: CalidadMovimientoTest[];
+	resumen: CalidadMovimientoValor[];
+}
+
+export interface FmsTestItem {
+	idTest: number;
+	nombre: string;
+	valor: number;
+}
+
+export interface FmsDeportista {
+	tests: FmsTestItem[];
+	total: number;
+}
+
 export interface DeportistasEvaluadosResponse {
 	deportistas: DeportistaEvaluadoItem[];
 	medianas: MedianaAptitud[];
 	distribuciones: DistribucionTest[];
-	calidadPatronesMovimiento?: CalidadMovimientoTest[];
+	calidadPatronesMovimiento?: CalidadMovimientoResult;
 }
 
 export interface DeportistasEvaluadosParams {

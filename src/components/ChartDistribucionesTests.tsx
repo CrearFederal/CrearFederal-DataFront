@@ -153,12 +153,16 @@ function ChartDistribucionesTests({ distribuciones, selectedDeportistaId, nivel 
 				textStyle: { fontSize: 11, fontWeight: 600, color: "#475569" },
 			});
 
+			const invertAxis =
+				row.aptitud === "Velocidad" ||
+				(/coordinac/i.test(row.nombreTest) && /10/i.test(row.nombreTest));
+
 			xAxes.push({
 				gridIndex: i,
 				type: "value",
 				min: -X_RANGE,
 				max: X_RANGE,
-				inverse: row.aptitud === "Velocidad",
+				inverse: invertAxis,
 				// El eje estandarizado nunca muestra valores (metodología)
 				axisLabel: { show: false },
 				axisTick: { show: false },
