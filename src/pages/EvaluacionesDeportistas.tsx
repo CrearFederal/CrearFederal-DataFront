@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Mars, Search, Venus, SportShoe, IdCardLanyard, Activity, ChartSpline } from "lucide-react";
+import { ArrowLeft, Mars, Search, Venus, SportShoe, IdCardLanyard, Activity, ChartSpline, ShieldAlert, ShieldX } from "lucide-react";
 import { authBootstrap, getAuthMe, sendLogoutOnPageClose } from "../api/session";
 import type { AuthScope } from "../types/auth";
 import type { UserRoleConfig } from "../data/roles";
@@ -489,6 +489,10 @@ function EvaluacionesDeportistas() {
 			);
 		}
 
+		const totalDeportistas = ranking.length;
+		const grupoInsuficiente = totalDeportistas <= 10;
+		const grupoReducido = totalDeportistas > 10 && totalDeportistas < 30;
+
 		const selectedDeportista = ranking.find((d) => d.idDeportista === selectedDeportistaId) ?? null;
 
 		const filtrosAplicados = [
@@ -544,6 +548,24 @@ function EvaluacionesDeportistas() {
 					</div>
 				</div>
 
+				{(grupoInsuficiente || grupoReducido) && (
+					<div className={`mx-3 mt-3 sm:mx-4 rounded-lg border px-4 py-3 text-sm ${grupoInsuficiente ? "border-destructive/40 bg-destructive/5 text-destructive" : "border-amber-500/40 bg-amber-500/5 text-amber-600"}`}>
+						<div className="flex items-center gap-2 font-semibold mb-0.5">
+							{grupoInsuficiente
+								? <ShieldX className="h-5 w-5 shrink-0" />
+								: <ShieldAlert className="h-5 w-5 shrink-0" />}
+							{grupoInsuficiente
+								? "Muestra insuficiente — análisis no recomendado"
+								: "Muestra reducida — resultados orientativos"}
+						</div>
+						<p className="text-xs leading-relaxed text-muted-foreground pl-7">
+							{grupoInsuficiente
+								? `El grupo filtrado contiene únicamente ${totalDeportistas} ${totalDeportistas === 1 ? "persona" : "personas"}. Con una muestra tan reducida, los indicadores estadísticos no son representativos y el gráfico radar ha sido deshabilitado. Se recomienda ampliar los criterios de búsqueda para obtener resultados confiables.`
+								: `El grupo filtrado contiene ${totalDeportistas} personas, por debajo del mínimo recomendado de 30. Los gráficos y estadísticas se mostrarán, pero su interpretación debe realizarse con cautela dado que la muestra puede no ser representativa de la población objetivo.`}
+						</p>
+					</div>
+				)}
+
 				<div className="flex-1 flex flex-col p-3 gap-3 sm:p-4 min-h-0">
 					<div className="flex-1 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] lg:items-start min-h-0">
 						<div ref={chartCardRef} className="flex flex-col rounded-xl border border-border bg-card p-4">
@@ -563,17 +585,28 @@ function EvaluacionesDeportistas() {
 							</p>
 
 							<div className="h-72 lg:h-96 shrink-0">
-								<RadarAptitudesChart
-									selected={selectedDeportista?.puntajes ?? []}
-									medianas={resultados.medianas}
-									height="100%"
-									nivel={nivelEvaluado ?? "base"}
-								/>
+								{grupoInsuficiente ? (
+									<div className="flex h-full flex-col items-center justify-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 text-center px-6">
+										<p className="text-sm font-semibold text-destructive">Gráfico radar deshabilitado</p>
+										<p className="text-xs text-muted-foreground leading-relaxed">
+											La muestra es insuficiente para generar un análisis estadístico confiable. Amplíe los criterios de búsqueda para habilitar esta visualización.
+										</p>
+									</div>
+								) : (
+									<RadarAptitudesChart
+										selected={selectedDeportista?.puntajes ?? []}
+										medianas={resultados.medianas}
+										height="100%"
+										nivel={nivelEvaluado ?? "base"}
+									/>
+								)}
 							</div>
 
-							<p className="text-xs text-muted-foreground mt-1 leading-5 shrink-0">
-								La línea punteada indica la mediana general. Activá o desactivá las referencias del gráfico para ver solo el deportista o solo la mediana.
-							</p>
+							{!grupoInsuficiente && (
+								<p className="text-xs text-muted-foreground mt-1 leading-5 shrink-0">
+									La línea punteada indica la mediana general. Activá o desactivá las referencias del gráfico para ver solo el deportista o solo la mediana.
+								</p>
+							)}
 
 							{(filtrosAplicados.length > 0 || comparacionAptitudes.length > 0) && (
 								<div className="mt-3">
@@ -604,8 +637,14 @@ function EvaluacionesDeportistas() {
 											<div className="space-y-1">
 												{comparacionAptitudes.map(({ aptitud, percentil }, index) => {
 													const aptitudColor = APTITUD_COLORS[index % APTITUD_COLORS.length];
-													const display = percentil !== null ? 100 - percentil : null;
-													const isGood = percentil !== null && percentil >= 50;
+													const semaforoColor =
+														percentil === null
+															? "text-muted-foreground"
+															: percentil <= 33.333
+																? "text-red-600"
+																: percentil <= 66.667
+																	? "text-amber-500"
+																	: "text-green-600";
 
 													return (
 														<div
@@ -619,19 +658,9 @@ function EvaluacionesDeportistas() {
 																/>
 																{aptitud}
 															</span>
-															{display !== null ? (
-																isGood ? (
-																	<span className="shrink-0 font-semibold tabular-nums text-green-600">
-																		Top {display}%
-																	</span>
-																) : (
-																	<span className="shrink-0 font-semibold tabular-nums text-orange-500">
-																		Área de mejora {display}%
-																	</span>
-																)
-															) : (
-																<span className="shrink-0 text-muted-foreground">—</span>
-															)}
+															<span className={`shrink-0 font-semibold tabular-nums ${semaforoColor}`}>
+																{percentil !== null ? percentil : "—"}
+															</span>
 														</div>
 													);
 												})}
@@ -733,18 +762,27 @@ function EvaluacionesDeportistas() {
 						)}
 					</div>
 
-					{(resultados.calidadPatronesMovimiento ?? []).length > 0 && (
+					{resultados.calidadPatronesMovimiento &&
+						resultados.calidadPatronesMovimiento.tests.length > 0 &&
+						(nivelEvaluado === "Intermedio" || nivelEvaluado === "Avanzado") && (
 						<div className="rounded-xl border border-border bg-card p-4">
-						<div className="flex items-center gap-2">
-							<Activity className="h-4 w-4 shrink-0 text-rose-500" />
-							<h3 className="text-sm font-semibold text-foreground">
-								Calidad de Patrones de Movimiento del grupo seleccionado
-							</h3>
-						</div>
+							<div className="flex items-center gap-2">
+								<Activity className="h-4 w-4 shrink-0 text-green-600" />
+								<h3 className="text-sm font-semibold text-foreground">
+									Calidad de Patrones de Movimiento
+									{selectedDeportista && (
+										<span className="font-bold"> — {selectedDeportista.nombre}</span>
+									)}
+								</h3>
+							</div>
 							<p className="mb-4 mt-1 text-xs text-muted-foreground">
-								Distribución de puntajes FMS por test.
+								Distribución de puntajes FMS por test. La barra resaltada en verde indica el resultado del deportista seleccionado.
 							</p>
-							<ChartCalidadMovimiento tests={resultados.calidadPatronesMovimiento ?? []} />
+							<ChartCalidadMovimiento
+								calidad={resultados.calidadPatronesMovimiento}
+								selectedFms={selectedDeportista?.fms ?? null}
+								nivel={nivelEvaluado}
+							/>
 						</div>
 					)}
 				</div>

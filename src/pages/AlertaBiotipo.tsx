@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Mars, Search, Venus, Gauge, IdCardLanyard } from "lucide-react";
+import { ArrowLeft, Mars, Search, Venus, Gauge, IdCardLanyard, ShieldAlert, ShieldX } from "lucide-react";
 import { authBootstrap, getAuthMe, sendLogoutOnPageClose } from "../api/session";
 import type { AuthScope } from "../types/auth";
 import type { UserRoleConfig } from "../data/roles";
@@ -409,6 +409,10 @@ function AlertaBiotipo() {
 			);
 		}
 
+		const totalDeportistas = alphabetical.length;
+		const grupoInsuficiente = totalDeportistas <= 10;
+		const grupoReducido = totalDeportistas > 10 && totalDeportistas < 30;
+
 		const selectedDeportista = alphabetical.find((d) => d.idDeportista === selectedDeportistaId) ?? null;
 
 		const filtrosAplicados = [
@@ -452,7 +456,7 @@ function AlertaBiotipo() {
 							<Gauge className="h-5 w-5" />
 						</div>
 						<div className="min-w-0">
-							<h1 className="text-base font-semibold text-foreground truncate sm:text-lg">Alerta Biotipo</h1>
+							<h1 className="text-base font-semibold text-foreground truncate sm:text-lg">Mediciones Antropométricas</h1>
 							<p className="truncate text-xs text-muted-foreground sm:text-sm">
 								Análisis de aptitudes físicas por biotipo.{" "}
 								<span className="font-semibold text-primary">{alphabetical.length}</span>{" "}
@@ -461,6 +465,24 @@ function AlertaBiotipo() {
 						</div>
 					</div>
 				</div>
+
+			{(grupoInsuficiente || grupoReducido) && (
+					<div className={`mx-3 mt-3 sm:mx-4 rounded-lg border px-4 py-3 text-sm ${grupoInsuficiente ? "border-destructive/40 bg-destructive/5 text-destructive" : "border-amber-500/40 bg-amber-500/5 text-amber-600"}`}>
+						<div className="flex items-center gap-2 font-semibold mb-0.5">
+							{grupoInsuficiente
+								? <ShieldX className="h-5 w-5 shrink-0" />
+								: <ShieldAlert className="h-5 w-5 shrink-0" />}
+							{grupoInsuficiente
+								? "Muestra insuficiente — análisis no recomendado"
+								: "Muestra reducida — resultados orientativos"}
+						</div>
+						<p className="text-xs leading-relaxed text-muted-foreground pl-7">
+							{grupoInsuficiente
+								? `El grupo filtrado contiene únicamente ${totalDeportistas} ${totalDeportistas === 1 ? "persona" : "personas"}. Con una muestra tan reducida, los indicadores estadísticos no son representativos y el gráfico radar ha sido deshabilitado. Se recomienda ampliar los criterios de búsqueda para obtener resultados confiables.`
+								: `El grupo filtrado contiene ${totalDeportistas} personas, por debajo del mínimo recomendado de 30. Los gráficos y estadísticas se mostrarán, pero su interpretación debe realizarse con cautela dado que la muestra puede no ser representativa de la población objetivo.`}
+						</p>
+					</div>
+				)}
 
 				<div className="flex-1 flex flex-col p-3 gap-3 sm:p-4 min-h-0">
 					<div className="flex-1 grid grid-cols-1 gap-3 lg:grid-cols-[minmax(0,1.1fr)_minmax(0,1.4fr)] lg:items-start min-h-0">
@@ -481,16 +503,27 @@ function AlertaBiotipo() {
 							</p>
 
 							<div className="h-72 lg:h-96 shrink-0">
-								<RadarBiotipoChart
-									tests={selectedDeportista?.tests ?? []}
-									medianas={resultados.medianas}
-									height="100%"
-								/>
+								{grupoInsuficiente ? (
+									<div className="flex h-full flex-col items-center justify-center gap-2 rounded-lg border border-destructive/30 bg-destructive/5 text-center px-6">
+										<p className="text-sm font-semibold text-destructive">Gráfico radar deshabilitado</p>
+										<p className="text-xs text-muted-foreground leading-relaxed">
+											La muestra es insuficiente para generar un análisis estadístico confiable. Amplíe los criterios de búsqueda para habilitar esta visualización.
+										</p>
+									</div>
+								) : (
+									<RadarBiotipoChart
+										tests={selectedDeportista?.tests ?? []}
+										medianas={resultados.medianas}
+										height="100%"
+									/>
+								)}
 							</div>
 
-							<p className="text-xs text-muted-foreground mt-1 leading-5 shrink-0">
-								La línea punteada indica la mediana general. Activá o desactivá las referencias del gráfico para ver solo el deportista o solo la mediana.
-							</p>
+							{!grupoInsuficiente && (
+								<p className="text-xs text-muted-foreground mt-1 leading-5 shrink-0">
+									La línea punteada indica la mediana general. Activá o desactivá las referencias del gráfico para ver solo el deportista o solo la mediana.
+								</p>
+							)}
 
 							{(filtrosAplicados.length > 0 || comparacionTests.length > 0) && (
 								<div className="mt-3">
@@ -521,8 +554,14 @@ function AlertaBiotipo() {
 											<div className="space-y-1">
 												{comparacionTests.map(({ test, percentil }, index) => {
 													const testColor = APTITUD_COLORS[index % APTITUD_COLORS.length];
-													const display = percentil !== null ? 100 - percentil : null;
-													const isGood = percentil !== null && percentil >= 50;
+													const semaforoColor =
+														percentil === null
+															? "text-muted-foreground"
+															: percentil <= 33.333
+																? "text-red-600"
+																: percentil <= 66.667
+																	? "text-amber-500"
+																	: "text-green-600";
 
 													return (
 														<div
@@ -536,19 +575,9 @@ function AlertaBiotipo() {
 																/>
 																{test}
 															</span>
-															{display !== null ? (
-																isGood ? (
-																	<span className="shrink-0 font-semibold tabular-nums text-green-600">
-																		Top {display}%
-																	</span>
-																) : (
-																	<span className="shrink-0 font-semibold tabular-nums text-orange-500">
-																		Área de mejora {display}%
-																	</span>
-																)
-															) : (
-																<span className="shrink-0 text-muted-foreground">—</span>
-															)}
+															<span className={`shrink-0 font-semibold tabular-nums ${semaforoColor}`}>
+																{percentil !== null ? percentil : "—"}
+															</span>
 														</div>
 													);
 												})}
@@ -634,7 +663,7 @@ function AlertaBiotipo() {
 								<Gauge className="h-5 w-5" />
 							</div>
 							<div>
-								<h2 className="text-lg font-semibold text-foreground">Alerta Biotipo</h2>
+								<h2 className="text-lg font-semibold text-foreground">Mediciones Antropométricas</h2>
 								<p className="text-xs text-muted-foreground mt-0.5">Completá el formulario para analizar el biotipo del grupo</p>
 							</div>
 						</div>
