@@ -1,6 +1,6 @@
 import { instanceAxios } from "../api/axios";
 import type { Filters } from "../types/types";
-import type { MapaClub, MapaClubRaw, ProvinciaResumen, ProvinciaResumenRaw, ClubLogosResponse, Polideportivo, PolideportivoRaw, PolideportivoLogosResponse } from "../types/Mapa";
+import type { MapaClub, MapaClubRaw, ProvinciaResumen, ProvinciaResumenRaw, ClubLogosResponse, Polideportivo, PolideportivoRaw, PolideportivoLogosResponse, Federacion, FederacionRaw, FederacionLogosResponse } from "../types/Mapa";
 
 const toNumber = (value: string | number): number => {
   if (typeof value === "number") return value;
@@ -36,6 +36,12 @@ const toProvinciaResumen = (item: ProvinciaResumenRaw): ProvinciaResumen => ({
 });
 
 const toPolideportivo = (raw: PolideportivoRaw): Polideportivo => ({
+  ...raw,
+  lat: normalizeCoord(toNumber(raw.lat), 90),
+  lng: normalizeCoord(toNumber(raw.lng), 180),
+});
+
+const toFederacion = (raw: FederacionRaw): Federacion => ({
   ...raw,
   lat: normalizeCoord(toNumber(raw.lat), 90),
   lng: normalizeCoord(toNumber(raw.lng), 180),
@@ -126,6 +132,42 @@ export const getMapaConveniosDeUso = async (signal?: AbortSignal): Promise<Polid
 export const getMapaGimnasiosUrbanos = async (signal?: AbortSignal): Promise<Polideportivo[]> => {
   const { data } = await instanceAxios.get<PolideportivoRaw[]>("/mapa/GimnasiosUrbanos", { signal });
   return data.map(toPolideportivo);
+};
+
+export const getMapaFederaciones = async (
+  signal?: AbortSignal,
+  nivel?: string
+): Promise<Federacion[]> => {
+  const { data } = await instanceAxios.get<FederacionRaw[]>("/mapa/federaciones", {
+    signal,
+    params: {
+      ...(nivel !== undefined && { nivel }),
+    },
+  });
+  return data.map(toFederacion);
+};
+
+export const getMapaFederacionesLogos = async (
+  federacionIds: number[],
+  signal?: AbortSignal
+): Promise<Record<number, string | null>> => {
+  if (federacionIds.length === 0) return {};
+
+  try {
+    const { data } = await instanceAxios.get<FederacionLogosResponse>("/mapa/federaciones/logos", {
+      signal,
+      params: { ids: federacionIds.join(",") },
+    });
+
+    const logosMap: Record<number, string | null> = {};
+    data.logos.forEach((logo) => {
+      logosMap[logo.id] = logo.logoUrl;
+    });
+    return logosMap;
+  } catch (error) {
+    console.error("Error fetching federaciones logos:", error);
+    return {};
+  }
 };
 
 export const getMapaClubesLogos = async (

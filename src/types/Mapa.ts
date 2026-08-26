@@ -124,3 +124,77 @@ export interface PolideportivoPorInfraestructura {
   lng: number | null;
   logoUrl: string | null;
 }
+
+export interface Federacion {
+  id: number;
+  nombre: string;
+  nombreCorto: string;
+  id_provincia: number;
+  nombreProvincia: string;
+  direccion: string;
+  lat: number;
+  lng: number;
+  nivel_alcance: string;
+  nombreNivel: string;
+  logoUrl: string | null;
+}
+
+export interface FederacionRaw {
+  id: number;
+  nombre: string;
+  nombreCorto: string;
+  id_provincia: number;
+  nombreProvincia: string;
+  direccion: string;
+  lat: string | number;
+  lng: string | number;
+  nivel_alcance: string;
+  nombreNivel: string;
+  logoUrl: string | null;
+}
+
+export interface FederacionLogo {
+  id: number;
+  logoUrl: string | null;
+}
+
+export interface FederacionLogosResponse {
+  logos: FederacionLogo[];
+}
+
+export interface FederacionDeporte {
+  id_deporte: number;
+  nombre: string;
+  esPrincipal: boolean;
+}
+
+export interface FederacionMunicipio {
+  id_municipio: number;
+  nombre: string;
+}
+
+export interface FederacionDetalle {
+  id: number;
+  nombre: string;
+  nombreCorto: string;
+  direccion: string;
+  telefono: string;
+  whatsapp: string;
+  mail: string;
+  responsable: string;
+  logoUrl: string | null;
+  nivel_alcance: string;
+  nombreNivel: string;
+  id_provincia: number;
+  nombreProvincia: string;
+  personeria_juridica: string;
+  nro_personeria: string;
+  fecha_otorgada: string | null;
+}
+
+export interface FederacionDetalleResponse {
+  federacion: FederacionDetalle;
+  deportes: FederacionDeporte[];
+  municipios: FederacionMunicipio[];
+  totalDeportistas: number;
+}

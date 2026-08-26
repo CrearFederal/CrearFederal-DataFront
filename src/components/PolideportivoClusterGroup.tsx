@@ -2,7 +2,17 @@ import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 import L, { MarkerClusterGroup as LMarkerClusterGroup } from "leaflet";
 import "leaflet.markercluster";
-import type { Polideportivo } from "../types/Mapa";
+
+// Forma minima que necesita este cluster generico. Polideportivo y Federacion
+// (entre otros) son un superset de esta forma, asi que ambos son compatibles.
+export interface MapClusterPoint {
+  id: number;
+  nombre: string;
+  direccion?: string | null;
+  lat: number;
+  lng: number;
+  logoUrl?: string | null;
+}
 
 function createClusterIcon(color: string) {
   return function (cluster: any) {
@@ -61,7 +71,7 @@ function createMarkerIcon(color: string, logoUrl?: string | null) {
 }
 
 interface PolideportivoClusterGroupProps {
-  polideportivos: Polideportivo[];
+  polideportivos: MapClusterPoint[];
   color: string;
   colorDark: string;
   onPolideportivoClick?: (id: number) => void;

@@ -16,8 +16,10 @@ import {
   getMapaPolideportivosLogos,
   getMapaConveniosDeUso,
   getMapaGimnasiosUrbanos,
+  getMapaFederaciones,
+  getMapaFederacionesLogos,
 } from "../data/mapaApi";
-import type { Polideportivo } from "../types/Mapa";
+import type { Polideportivo, Federacion } from "../types/Mapa";
 import { argentinaProvinces } from "../data/argentinaGeoJson";
 import MarkerClusterGroup from "./ClusterGroup";
 import PolideportivoClusterGroup from "./PolideportivoClusterGroup";
@@ -46,6 +48,7 @@ const LAYER_OPTIONS = [
   { value: "polideportivos", label: "Polideportivos",   color: "#f97316" },
   { value: "convenios",      label: "Convenios De Uso", color: "#8b5cf6" },
   { value: "gimnasios",      label: "Gimnasios Urbanos",color: "#16a34a" },
+  { value: "federaciones",   label: "Federaciones",     color: "#0d9488" },
 ] as const;
 
 function LayerSelector({
@@ -212,6 +215,7 @@ interface LeafletMapProps {
   onPolideportivoClick?: (id: number) => void;
   onConvenioClick?: (id: number) => void;
   onGimnasioClick?: (id: number) => void;
+  onFederacionClick?: (id: number) => void;
   onNavigateCountry?: () => void;
 }
 
@@ -226,6 +230,7 @@ function LeafletMap({
   onPolideportivoClick,
   onConvenioClick,
   onGimnasioClick,
+  onFederacionClick,
   onNavigateCountry,
 }: LeafletMapProps) {
   const [provStats, setProvStats] = useState<
@@ -236,6 +241,7 @@ function LeafletMap({
   const [polideportivos, setPolideportivos] = useState<Polideportivo[]>([]);
   const [convenios, setConvenios] = useState<Polideportivo[]>([]);
   const [gimnasios, setGimnasios] = useState<Polideportivo[]>([]);
+  const [federaciones, setFederaciones] = useState<Federacion[]>([]);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const containerDivRef = useRef<HTMLDivElement>(null);
   const initialZoom = typeof window !== "undefined" && window.innerWidth < 768 ? 4 : 6;
@@ -287,6 +293,14 @@ function LeafletMap({
       onGimnasioClick?.(id);
     },
     [onGimnasioClick]
+  );
+
+  const handleFederacionMarkerClick = useCallback(
+    (id: number) => {
+      setIsFullscreen(false);
+      onFederacionClick?.(id);
+    },
+    [onFederacionClick]
   );
 
   const isAbortError = (error: unknown): boolean => {
@@ -369,6 +383,7 @@ function LeafletMap({
       setPolideportivos([]);
       setConvenios([]);
       setGimnasios([]);
+      setFederaciones([]);
     }
   }, [navigation.level, navigation.provinciaId]);
 
@@ -440,6 +455,37 @@ function LeafletMap({
     void load();
     return () => controller.abort();
   }, [selectedLayers, gimnasios.length]);
+
+  // Lazy-load federaciones when the layer is activated
+  useEffect(() => {
+    if (!selectedLayers.includes("federaciones") || federaciones.length > 0) return;
+
+    const controller = new AbortController();
+
+    const loadFederaciones = async () => {
+      try {
+        const data = await getMapaFederaciones(controller.signal);
+        if (controller.signal.aborted) return;
+
+        const logos = await getMapaFederacionesLogos(
+          data.map((f) => f.id),
+          controller.signal
+        );
+        if (controller.signal.aborted) return;
+
+        const enriched = data.map((f) => ({
+          ...f,
+          logoUrl: logos[f.id] !== undefined ? logos[f.id] : f.logoUrl,
+        }));
+        setFederaciones(enriched);
+      } catch (error) {
+        if (!isAbortError(error)) setFederaciones([]);
+      }
+    };
+
+    void loadFederaciones();
+    return () => controller.abort();
+  }, [selectedLayers, federaciones.length]);
 
   // -------- Data
 
@@ -690,6 +736,16 @@ function LeafletMap({
             color="#16a34a"
             colorDark="#15803d"
             onPolideportivoClick={handleGimnasioMarkerClick}
+          />
+        )}
+
+        {/* Marcadores federaciones */}
+        {selectedLayers.includes("federaciones") && (
+          <PolideportivoClusterGroup
+            polideportivos={federaciones}
+            color="#0d9488"
+            colorDark="#0f766e"
+            onPolideportivoClick={handleFederacionMarkerClick}
           />
         )}
 
