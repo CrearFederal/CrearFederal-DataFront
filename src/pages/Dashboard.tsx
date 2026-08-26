@@ -10,6 +10,7 @@ import type { AuthScope } from "../types/auth";
 import LeafletMap from "../components/LeafletMap";
 import ClubDetailPanel from "../components/ClubDetailPanel";
 import PolideportivoDetailPanel from "../components/PolideportivoDetailPanel";
+import FederacionDetailPanel from "../components/FederacionDetailPanel";
 import KpiCard from "../components/KpiCard";
 import DeporteHeatMap from "../components/DeporteHeatMap";
 import { AthletesPerSportChart, GenderDistributionChart, AgeDistributionChart, ProvinceRankingChart, MunicipioRankingChart, ClubRankingChart, DeporteCoverageChart, GenderBalanceByDeportChart } from "../components/Charts";
@@ -94,6 +95,7 @@ function Dashboard() {
   const [filters, setFilters] = useState<Filters>({ sports: [], gender: [], ageRange: [6, 60] });
   const [selectedClubId, setSelectedClubId] = useState<number | null>(null);
   const [selectedInfraId, setSelectedInfraId] = useState<number | null>(null);
+  const [selectedFederacionId, setSelectedFederacionId] = useState<number | null>(null);
   const [clubesTotales, setClubesTotales] = useState<ClubesTotalesResponse | null>(null);
   const [deportistasTotales, setDeportistasTotales] = useState<DeportistasTotalesResponse | null>(null);
   const [deportistasGeneros, setDeportistasGeneros] = useState<DeportistasGenerosResponse | null>(null);
@@ -864,6 +866,7 @@ function Dashboard() {
       setNavigation({ level: "province", provinciaId });
       setSelectedClubId(null);
       setSelectedInfraId(null);
+      setSelectedFederacionId(null);
     });
   }, [roleConfig]);
 
@@ -872,18 +875,21 @@ function Dashboard() {
     setNavigation((prev) => ({ level: "city", provinciaId: prev.provinciaId, municipioId }));
     setSelectedClubId(null);
     setSelectedInfraId(null);
+    setSelectedFederacionId(null);
   }, [roleConfig]);
 
   const handleClubClick = useCallback((clubId: number) => setSelectedClubId(clubId), []);
   const handlePolideportivoClick = useCallback((id: number) => setSelectedInfraId(id), []);
   const handleConvenioClick = useCallback((id: number) => setSelectedInfraId(id), []);
   const handleGimnasioClick = useCallback((id: number) => setSelectedInfraId(id), []);
+  const handleFederacionClick = useCallback((id: number) => setSelectedFederacionId(id), []);
 
   const handleNavigateCountry = useCallback(() => {
     if (!roleConfig || roleConfig.role !== "coa") return;
     setNavigation({ level: "country" });
     setSelectedClubId(null);
     setSelectedInfraId(null);
+    setSelectedFederacionId(null);
   }, [roleConfig?.role]);
 
   const handleGenderSelect = useCallback(
@@ -1167,6 +1173,7 @@ function Dashboard() {
               onPolideportivoClick={handlePolideportivoClick}
               onConvenioClick={handleConvenioClick}
               onGimnasioClick={handleGimnasioClick}
+              onFederacionClick={handleFederacionClick}
               onNavigateCountry={handleNavigateCountry}
             />
           </div>
@@ -1921,6 +1928,19 @@ function Dashboard() {
           <PolideportivoDetailPanel
             polideportivoId={selectedInfraId}
             onClose={() => setSelectedInfraId(null)}
+          />
+        </>
+      )}
+
+      {selectedFederacionId && (
+        <>
+          <div
+            className="fixed inset-0 z-50 bg-background/50 backdrop-blur-sm"
+            onClick={() => setSelectedFederacionId(null)}
+          />
+          <FederacionDetailPanel
+            federacionId={selectedFederacionId}
+            onClose={() => setSelectedFederacionId(null)}
           />
         </>
       )}
