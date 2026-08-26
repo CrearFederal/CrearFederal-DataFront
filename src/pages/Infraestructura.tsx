@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { MapContainer, TileLayer } from "react-leaflet";
+import { MapContainer } from "react-leaflet";
+import BaseMapLayers from "../components/BaseMapLayers";
 import "leaflet/dist/leaflet.css";
 import "leaflet.markercluster/dist/MarkerCluster.css";
 import "leaflet.markercluster/dist/MarkerCluster.Default.css";
@@ -438,7 +439,7 @@ function Infraestructura() {
                                                             className="w-full flex-1 min-h-0"
                                                             style={{ height: "100%" }}
                                                     >
-                                                            <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
+                                                            <BaseMapLayers />
                                                             {activeSearch.clubes && (
                                                                     <MarkerClusterGroup markers={clubMapMarkers} onMarkerClick={handleClubMarkerClick} />
                                                             )}
