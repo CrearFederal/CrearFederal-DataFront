@@ -1,6 +1,7 @@
 import { memo, useMemo, useCallback, useEffect, useState, useRef } from "react";
 import { createPortal } from "react-dom";
-import { MapContainer, TileLayer, GeoJSON, useMap } from "react-leaflet";
+import { MapContainer, GeoJSON, useMap } from "react-leaflet";
+import BaseMapLayers from "./BaseMapLayers";
 import L from "leaflet";
 import { Globe, Maximize2, Minimize2, Layers2 } from "lucide-react";
 import "leaflet/dist/leaflet.css";
@@ -664,7 +665,7 @@ function LeafletMap({
         className="w-full flex-1 min-h-0 touch-none"
         style={{ height: "100%" }}
       >
-        <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
+        <BaseMapLayers />
 
         {/* Provincias */}
         {showProvinces && (

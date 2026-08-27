@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef } from "react";
-import { MapContainer, TileLayer, useMap } from "react-leaflet";
+import { MapContainer, useMap } from "react-leaflet";
+import BaseMapLayers from "./BaseMapLayers";
 import L from "leaflet";
 import type { DeporteProvinciasResponse } from "../data/statsApi";
 import { argentinaProvinces } from "../data/argentinaGeoJson";
@@ -313,7 +314,7 @@ export function DeporteHeatMap({ data }: DeporteHeatMapProps) {
         attributionControl={false}
         zoomControl={true}
       >
-        <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" />
+        <BaseMapLayers />
         <HeatMapFitBounds bounds={bounds} />
         <HeatMapGeoLayer provinceById={provinceById} maxValue={maxValue} />
       </MapContainer>
