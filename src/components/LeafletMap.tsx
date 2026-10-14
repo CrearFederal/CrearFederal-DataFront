@@ -22,6 +22,7 @@ import {
 } from "../data/mapaApi";
 import type { Polideportivo, Federacion } from "../types/Mapa";
 import { argentinaProvinces } from "../data/argentinaGeoJson";
+import { escapeHtml } from "../lib/utils";
 import MarkerClusterGroup from "./ClusterGroup";
 import PolideportivoClusterGroup from "./PolideportivoClusterGroup";
 import MapViewController from "./MapViewController";
@@ -567,7 +568,7 @@ function LeafletMap({
       const polideportivosHtml =
         stat && Object.keys(stat.polideportivos).length > 0
           ? Object.entries(stat.polideportivos)
-              .map(([tipo, cantidad]) => `${tipo}: ${cantidad}`)
+              .map(([tipo, cantidad]) => `${escapeHtml(tipo)}: ${escapeHtml(cantidad)}`)
               .join("<br/>")
           : null;
 

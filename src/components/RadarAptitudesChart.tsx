@@ -1,6 +1,7 @@
 import * as echarts from "echarts";
 import { useEffect, useRef } from "react";
 import type { PuntajeAptitud, MedianaAptitud } from "../types/Evaluaciones";
+import { escapeHtml } from "../lib/utils";
 
 const C_BLUE_MAIN = "hsl(215, 85%, 52%)";
 const C_AXIS = "hsl(215, 20%, 55%)";
@@ -105,13 +106,13 @@ function RadarAptitudesChart({ selected, medianas, height = 320, nivel }: RadarA
 
 		// Tooltip content for a vertex dot, shown via the `graphic` circle's own tooltip config below
 		const buildVertexTooltip = (axisName: string, axisColor: string) => {
-			const header = `<div style="font-weight:700;color:${axisColor};margin-bottom:4px;font-size:13px;">${axisName}</div>`;
+			const header = `<div style="font-weight:700;color:${axisColor};margin-bottom:4px;font-size:13px;">${escapeHtml(axisName)}</div>`;
 			const tests = testsByAptitud.get(axisName) ?? [];
 			if (tests.length === 0) return `${header}<span style="color:${C_AXIS};">Sin datos</span>`;
 			const rows = tests.map((t) =>
 				`<div style="display:flex;align-items:baseline;justify-content:space-between;gap:12px;margin-top:2px;">
-					<span style="color:${C_AXIS};max-width:180px;white-space:normal;">${t.nombre}</span>
-					<span style="font-weight:600;white-space:nowrap;">${t.valor} ${t.unidad_medida}</span>
+					<span style="color:${C_AXIS};max-width:180px;white-space:normal;">${escapeHtml(t.nombre)}</span>
+					<span style="font-weight:600;white-space:nowrap;">${t.valor} ${escapeHtml(t.unidad_medida)}</span>
 				</div>`
 			).join("");
 			return `${header}${rows}`;
