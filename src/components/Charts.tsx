@@ -933,6 +933,8 @@ interface DeporteProvinciasChartData {
 
 interface DeporteCoverageChartProps {
   deportes: DeporteBarItem[];
+  /** Single-sport federation: hide the sport list and show only the provincial coverage panel */
+  singleDeporte?: boolean;
   selectedId: number | null;
   provinciasData: DeporteProvinciasChartData | null;
   provinciasLoading: boolean;
@@ -940,14 +942,14 @@ interface DeporteCoverageChartProps {
   onOpenHeatmap?: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
-export function DeporteCoverageChart({ deportes, selectedId, provinciasData, provinciasLoading, onDeporteClick, onOpenHeatmap }: DeporteCoverageChartProps) {
+export function DeporteCoverageChart({ deportes, singleDeporte = false, selectedId, provinciasData, provinciasLoading, onDeporteClick, onOpenHeatmap }: DeporteCoverageChartProps) {
   const deportesChartRef = useRef<HTMLDivElement>(null);
   const provinciasChartRef = useRef<HTMLDivElement>(null);
   const onClickRef = useRef(onDeporteClick);
   useEffect(() => { onClickRef.current = onDeporteClick; }, [onDeporteClick]);
 
   useEffect(() => {
-    if (!deportesChartRef.current || deportes.length === 0) return;
+    if (singleDeporte || !deportesChartRef.current || deportes.length === 0) return;
 
     const sorted = [...deportes].sort((a, b) => a.totalDeportistas - b.totalDeportistas);
     const labels = sorted.map((d) => d.nombre);
@@ -1087,7 +1089,7 @@ export function DeporteCoverageChart({ deportes, selectedId, provinciasData, pro
       window.removeEventListener("resize", handleResize);
       chart.dispose();
     };
-  }, [deportes, selectedId]);
+  }, [deportes, selectedId, singleDeporte]);
 
   useEffect(() => {
     if (!provinciasChartRef.current || !provinciasData?.provincias?.length) return;
@@ -1204,7 +1206,7 @@ export function DeporteCoverageChart({ deportes, selectedId, provinciasData, pro
   return (
     <ChartCard
       title="Cobertura Deportiva por Provincia"
-      subtitle="Seleccioná un deporte para ver en qué provincias se practica"
+      subtitle={singleDeporte ? "Provincias donde se practica tu deporte" : "Seleccioná un deporte para ver en qué provincias se practica"}
       icon={<Globe className="h-4 w-4 text-primary" />}
       headerAction={
         selectedId && provinciasData ? (
@@ -1225,13 +1227,17 @@ export function DeporteCoverageChart({ deportes, selectedId, provinciasData, pro
       }
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:h-[380px]">
-        <div className="flex flex-col min-w-0 h-[260px] sm:h-auto sm:w-2/5">
-          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex-none">
-            Deportes en tu locación
-          </p>
-          <div ref={deportesChartRef} className="flex-1 min-h-0" />
-        </div>
-        <div className="hidden sm:block w-px bg-border shrink-0" />
+        {!singleDeporte && (
+          <>
+            <div className="flex flex-col min-w-0 h-[260px] sm:h-auto sm:w-2/5">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex-none">
+                Deportes en tu locación
+              </p>
+              <div ref={deportesChartRef} className="flex-1 min-h-0" />
+            </div>
+            <div className="hidden sm:block w-px bg-border shrink-0" />
+          </>
+        )}
         <div className="flex flex-col sm:flex-1 min-w-0 h-[260px] sm:h-auto">
           {provinciasLoading ? (
             <div className="h-full flex items-center justify-center">
