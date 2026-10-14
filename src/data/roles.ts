@@ -20,6 +20,11 @@ export interface UserRoleConfig {
   deporteId?: number;
 }
 
+/** Federation bound to a single sport: sport-comparison charts add nothing for it */
+export function isSingleSportFederation(config: UserRoleConfig | null | undefined): boolean {
+  return config?.role === 'federation' && config.deporteId != null;
+}
+
 /** Get the initial navigation state based on role */
 export function getInitialNavigation(config: UserRoleConfig): NavigationState {
   switch (config.role) {

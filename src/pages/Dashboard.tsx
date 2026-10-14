@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback, startTransition } from "react";
 import type { Filters, NavigationState } from "../types/types";
-import { canClickProvince, canClickMunicipio, getInitialNavigation } from "../data/roles";
+import { canClickProvince, canClickMunicipio, getInitialNavigation, isSingleSportFederation } from "../data/roles";
 import type { UserRoleConfig } from "../data/roles";
 import { edadesFrecuenciaToAges } from "../data/dataUtils";
 import { getClubesTotales } from "../data/clubesApi";
@@ -715,6 +715,26 @@ function Dashboard() {
       });
   }, []);
 
+  const singleSport = isSingleSportFederation(roleConfig);
+  const singleSportId = singleSport ? roleConfig?.deporteId ?? null : null;
+
+  // Single-sport federation: preload the sport's territorial coverage and ages by gender
+  useEffect(() => {
+    if (authStatus !== "ready" || singleSportId === null) return;
+
+    handleDeporteClick(singleSportId);
+
+    let active = true;
+    getDeportistasEdadesPorGenero("femenino")
+      .then((ages) => { if (active) setEdadesFemenino(ages); })
+      .catch(() => { if (active) setEdadesFemenino(null); });
+    getDeportistasEdadesPorGenero("masculino")
+      .then((ages) => { if (active) setEdadesMasculino(ages); })
+      .catch(() => { if (active) setEdadesMasculino(null); });
+
+    return () => { active = false; };
+  }, [authStatus, singleSportId, handleDeporteClick]);
+
   const genderDistribution = useMemo(() => {
     if (!deportistasGeneros) {
       return { male: 0, female: 0, malePercent: 0, femalePercent: 0 };
@@ -1131,28 +1151,59 @@ function Dashboard() {
               ) : "Sin datos disponibles"}
             icon={<Users className="h-5 w-5" />}
           />
-          <KpiCard
-            title="Cantidad de Deportes"
-            value={deportistasTotales?.deportes ?? 0}
-            subtitle="Disciplinas con deportistas activos"
-            onClick={openDeportesModal}
-            icon={<BarChart3 className="h-5 w-5" />}
-          />
-          <KpiCard
-            title="Deporte líder"
-            value={deportistasTotales?.deporteLider ?? "-"}
-            subtitle={
-              <span>
-                Con un total de {" "}
-                <span className="font-bold text-primary">
-                  {(deportistasTotales?.cantidadDeportistas ?? 0).toLocaleString()}
-                </span>
-                {" "}deportistas
-              </span>
-            }
-            onClick={openDeporteLiderModal}
-            icon={<Medal className="h-5 w-5" />}
-          />
+          {singleSport ? (
+            <>
+              <KpiCard
+                title="Provincias con presencia"
+                value={deporteProvincias?.totalProvincias ?? 0}
+                subtitle={deporteProvincias ? `Donde se practica ${deporteProvincias.deporte.nombre}` : "Sin datos disponibles"}
+                onClick={deporteProvincias ? openDeporteHeatmapModal : undefined}
+                icon={<BarChart3 className="h-5 w-5" />}
+              />
+              <KpiCard
+                title="Provincia líder"
+                value={deporteProvincias?.provincias[0]?.nombre ?? "-"}
+                subtitle={
+                  deporteProvincias?.provincias[0] ? (
+                    <span>
+                      Concentra el {" "}
+                      <span className="font-bold text-primary">
+                        {deporteProvincias.provincias[0].porcentaje.toLocaleString("es-AR")}%
+                      </span>
+                      {" "}de los deportistas
+                    </span>
+                  ) : "Sin datos disponibles"
+                }
+                onClick={deporteProvincias ? openDeporteHeatmapModal : undefined}
+                icon={<Medal className="h-5 w-5" />}
+              />
+            </>
+          ) : (
+            <>
+              <KpiCard
+                title="Cantidad de Deportes"
+                value={deportistasTotales?.deportes ?? 0}
+                subtitle="Disciplinas con deportistas activos"
+                onClick={openDeportesModal}
+                icon={<BarChart3 className="h-5 w-5" />}
+              />
+              <KpiCard
+                title="Deporte líder"
+                value={deportistasTotales?.deporteLider ?? "-"}
+                subtitle={
+                  <span>
+                    Con un total de {" "}
+                    <span className="font-bold text-primary">
+                      {(deportistasTotales?.cantidadDeportistas ?? 0).toLocaleString()}
+                    </span>
+                    {" "}deportistas
+                  </span>
+                }
+                onClick={openDeporteLiderModal}
+                icon={<Medal className="h-5 w-5" />}
+              />
+            </>
+          )}
         </div>
 
         {/* ROW 3 — Map + Charts stack */}
@@ -1180,8 +1231,17 @@ function Dashboard() {
 
           {/* Right charts — stacked */}
           <div className="flex flex-col gap-3 xl:flex-1 xl:min-w-0">
-            <AthletesPerSportChart data={topDeportes ?? []} />
-            <AgeDistributionChart ages={edadesApiData ?? []} />
+            {singleSport ? (
+              <>
+                <AgeDistributionChart ages={edadesFemenino ?? []} genero="femenino" />
+                <AgeDistributionChart ages={edadesMasculino ?? []} genero="masculino" />
+              </>
+            ) : (
+              <>
+                <AthletesPerSportChart data={topDeportes ?? []} />
+                <AgeDistributionChart ages={edadesApiData ?? []} />
+              </>
+            )}
           </div>
         </div>
 
@@ -1202,6 +1262,7 @@ function Dashboard() {
         {/* ROW 5 — Cobertura deportiva por provincia */}
         <DeporteCoverageChart
           deportes={deportesAll ?? []}
+          singleDeporte={singleSport}
           selectedId={selectedDeporteId}
           provinciasData={deporteProvincias}
           provinciasLoading={deporteProvinciasLoading}
