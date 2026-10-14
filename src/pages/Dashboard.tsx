@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef, useCallback, startTransition } from "react";
 import type { Filters, NavigationState } from "../types/types";
-import { canClickProvince, canClickMunicipio, getInitialNavigation } from "../data/roles";
+import { canClickProvince, canClickMunicipio, getInitialNavigation, isNavigationAllowed, isSingleSportFederation } from "../data/roles";
 import type { UserRoleConfig } from "../data/roles";
 import { edadesFrecuenciaToAges } from "../data/dataUtils";
 import { getClubesTotales } from "../data/clubesApi";
@@ -138,6 +138,7 @@ function Dashboard() {
   const [deporteHeatmapContentStage, setDeporteHeatmapContentStage] = useState(0);
   const [deporteHeatmapModalOrigin, setDeporteHeatmapModalOrigin] = useState<DOMRect | null>(null);
   const [selectedProvinciaRanking, setSelectedProvinciaRanking] = useState<ProvinciaRanking | null>(null);
+  const [provinciaRankingSource, setProvinciaRankingSource] = useState<"top10" | "deporte">("top10");
   const [isProvinciaRankingRendered, setIsProvinciaRankingRendered] = useState(false);
   const [isProvinciaRankingVisible, setIsProvinciaRankingVisible] = useState(false);
   const [provinciaRankingContentStage, setProvinciaRankingContentStage] = useState(0);
@@ -715,6 +716,26 @@ function Dashboard() {
       });
   }, []);
 
+  const singleSport = isSingleSportFederation(roleConfig);
+  const singleSportId = singleSport ? roleConfig?.deporteId ?? null : null;
+
+  // Single-sport federation: preload the sport's territorial coverage and ages by gender
+  useEffect(() => {
+    if (authStatus !== "ready" || singleSportId === null) return;
+
+    handleDeporteClick(singleSportId);
+
+    let active = true;
+    getDeportistasEdadesPorGenero("femenino")
+      .then((ages) => { if (active) setEdadesFemenino(ages); })
+      .catch(() => { if (active) setEdadesFemenino(null); });
+    getDeportistasEdadesPorGenero("masculino")
+      .then((ages) => { if (active) setEdadesMasculino(ages); })
+      .catch(() => { if (active) setEdadesMasculino(null); });
+
+    return () => { active = false; };
+  }, [authStatus, singleSportId, handleDeporteClick]);
+
   const genderDistribution = useMemo(() => {
     if (!deportistasGeneros) {
       return { male: 0, female: 0, malePercent: 0, femalePercent: 0 };
@@ -793,10 +814,28 @@ function Dashboard() {
     return { lider, segundo, pctF, pctM, pctDelTotal };
   }, [deportistasTotales, topDeportes]);
 
+  // Provincias del deporte de la federación, adaptadas a la forma del ranking general
+  const deporteProvinciasRanking = useMemo<ProvinciaRanking[]>(
+    () =>
+      (deporteProvincias?.provincias ?? []).map((p, index) => ({
+        id: p.id_provincia,
+        nombre: p.nombre,
+        totalAthletes: p.totalDeportistas,
+        totalClubs: p.totalClubes,
+        totalMujeres: p.totalMujeres,
+        totalHombres: p.totalHombres,
+        posicion: index + 1,
+      })),
+    [deporteProvincias]
+  );
+
   const provinciaRankingStats = useMemo(() => {
-    if (!selectedProvinciaRanking || !provinciasTop10?.provincias.length) return null;
-    const todas = provinciasTop10.provincias;
-    const totalNacional = todas.reduce((acc, p) => acc + p.totalAthletes, 0);
+    const todas = provinciaRankingSource === "deporte" ? deporteProvinciasRanking : provinciasTop10?.provincias ?? [];
+    if (!selectedProvinciaRanking || !todas.length) return null;
+    const totalNacional =
+      provinciaRankingSource === "deporte"
+        ? deporteProvincias?.totalDeportistas ?? 0
+        : todas.reduce((acc, p) => acc + p.totalAthletes, 0);
     const pctNacional =
       totalNacional > 0
         ? parseFloat(((selectedProvinciaRanking.totalAthletes / totalNacional) * 100).toFixed(1))
@@ -825,7 +864,7 @@ function Dashboard() {
         ? Math.round((selectedProvinciaRanking.totalHombres / selectedProvinciaRanking.totalAthletes) * 100)
         : 0;
     return { pctNacional, poblacion, pctPoblacion, rankingPorPoblacion, pctF, pctM };
-  }, [selectedProvinciaRanking, provinciasTop10]);
+  }, [selectedProvinciaRanking, provinciasTop10, provinciaRankingSource, deporteProvinciasRanking, deporteProvincias]);
 
   const getAgeRangeFromAverage = (average: number | undefined) => {
     if (typeof average !== "number" || !Number.isFinite(average) || average <= 0) return null;
@@ -885,12 +924,12 @@ function Dashboard() {
   const handleFederacionClick = useCallback((id: number) => setSelectedFederacionId(id), []);
 
   const handleNavigateCountry = useCallback(() => {
-    if (!roleConfig || roleConfig.role !== "coa") return;
+    if (!roleConfig || !isNavigationAllowed(roleConfig, { level: "country" })) return;
     setNavigation({ level: "country" });
     setSelectedClubId(null);
     setSelectedInfraId(null);
     setSelectedFederacionId(null);
-  }, [roleConfig?.role]);
+  }, [roleConfig]);
 
   const handleGenderSelect = useCallback(
     async (genero: "femenino" | "masculino") => {
@@ -1041,6 +1080,10 @@ function Dashboard() {
   const handleProvinciaBarClick = (provinciaId: number) => {
     const prov = provinciasTop10?.provincias.find((p) => p.id === provinciaId);
     if (!prov) return;
+    openProvinciaRankingModal(prov, "top10");
+  };
+
+  const openProvinciaRankingModal = (prov: ProvinciaRanking, source: "top10" | "deporte") => {
     if (provinciaRankingCloseTimerRef.current !== null) {
       window.clearTimeout(provinciaRankingCloseTimerRef.current);
       provinciaRankingCloseTimerRef.current = null;
@@ -1048,11 +1091,24 @@ function Dashboard() {
     provinciaRankingStageTimersRef.current.forEach((t) => window.clearTimeout(t));
     provinciaRankingStageTimersRef.current = [];
     setSelectedProvinciaRanking(prov);
+    setProvinciaRankingSource(source);
     setIsProvinciaRankingRendered(true);
     setProvinciaRankingContentStage(0);
     window.requestAnimationFrame(() => setIsProvinciaRankingVisible(true));
     provinciaRankingStageTimersRef.current.push(window.setTimeout(() => setProvinciaRankingContentStage(1), PROVINCIA_RANKING_HEADER_DELAY_MS));
     provinciaRankingStageTimersRef.current.push(window.setTimeout(() => setProvinciaRankingContentStage(2), PROVINCIA_RANKING_DETAIL_DELAY_MS));
+  };
+
+  const isNationalFederation =
+    roleConfig?.role === "federation" && roleConfig.federationScope === "national";
+
+  const openProvinciaLiderModal = (event: React.MouseEvent<HTMLButtonElement>) => {
+    const lider = deporteProvinciasRanking[0];
+    if (isNationalFederation && lider) {
+      openProvinciaRankingModal(lider, "deporte");
+      return;
+    }
+    openDeporteHeatmapModal(event);
   };
 
   const closeProvinciaRankingModal = () => {
@@ -1131,28 +1187,59 @@ function Dashboard() {
               ) : "Sin datos disponibles"}
             icon={<Users className="h-5 w-5" />}
           />
-          <KpiCard
-            title="Cantidad de Deportes"
-            value={deportistasTotales?.deportes ?? 0}
-            subtitle="Disciplinas con deportistas activos"
-            onClick={openDeportesModal}
-            icon={<BarChart3 className="h-5 w-5" />}
-          />
-          <KpiCard
-            title="Deporte líder"
-            value={deportistasTotales?.deporteLider ?? "-"}
-            subtitle={
-              <span>
-                Con un total de {" "}
-                <span className="font-bold text-primary">
-                  {(deportistasTotales?.cantidadDeportistas ?? 0).toLocaleString()}
-                </span>
-                {" "}deportistas
-              </span>
-            }
-            onClick={openDeporteLiderModal}
-            icon={<Medal className="h-5 w-5" />}
-          />
+          {singleSport ? (
+            <>
+              <KpiCard
+                title="Provincias con presencia"
+                value={deporteProvincias?.totalProvincias ?? 0}
+                subtitle={deporteProvincias ? `Donde se practica ${deporteProvincias.deporte.nombre}` : "Sin datos disponibles"}
+                onClick={deporteProvincias ? openDeporteHeatmapModal : undefined}
+                icon={<BarChart3 className="h-5 w-5" />}
+              />
+              <KpiCard
+                title="Provincia líder"
+                value={deporteProvincias?.provincias[0]?.nombre ?? "-"}
+                subtitle={
+                  deporteProvincias?.provincias[0] ? (
+                    <span>
+                      Concentra el {" "}
+                      <span className="font-bold text-primary">
+                        {deporteProvincias.provincias[0].porcentaje.toLocaleString("es-AR")}%
+                      </span>
+                      {" "}de los deportistas
+                    </span>
+                  ) : "Sin datos disponibles"
+                }
+                onClick={deporteProvincias ? openProvinciaLiderModal : undefined}
+                icon={<Medal className="h-5 w-5" />}
+              />
+            </>
+          ) : (
+            <>
+              <KpiCard
+                title="Cantidad de Deportes"
+                value={deportistasTotales?.deportes ?? 0}
+                subtitle="Disciplinas con deportistas activos"
+                onClick={openDeportesModal}
+                icon={<BarChart3 className="h-5 w-5" />}
+              />
+              <KpiCard
+                title="Deporte líder"
+                value={deportistasTotales?.deporteLider ?? "-"}
+                subtitle={
+                  <span>
+                    Con un total de {" "}
+                    <span className="font-bold text-primary">
+                      {(deportistasTotales?.cantidadDeportistas ?? 0).toLocaleString()}
+                    </span>
+                    {" "}deportistas
+                  </span>
+                }
+                onClick={openDeporteLiderModal}
+                icon={<Medal className="h-5 w-5" />}
+              />
+            </>
+          )}
         </div>
 
         {/* ROW 3 — Map + Charts stack */}
@@ -1180,8 +1267,18 @@ function Dashboard() {
 
           {/* Right charts — stacked */}
           <div className="flex flex-col gap-3 xl:flex-1 xl:min-w-0">
-            <AthletesPerSportChart data={topDeportes ?? []} />
-            <AgeDistributionChart ages={edadesApiData ?? []} />
+            {singleSport ? (
+              <>
+                {/* Más altos para igualar la columna de Top Deportes + Distribución por Edad y que el mapa conserve su alto */}
+                <AgeDistributionChart ages={edadesFemenino ?? []} genero="femenino" height={350} />
+                <AgeDistributionChart ages={edadesMasculino ?? []} genero="masculino" height={350} />
+              </>
+            ) : (
+              <>
+                <AthletesPerSportChart data={topDeportes ?? []} />
+                <AgeDistributionChart ages={edadesApiData ?? []} />
+              </>
+            )}
           </div>
         </div>
 
@@ -1202,6 +1299,7 @@ function Dashboard() {
         {/* ROW 5 — Cobertura deportiva por provincia */}
         <DeporteCoverageChart
           deportes={deportesAll ?? []}
+          singleDeporte={singleSport}
           selectedId={selectedDeporteId}
           provinciasData={deporteProvincias}
           provinciasLoading={deporteProvinciasLoading}
@@ -1838,11 +1936,14 @@ function Dashboard() {
                 <div className={`px-3 pb-3 flex flex-col gap-2.5 transition-all duration-500 sm:px-4 sm:pb-4 ${provinciaRankingContentStage >= 2 ? "opacity-100 translate-y-0" : "opacity-0 translate-y-3"}`}>
                   <div className="grid grid-cols-2 gap-2">
                     <div className="rounded-lg border border-border bg-background/70 p-2.5 space-y-0.5">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Total deportistas</p>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                        Total deportistas
+                        {provinciaRankingSource === "deporte" && deporteProvincias ? ` ${deporteProvincias.deporte.nombre}` : ""}
+                      </p>
                       <p className="text-2xl font-bold text-primary font-mono">{selectedProvinciaRanking.totalAthletes.toLocaleString("es-AR")}</p>
                       {provinciaRankingStats && (
                         <p className="text-xs text-muted-foreground">
-                          <span className="font-semibold text-foreground">{provinciaRankingStats.pctNacional}%</span> nacional
+                          <span className="font-semibold text-foreground">{provinciaRankingStats.pctNacional}%</span> del total nacional
                         </p>
                       )}
                     </div>
