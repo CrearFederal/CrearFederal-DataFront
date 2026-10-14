@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 import L from "leaflet";
 import type { NavigationState, Club } from "../types/types";
+import { isNavigationAllowed } from "../data/roles";
 import type { UserRoleConfig } from "../data/roles";
 import { argentinaProvinces, provinceCenters } from "../data/argentinaGeoJson";
 
@@ -55,9 +56,10 @@ function MapViewController({
     return true;
   };
 
-  // -------- Auto Reset a vista país para usuarios con rol COA
+  // -------- Auto Reset a vista país para roles que pueden volver al país (COA, federación nacional)
+  const canNavigateCountry = isNavigationAllowed(roleConfig, { level: "country" });
   useEffect(() => {
-    if (!onNavigateCountry || roleConfig.role !== "coa") return;
+    if (!onNavigateCountry || !canNavigateCountry) return;
 
     const handleZoomEnd = () => {
       if (navigation.level !== "country" && map.getZoom() <= 4) {
@@ -70,7 +72,7 @@ function MapViewController({
     return () => {
       map.off("zoomend", handleZoomEnd);
     };
-  }, [map, navigation.level, onNavigateCountry, roleConfig.role]);
+  }, [map, navigation.level, onNavigateCountry, canNavigateCountry]);
 
   // -------- Posición de vista inicial según rol del usuario
   // Se ejecuta cuando cambia el rol. Define la "zona permitida" para el usuario.

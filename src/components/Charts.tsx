@@ -372,9 +372,10 @@ interface AgeDistributionChartProps {
   fillHeight?: boolean;
   showCard?: boolean;
   genero?: "femenino" | "masculino";
+  height?: number;
 }
 
-export function AgeDistributionChart({ ages, siblingAges, fillHeight = false, showCard = true, genero }: AgeDistributionChartProps) {
+export function AgeDistributionChart({ ages, siblingAges, fillHeight = false, showCard = true, genero, height = 190 }: AgeDistributionChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const bins = useMemo(() => buildHistogramBins(ages), [ages]);
   const siblingBins = useMemo(() => buildHistogramBins(siblingAges ?? []), [siblingAges]);
@@ -516,7 +517,7 @@ export function AgeDistributionChart({ ages, siblingAges, fillHeight = false, sh
   const chartContent = (
     <div
       className={fillHeight ? "flex-1 min-h-0" : ""}
-      style={{ width: "100%", height: fillHeight ? "100%" : "190px" }}
+      style={{ width: "100%", height: fillHeight ? "100%" : `${height}px` }}
     >
       <div ref={chartRef} style={{ width: "100%", height: "100%" }} />
     </div>
