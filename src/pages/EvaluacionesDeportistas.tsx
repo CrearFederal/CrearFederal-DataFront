@@ -604,7 +604,7 @@ function EvaluacionesDeportistas() {
 
 							{!grupoInsuficiente && (
 								<p className="text-xs text-muted-foreground mt-1 leading-5 shrink-0">
-									La línea punteada indica la mediana general. Activá o desactivá las referencias del gráfico para ver solo el deportista o solo la mediana.
+									La línea punteada indica la mediana general. Activá o desactivá las referencias del gráfico para ver solo deportista o solo mediana.
 								</p>
 							)}
 
