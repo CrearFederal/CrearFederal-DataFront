@@ -1,6 +1,9 @@
 import { BrowserRouter, Routes, Route } from "react-router-dom";
 import Dashboard from "./pages/Dashboard";
 import Evaluaciones from "./pages/Evaluaciones";
+import EvaluacionesDeportistas from "./pages/EvaluacionesDeportistas";
+import Infraestructura from "./pages/Infraestructura";
+import AlertaBiotipo from "./pages/AlertaBiotipo";
 import NotFound from "./pages/NotFound";
 
 function App() {
@@ -9,6 +12,9 @@ function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/evaluaciones" element={<Evaluaciones />} />
+        <Route path="/deteccion-talentos" element={<EvaluacionesDeportistas />} />
+        <Route path="/infraestructura" element={<Infraestructura />} />
+        <Route path="/alerta-biotipo" element={<AlertaBiotipo />} />
         <Route path="*" element={<NotFound />} />
       </Routes>
     </BrowserRouter>

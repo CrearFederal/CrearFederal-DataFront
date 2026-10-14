@@ -5,6 +5,7 @@ import { Volleyball, Users, BarChart3, MapPin, Building2, Play, Pause, Eye, Glob
 import type { MunicipiosTop10ContextoResponse } from "../types/Municipios";
 import type { ProvinciasTop10ContextoResponse } from "../types/Provincias";
 import type { TopClubRankingItem } from "../types/Clubes";
+import { escapeHtml } from "../lib/utils";
 
 const C_BLUE_MAIN = "hsl(215, 85%, 52%)";
 const C_FEMALE = "hsl(330, 65%, 58%)";
@@ -84,7 +85,7 @@ export function AthletesPerSportChart({ data, autoRotate = true, height = 480 }:
           const count = params.value[2];
           const sport = sports[sportIdx] || "Deporte";
           const valueColor = genderIdx === 0 ? C_MALE : C_FEMALE;
-          return `<span style="color:${valueColor};font-weight:700;">${sport}</span><br/><span style="color:#0f172a;font-weight:400;">Deportistas: </span><span style="color:${valueColor};font-weight:700;">${count.toLocaleString('es-AR')}</span>`;
+          return `<span style="color:${valueColor};font-weight:700;">${escapeHtml(sport)}</span><br/><span style="color:#0f172a;font-weight:400;">Deportistas: </span><span style="color:${valueColor};font-weight:700;">${count.toLocaleString('es-AR')}</span>`;
         },
       },
       grid3D: {
@@ -274,7 +275,7 @@ export function GenderDistributionChart({ data, subtitle = "Porcentajes de depor
         formatter: (params: any) => {
           const color = params.data.itemStyle.color;
           return `<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color};margin-right:6px;"></span>
-            <span style="font-weight:400;color:#0f172a;font-size:12px;">${params.name}</span><br/>
+            <span style="font-weight:400;color:#0f172a;font-size:12px;">${escapeHtml(params.name)}</span><br/>
             <span style="color:${C_AXIS};padding-left:14px;font-size:11px;">Cantidad: </span>
             <span style="font-weight:900;color:${color};font-size:15px;">${params.value.toLocaleString("es-AR")}</span>`;
         },
@@ -327,8 +328,12 @@ export function GenderDistributionChart({ data, subtitle = "Porcentajes de depor
     const handleResize = () => chart.resize();
     window.addEventListener("resize", handleResize);
 
+    const ro = new ResizeObserver(() => chart.resize());
+    if (chartRef.current) ro.observe(chartRef.current);
+
     return () => {
       window.removeEventListener("resize", handleResize);
+      ro.disconnect();
       chart.dispose();
     };
   }, [data]);
@@ -339,7 +344,7 @@ export function GenderDistributionChart({ data, subtitle = "Porcentajes de depor
       subtitle={subtitle}
       icon={<Users className="h-4 w-4 text-primary" />}
     >
-      <div ref={chartRef} style={{ width: "100%", height: "360px" }} />
+      <div ref={chartRef} className="flex-1 min-h-[360px]" style={{ width: "100%" }} />
     </ChartCard>
   );
 }
@@ -364,15 +369,27 @@ function buildHistogramBins(ages: number[]): { label: string; count: number }[] 
 
 interface AgeDistributionChartProps {
   ages: number[];
+  siblingAges?: number[];
   fillHeight?: boolean;
   showCard?: boolean;
   genero?: "femenino" | "masculino";
+  height?: number;
 }
 
-export function AgeDistributionChart({ ages, fillHeight = false, showCard = true, genero }: AgeDistributionChartProps) {
+export function AgeDistributionChart({ ages, siblingAges, fillHeight = false, showCard = true, genero, height = 190 }: AgeDistributionChartProps) {
   const chartRef = useRef<HTMLDivElement>(null);
   const bins = useMemo(() => buildHistogramBins(ages), [ages]);
-  
+  const siblingBins = useMemo(() => buildHistogramBins(siblingAges ?? []), [siblingAges]);
+
+  const sharedYMax = useMemo(() => {
+    const myMax = bins.length > 0 ? Math.max(...bins.map((b) => b.count)) : 0;
+    const sibMax = siblingBins.length > 0 ? Math.max(...siblingBins.map((b) => b.count)) : 0;
+    const raw = Math.max(myMax, sibMax);
+    if (!raw) return undefined;
+    const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+    return Math.ceil(raw / mag) * mag;
+  }, [bins, siblingBins]);
+
   const barColor = genero === "femenino" ? C_FEMALE : C_MALE;
   const tooltipColor = genero === "femenino" ? C_FEMALE : C_MALE;
 
@@ -418,6 +435,7 @@ export function AgeDistributionChart({ ages, fillHeight = false, showCard = true
         },
         yAxis: {
           type: "value",
+          max: sharedYMax,
           splitLine: { lineStyle: { color: "hsl(215, 20%, 85%)", type: "dashed" } },
           axisLine: { show: false },
           axisTick: { show: false },
@@ -495,12 +513,12 @@ export function AgeDistributionChart({ ages, fillHeight = false, showCard = true
       disposed = true;
       cleanup();
     };
-  }, [bins, barColor, tooltipColor]);
+  }, [bins, barColor, tooltipColor, sharedYMax]);
 
   const chartContent = (
     <div
       className={fillHeight ? "flex-1 min-h-0" : ""}
-      style={{ width: "100%", height: fillHeight ? "100%" : "190px" }}
+      style={{ width: "100%", height: fillHeight ? "100%" : `${height}px` }}
     >
       <div ref={chartRef} style={{ width: "100%", height: "100%" }} />
     </div>
@@ -605,7 +623,7 @@ export function ProvinceRankingChart({ data, onBarClick }: ProvinceRankingChartP
           const maleColor = highlighted ? C_MALE : C_GRAY_MALE;
           const femaleColor = highlighted ? C_FEMALE : C_GRAY_FEMALE;
           const total = item.totalHombres + item.totalMujeres;
-          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">#${item.posicion} ${displayName}</span><br/>
+          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">#${item.posicion} ${escapeHtml(displayName)}</span><br/>
             <span style="color:${C_AXIS};font-size:11px;">Total de deportistas: </span>
             <span style="font-weight:900;color:#0f172a;font-size:14px;">${total.toLocaleString("es-AR")}</span><br/>
             <span style="color:${C_AXIS};font-size:11px;">En </span>
@@ -788,10 +806,10 @@ export function ClubRankingChart({ data, height = 360, customHeight, onClubClick
           const name = params[0].name;
           const item = top10.find((d) => (d.nombre_corto || d.nombre) === name);
           if (!item) return "";
-          return `<span style="font-weight:700;color:${C_MALE};font-size:13px;">${item.nombre_corto || item.nombre}</span><br/>
+          return `<span style="font-weight:700;color:${C_MALE};font-size:13px;">${escapeHtml(item.nombre_corto || item.nombre)}</span><br/>
             <span style="color:${C_AXIS};font-size:11px;">Total: </span>
             <span style="font-weight:900;color:${C_MALE};font-size:14px;">${item.totalDeportistas.toLocaleString("es-AR")}</span><br/>
-            <span style="font-size:11px;">${item.nombreMunicipio || ""} - ${item.nombreProvincia || ""}</span>`;
+            <span style="font-size:11px;">${escapeHtml(item.nombreMunicipio)} - ${escapeHtml(item.nombreProvincia)}</span>`;
         },
       },
       grid: { left: 90, right: 20, top: 12, bottom: 24 },
@@ -917,6 +935,8 @@ interface DeporteProvinciasChartData {
 
 interface DeporteCoverageChartProps {
   deportes: DeporteBarItem[];
+  /** Single-sport federation: hide the sport list and show only the provincial coverage panel */
+  singleDeporte?: boolean;
   selectedId: number | null;
   provinciasData: DeporteProvinciasChartData | null;
   provinciasLoading: boolean;
@@ -924,14 +944,14 @@ interface DeporteCoverageChartProps {
   onOpenHeatmap?: (event: React.MouseEvent<HTMLButtonElement>) => void;
 }
 
-export function DeporteCoverageChart({ deportes, selectedId, provinciasData, provinciasLoading, onDeporteClick, onOpenHeatmap }: DeporteCoverageChartProps) {
+export function DeporteCoverageChart({ deportes, singleDeporte = false, selectedId, provinciasData, provinciasLoading, onDeporteClick, onOpenHeatmap }: DeporteCoverageChartProps) {
   const deportesChartRef = useRef<HTMLDivElement>(null);
   const provinciasChartRef = useRef<HTMLDivElement>(null);
   const onClickRef = useRef(onDeporteClick);
   useEffect(() => { onClickRef.current = onDeporteClick; }, [onDeporteClick]);
 
   useEffect(() => {
-    if (!deportesChartRef.current || deportes.length === 0) return;
+    if (singleDeporte || !deportesChartRef.current || deportes.length === 0) return;
 
     const sorted = [...deportes].sort((a, b) => a.totalDeportistas - b.totalDeportistas);
     const labels = sorted.map((d) => d.nombre);
@@ -969,7 +989,7 @@ export function DeporteCoverageChart({ deportes, selectedId, provinciasData, pro
           const total = item.totalHombres + item.totalMujeres;
           const maleColor = selectedId === null || selectedId === item.id_deporte ? C_MALE : C_GRAY_MALE;
           const femaleColor = selectedId === null || selectedId === item.id_deporte ? C_FEMALE : C_GRAY_FEMALE;
-          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">${item.nombre}</span><br/>
+          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">${escapeHtml(item.nombre)}</span><br/>
             <span style="color:${C_AXIS};font-size:11px;">Total: </span>
             <span style="font-weight:900;color:#0f172a;font-size:14px;">${total.toLocaleString("es-AR")}</span><br/>
             <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${maleColor};margin-right:5px;"></span>
@@ -1071,7 +1091,7 @@ export function DeporteCoverageChart({ deportes, selectedId, provinciasData, pro
       window.removeEventListener("resize", handleResize);
       chart.dispose();
     };
-  }, [deportes, selectedId]);
+  }, [deportes, selectedId, singleDeporte]);
 
   useEffect(() => {
     if (!provinciasChartRef.current || !provinciasData?.provincias?.length) return;
@@ -1114,7 +1134,7 @@ export function DeporteCoverageChart({ deportes, selectedId, provinciasData, pro
           const item = typeof dataIndex === "number" ? sorted[dataIndex] : undefined;
           if (!item) return "";
           const total = item.totalHombres + item.totalMujeres;
-          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">${item.nombre}</span><br/>
+          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">${escapeHtml(item.nombre)}</span><br/>
             <span style="color:${C_AXIS};font-size:11px;">Total: </span>
             <span style="font-weight:900;color:#0f172a;font-size:14px;">${total.toLocaleString("es-AR")}</span>
             <span style="color:${C_AXIS};font-size:11px;"> (${item.porcentaje}%)</span><br/>
@@ -1188,7 +1208,7 @@ export function DeporteCoverageChart({ deportes, selectedId, provinciasData, pro
   return (
     <ChartCard
       title="Cobertura Deportiva por Provincia"
-      subtitle="Seleccioná un deporte para ver en qué provincias se practica"
+      subtitle={singleDeporte ? "Provincias donde se practica tu deporte" : "Seleccioná un deporte para ver en qué provincias se practica"}
       icon={<Globe className="h-4 w-4 text-primary" />}
       headerAction={
         selectedId && provinciasData ? (
@@ -1209,13 +1229,17 @@ export function DeporteCoverageChart({ deportes, selectedId, provinciasData, pro
       }
     >
       <div className="flex flex-col gap-4 sm:flex-row sm:h-[380px]">
-        <div className="flex flex-col min-w-0 h-[260px] sm:h-auto sm:w-2/5">
-          <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex-none">
-            Deportes en tu locación
-          </p>
-          <div ref={deportesChartRef} className="flex-1 min-h-0" />
-        </div>
-        <div className="hidden sm:block w-px bg-border shrink-0" />
+        {!singleDeporte && (
+          <>
+            <div className="flex flex-col min-w-0 h-[260px] sm:h-auto sm:w-2/5">
+              <p className="text-[10px] font-medium text-muted-foreground uppercase tracking-wide mb-1.5 flex-none">
+                Deportes en tu locación
+              </p>
+              <div ref={deportesChartRef} className="flex-1 min-h-0" />
+            </div>
+            <div className="hidden sm:block w-px bg-border shrink-0" />
+          </>
+        )}
         <div className="flex flex-col sm:flex-1 min-w-0 h-[260px] sm:h-auto">
           {provinciasLoading ? (
             <div className="h-full flex items-center justify-center">
@@ -1328,7 +1352,7 @@ export function MunicipioRankingChart({ data }: MunicipioRankingChartProps) {
           const total = item.totalHombres + item.totalMujeres;
           const displayName = getDisplayName(item.nombre, item.codigopostal);
 
-          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">#${item.posicion} ${displayName}</span><br/>
+          return `<span style="font-weight:700;color:#0f172a;font-size:13px;">#${item.posicion} ${escapeHtml(displayName)}</span><br/>
             <span style="color:${C_AXIS};font-size:11px;">Total de deportistas: </span>
             <span style="font-weight:900;color:#0f172a;font-size:14px;">${total.toLocaleString("es-AR")}</span><br/>
             <span style="color:${C_AXIS};font-size:11px;">En </span>
@@ -1498,7 +1522,7 @@ export function GenderBalanceByDeportChart({ data }: GenderBalanceByDeportChartP
           const name = params[0].name;
           const item = chartData.find((d) => d.sport === name);
           if (!item) return "";
-          return `<span style="font-weight:700;font-size:13px;color:#0f172a;">${item.sport}</span><br/>
+          return `<span style="font-weight:700;font-size:13px;color:#0f172a;">${escapeHtml(item.sport)}</span><br/>
             <span style="color:${C_FEMALE};font-weight:600;">♀ ${item.pctF}%</span> (${item.female.toLocaleString("es-AR")}) <br/>
             <span style="color:${C_MALE};font-weight:600;">♂ ${item.pctM}%</span> (${item.male.toLocaleString("es-AR")})`;
         },

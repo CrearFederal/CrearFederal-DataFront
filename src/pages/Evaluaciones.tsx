@@ -2,15 +2,17 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { TrendingDown, TrendingUp, Users, MapPinHouse, BookUser, ClipboardCheck } from "lucide-react";
 import KpiCard from "../components/KpiCard";
 import ProvinceComparisonChart from "../components/ChartProvEvaluaciones";
+import MunicipiosEvaluacionesChart from "../components/ChartMunicipiosEvaluaciones";
 import MonthlyEvaluationsChart from "../components/ChartMesesEvaluaciones";
 import ChartCakeNiveles from "../components/ChartCakeNiveles";
 import { GenderDistributionChart } from "../components/Charts";
 import { authBootstrap, getAuthMe, sendLogoutOnPageClose } from "../api/session";
-import { getEvaluacionesDistribucionGenero, getEvaluacionesEvolucionMensual, getEvaluacionesPorNivel, getEvaluacionesResumen, getEvaluacionesProvinciasTop10 } from "../data/evaluacionesApi";
+import { getEvaluacionesDistribucionGenero, getEvaluacionesEvolucionMensual, getEvaluacionesPorNivel, getEvaluacionesResumen, getEvaluacionesProvinciasTop10, getEvaluacionesMunicipiosTop10 } from "../data/evaluacionesApi";
 import type { AuthScope } from "../types/auth";
 import type {
 	EvaluacionesDistribucionGeneroResponse,
 	EvaluacionesEvolucionMensualItem,
+	EvaluacionesMunicipioTop10Item,
 	EvaluacionesProvinciaTop10Item,
 	EvaluacionesPorNivelItem,
 	EvaluacionesResumenResponse,
@@ -49,15 +51,17 @@ const mapScopeToRoleConfig = (scope: AuthScope): UserRoleConfig => {
 	}
 };
 
-const formatTrendPct = (value: number): string => {
+const formatTrendPct = (value: number | null | undefined): string => {
+	if (value == null || !isFinite(value)) return "+0%";
 	const sign = value < 0 ? "" : "+";
 	return `${sign}${value.toLocaleString("es-AR")}%`;
 };
 
-const TrendIndicator = ({ value }: { value: number }) => {
-	const isNegative = value < 0;
+const TrendIndicator = ({ value }: { value: number | null | undefined }) => {
+	const v = value ?? 0;
+	const isNegative = v < 0;
 	const Icon = isNegative ? TrendingDown : TrendingUp;
-	const trendText = formatTrendPct(value);
+	const trendText = formatTrendPct(v);
 
 	return (
 		<span className={`inline-flex items-center gap-1 align-middle font-bold leading-none ${isNegative ? "text-red-600" : "text-primary"}`}>
@@ -91,6 +95,9 @@ const emptyResumen: EvaluacionesResumenResponse = {
 	lotesTotales: 0,
 	lotesAnterior: 0,
 	lotesVsAnteriorPct: 0,
+	clubesAlcanzados: 0,
+	clubesAlcanzadosAnterior: 0,
+	clubesAlcanzadosVsAnteriorPct: 0,
 	personasEvaluadas: 0,
 	mesActual: "",
 	personasAnterior: 0,
@@ -99,13 +106,20 @@ const emptyResumen: EvaluacionesResumenResponse = {
 	totalMunicipios: 0,
 	municipiosAlcanzados: 0,
 	municipiosVsTotalPct: 0,
+	personasEvaluadasAño: 0,
+	añoActual: 0,
+	personasEvaluadasAñoAnterior: 0,
+	añoAnterior: 0,
+	personasVsAnteiorAñoPct: 0
 };
 
 function Evaluaciones() {
 	const [roleConfig, setRoleConfig] = useState<UserRoleConfig | null>(null);
 	const [authStatus, setAuthStatus] = useState<"loading" | "ready" | "error">("loading");
 	const [resumen, setResumen] = useState<EvaluacionesResumenResponse | null>(null);
-	const [provinciasComparativa, setProvinciasComparativa] = useState<EvaluacionesProvinciaTop10Item[]>([]);	
+	const [provinciasComparativa, setProvinciasComparativa] = useState<EvaluacionesProvinciaTop10Item[]>([]);
+	const [municipiosComparativa, setMunicipiosComparativa] = useState<EvaluacionesMunicipioTop10Item[]>([]);
+	const [provinciaDrill, setProvinciaDrill] = useState<{ id: number; nombre: string } | null>(null);
 	const [evolucionMensual, setEvolucionMensual] = useState<EvaluacionesEvolucionMensualItem[]>([]);
 	const [nivelesEvaluados, setNivelesEvaluados] = useState<EvaluacionesPorNivelItem[]>([]);
 	const [distribucionGenero, setDistribucionGenero] = useState<EvaluacionesDistribucionGeneroResponse | null>(null);
@@ -292,6 +306,38 @@ function Evaluaciones() {
 	}, [authStatus]);
 
 	useEffect(() => {
+		if (authStatus !== "ready" || !roleConfig) return;
+
+		const isMunicipalityRole = roleConfig.role === "municipality";
+		if (!isMunicipalityRole && !provinciaDrill) {
+			setMunicipiosComparativa([]);
+			return;
+		}
+
+		// Municipality usa sesión (sin param). COA y Province pasan el provinciaId del drill.
+		const provinciaIdParam = isMunicipalityRole ? undefined : provinciaDrill?.id;
+
+		const controller = new AbortController();
+
+		const loadMunicipios = async () => {
+			try {
+				const data = await getEvaluacionesMunicipiosTop10(provinciaIdParam, controller.signal);
+				if (!controller.signal.aborted) {
+					setMunicipiosComparativa(data.municipios ?? []);
+				}
+			} catch {
+				if (!controller.signal.aborted) {
+					setMunicipiosComparativa([]);
+				}
+			}
+		};
+
+		void loadMunicipios();
+
+		return () => controller.abort();
+	}, [authStatus, roleConfig, provinciaDrill]);
+
+	useEffect(() => {
 		if (authStatus !== "ready") return;
 
 		const handlePageHide = () => {
@@ -333,6 +379,15 @@ function Evaluaciones() {
 		);
 	}
 
+	const isMunicipalityRole = roleConfig.role === "municipality";
+	const clickableProvinceIds: number[] | "all" =
+		roleConfig.role === "coa"
+			? "all"
+			: roleConfig.role === "province" && roleConfig.provinciaId
+				? [roleConfig.provinciaId]
+				: [];
+	const showMunicipiosChart = isMunicipalityRole || provinciaDrill !== null;
+
 	return (
 		<div className="min-h-screen bg-background flex flex-col">
 			<div className="flex-1 flex flex-col p-4 gap-3">
@@ -354,12 +409,12 @@ function Evaluaciones() {
 					/>
 
 					<KpiCard
-						title="Jornadas realizadas"
-						value={resumen ? resumenData.lotesTotales : "—"}
+						title="Instituciones Alcanzadas"
+						value={resumen ? resumenData.clubesAlcanzados : "—"}
 						subtitle={
 							resumen ? (
 								<span>
-									<TrendIndicator value={resumen.evaluacionesVsAnteriorPct} />{" "}
+									<TrendIndicator value={resumen.clubesAlcanzadosVsAnteriorPct} />{" "}
 									vs año anterior
 								</span>
 							) : (
@@ -370,13 +425,13 @@ function Evaluaciones() {
 					/>
 
 					<KpiCard
-						title={`Personas evaluadas ${resumenData.mesActual || ""}`}
-						value={resumen ? resumenData.personasEvaluadas : "—"}
+						title={`Personas evaluadas en ${resumenData.añoActual || ""}`}
+						value={resumen ? resumenData.personasEvaluadasAño : "—"}
 						subtitle={
 							resumen ? (
 								<span>
-									<TrendIndicator value={resumen.personasVsAnteriorPct} />{" "}
-									vs {resumenData.mesAnterior}
+									<TrendIndicator value={resumenData.personasVsAnteiorAñoPct} />{" "}
+									vs {resumenData.añoAnterior}
 								</span>
 							) : (
 								<span>Sin datos disponibles</span>
@@ -386,7 +441,7 @@ function Evaluaciones() {
 					/>
 
 					<KpiCard
-						title="Municipios alcanzados"
+						title="Municipios participantes"
 						value={resumen ? resumenData.municipiosAlcanzados : "—"}
 						subtitle={
 							resumen ? (
@@ -401,12 +456,26 @@ function Evaluaciones() {
 					/>
 				</div>
 
-				<div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
-					<ProvinceComparisonChart
-						data={provinciasComparativa}
-						height={360}
-						className="mt-1"
-					/>
+<div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
+					{showMunicipiosChart ? (
+						<MunicipiosEvaluacionesChart
+							data={municipiosComparativa}
+							provinciaNombre={provinciaDrill?.nombre}
+							onBack={!isMunicipalityRole ? () => setProvinciaDrill(null) : undefined}
+							height={360}
+							className="mt-1"
+						/>
+					) : (
+						<ProvinceComparisonChart
+							data={provinciasComparativa}
+							clickableProvinceIds={clickableProvinceIds}
+							onProvinceClick={(provincia) =>
+								setProvinciaDrill({ id: provincia.id_provincia, nombre: provincia.nombre })
+							}
+							height={360}
+							className="mt-1"
+						/>
+					)}
 					<MonthlyEvaluationsChart
 						data={evolucionMensual}
 						height={360}
@@ -417,7 +486,7 @@ function Evaluaciones() {
 				<div className="mt-3 grid grid-cols-1 gap-3 xl:grid-cols-2">
 					<ChartCakeNiveles
 						data={nivelesEvaluados}
-						height={360}
+						height={420}
 						className="mt-1"
 					/>
 					<GenderDistributionChart

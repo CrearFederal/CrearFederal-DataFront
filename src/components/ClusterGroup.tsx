@@ -2,26 +2,24 @@ import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 import L, { MarkerClusterGroup as LMarkerClusterGroup } from "leaflet";
 import "leaflet.markercluster";
+import { escapeHtml } from "../lib/utils";
 
 // --------- Types
 interface MarkerData {
-  lat: number;        
-  lng: number;        
-  id: number;         
-  name: string;       
-  address: string;    
-  logoUrl?: string;   
+  lat: number;
+  lng: number;
+  id: number;
+  name: string;
+  address: string;
+  logoUrl?: string;
 }
 
 interface MarkerClusterGroupProps {
-  markers: MarkerData[];           // Array de datos de marcadores a mostrar
-  logos?: Record<number, string | null>;  // Mapa de id_club -> logoUrl (cargado bajo demanda)
-  onMarkerClick: (id: number) => void;  // Callback cuando usuario hace click en marcador
+  markers: MarkerData[];
+  onMarkerClick: (id: number) => void;
 }
 
 // --------- Funciones para crear elementos visuales
-// Crea el ícono personalizado para clusters (agrupa múltiples marcadores)
-// Cambia de tamaño según cantidad de markers dentro: small (≤10), medium (≤30), large (>30)
 function createClusterIcon(cluster: any) {
   const count = cluster.getChildCount();
 
@@ -36,15 +34,11 @@ function createClusterIcon(cluster: any) {
   });
 }
 
-// Crea el ícono visual para cada marcador individual
-// Si el club tiene logo, muestra el logo. Si no, muestra punto genérico pequeño
-function createMarkerIcon(marker: MarkerData, logos?: Record<number, string | null>) {
-  const logoUrl = logos?.[marker.id] ?? marker.logoUrl;
-  
-  if (logoUrl) {
+function createMarkerIcon(marker: MarkerData) {
+  if (marker.logoUrl) {
     return L.divIcon({
       html: `<div class="club-logo-marker">
-              <img src="${logoUrl}" alt="" />
+              <img src="${escapeHtml(marker.logoUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'" />
             </div>`,
       className: "custom-marker",
       iconSize: L.point(28, 28),
@@ -60,44 +54,36 @@ function createMarkerIcon(marker: MarkerData, logos?: Record<number, string | nu
   });
 }
 
-function createTooltip(marker: MarkerData, logos?: Record<number, string | null>) {
-  const logoUrl = logos?.[marker.id] ?? marker.logoUrl;
-  
+function createTooltip(marker: MarkerData) {
+  const logo = marker.logoUrl
+    ? `<img src="${escapeHtml(marker.logoUrl)}" class="club-tooltip-logo" />`
+    : "";
+  const address = marker.address
+    ? `<br/><span style="color:#64748b;font-size:11px">${escapeHtml(marker.address)}</span>`
+    : "";
   return `
     <div class="club-tooltip-content">
-      ${
-        logoUrl
-          ? `<img src="${logoUrl}" class="club-tooltip-logo" />`
-          : ""
-      }
-      <span>${marker.name}</span>
+      ${logo}
+      <div><strong style="color:hsl(215,70%,45%)">${escapeHtml(marker.name)}</strong>${address}</div>
     </div>
   `;
 }
 
 // ------- Componente para gestionar cluster de marcadores con agrupación
-// Crea, actualiza y maneja eventos de múltiples marcadores de clubs
-// Los marcadores se agrupan automáticamente cuando están cerca (cluster)
-function MarkerClusterGroup({
-  markers,
-  logos,
-  onMarkerClick,
-}: MarkerClusterGroupProps) {
+function MarkerClusterGroup({ markers, onMarkerClick }: MarkerClusterGroupProps) {
   const map = useMap();
   const clusterRef = useRef<LMarkerClusterGroup | null>(null);
   const markersRef = useRef<Map<number, L.Marker>>(new Map());
 
-  // -------- Crear e inicializar el cluster group la primera vez
-  // Configura propiedades: agrupación por proximidad, animaciones, comportamiento al hacer click
   useEffect(() => {
     const cluster = (L as any).markerClusterGroup({
-      chunkedLoading: true,           
-      maxClusterRadius: 50,        
-      spiderfyOnMaxZoom: true,           
-      showCoverageOnHover: false,   
-      animateAddingMarkers: true,        
-      zoomToBoundsOnClick: true,   
-      iconCreateFunction: createClusterIcon
+      chunkedLoading: true,
+      maxClusterRadius: 50,
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      animateAddingMarkers: true,
+      zoomToBoundsOnClick: true,
+      iconCreateFunction: createClusterIcon,
     });
 
     clusterRef.current = cluster;
@@ -108,61 +94,35 @@ function MarkerClusterGroup({
     };
   }, [map]);
 
-  // -------- Update de marcadores en el cluster cada vez que cambian los datos
-  // Limpia los anteriores y crea nuevos con sus tooltips y eventos de click
   useEffect(() => {
     if (!clusterRef.current) return;
 
     const cluster = clusterRef.current;
 
-    // Elimina todos los marcadores anteriores
     cluster.clearLayers();
     markersRef.current.clear();
 
-    // Itera sobre cada marcador, crea su ícono, tooltip y evento de click
+    const leafletMarkers: L.Marker[] = [];
+
     markers.forEach((m) => {
       const marker = L.marker([m.lat, m.lng], {
-        icon: createMarkerIcon(m, logos),   
+        icon: createMarkerIcon(m),
       });
 
-      // Bind tooltip que aparece al pasar mouse sobre marcador
-      marker.bindTooltip(createTooltip(m, logos), {
-        direction: "top",          
-        offset: L.point(0, -12),    
-        className: "club-tooltip",    
+      marker.bindTooltip(createTooltip(m), {
+        direction: "top",
+        offset: L.point(0, -12),
+        className: "club-tooltip",
       });
 
-      // Evento: disparar callback cuando usuario hace click
       marker.on("click", () => onMarkerClick(m.id));
-
-      // Guardar referencia al marcador para actualizaciones posteriores
       markersRef.current.set(m.id, marker);
-
-      // Agregar marcador al cluster
-      cluster.addLayer(marker);
+      leafletMarkers.push(marker);
     });
+
+    cluster.addLayers(leafletMarkers);
   }, [markers, onMarkerClick]);
 
-  // -------- Actualizar logos cuando llegan dinámicamente
-  // Sin recrear todos los marcadores, solo actualiza el icono y tooltip
-  useEffect(() => {
-    if (!logos || Object.keys(logos).length === 0) return;
-
-    markersRef.current.forEach((marker, clubId) => {
-      if (clubId in logos && logos[clubId]) {
-        // Actualizar icono
-        marker.setIcon(createMarkerIcon({ lat: 0, lng: 0, id: clubId, name: "", address: "" }, logos));
-        
-        // Actualizar tooltip con el logo cargado
-        const markerData = markers.find(m => m.id === clubId);
-        if (markerData) {
-          marker.setTooltipContent(createTooltip(markerData, logos));
-        }
-      }
-    });
-  }, [logos, markers]);
-
-  // No renderiza nada visible — componente solo controla estado del cluster
   return null;
 }
 

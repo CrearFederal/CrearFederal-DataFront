@@ -15,26 +15,21 @@ import { TrendingDown, TrendingUp, MapPinHouse } from "lucide-react";
 import type { EvaluacionesProvinciaTop10Item } from "../types/Evaluaciones";
 
 const formatNumber = (value: number): string => value.toLocaleString("es-AR");
-const USE_MOCK_DATA = true;
+
+/** Ancho reservado por provincia: ~12 barras visibles en media card, el resto con scroll horizontal */
+const BAR_SLOT_WIDTH = 56;
+
+const shortenProvinceName = (nombre: string): string =>
+    /ciudad aut/i.test(nombre) ? "CABA" : nombre;
 
 export interface ProvinceComparisonChartProps {
     data?: EvaluacionesProvinciaTop10Item[];
     height?: number;
     className?: string;
+    /** "all" = todas clickeables (coa); array de ids = solo esas (provincia); vacío/undefined = sin clicks */
+    clickableProvinceIds?: number[] | "all";
+    onProvinceClick?: (provincia: EvaluacionesProvinciaTop10Item) => void;
 }
-
-const MOCK_PROVINCIAS: EvaluacionesProvinciaTop10Item[] = [
-    { id_provincia: 1, nombre: "Santa Fe", personasTotales: 4987, personasTotalesAnterior: 2493, actualVsAnterior: 50.1},
-    { id_provincia: 2, nombre: "CABA", personasTotales: 4860, personasTotalesAnterior: 4510, actualVsAnterior: 7.8 },
-    { id_provincia: 3, nombre: "Cordoba", personasTotales: 3710, personasTotalesAnterior: 3120, actualVsAnterior: 18.9 },
-    { id_provincia: 4, nombre: "Mendoza", personasTotales: 3320, personasTotalesAnterior: 3490, actualVsAnterior: -4.9 },
-    { id_provincia: 5, nombre: "Corrientes", personasTotales: 2890, personasTotalesAnterior: 2510, actualVsAnterior: 15.1 },
-    { id_provincia: 1, nombre: "San Juan", personasTotales: 3000, personasTotalesAnterior: 1500, actualVsAnterior: 50 },
-    { id_provincia: 2, nombre: "Buenos Aires", personasTotales: 4860, personasTotalesAnterior: 4510, actualVsAnterior: 7.8 },
-    { id_provincia: 3, nombre: "Entre Ríos", personasTotales: 3710, personasTotalesAnterior: 3120, actualVsAnterior: 18.9 },
-    { id_provincia: 4, nombre: "Misiones", personasTotales: 3320, personasTotalesAnterior: 3490, actualVsAnterior: -4.9 },
-    { id_provincia: 5, nombre: "Formosa", personasTotales: 2890, personasTotalesAnterior: 2510, actualVsAnterior: 15.1 },
-];
 
 function ChartShell({
     title,
@@ -120,21 +115,29 @@ function CustomTooltip({ active, payload, label }: any) {
 }
 
 export default function ProvinceComparisonChart({
-    data = MOCK_PROVINCIAS,
+    data = [],
     height = 340,
     className = "",
+    clickableProvinceIds,
+    onProvinceClick,
 }: ProvinceComparisonChartProps) {
     const chartId = useId().replace(/:/g, "");
-    const sourceData = USE_MOCK_DATA ? MOCK_PROVINCIAS : data;
+    const sourceData = data;
     const top = useMemo(
-        () => [...sourceData].sort((a, b) => b.personasTotales - a.personasTotales).slice(0, 10),
+        () => [...sourceData].sort((a, b) => b.personasTotales - a.personasTotales),
         [sourceData]
     );
+
+    const isClickable = (item: EvaluacionesProvinciaTop10Item): boolean =>
+        Boolean(onProvinceClick) &&
+        (clickableProvinceIds === "all" ||
+            (clickableProvinceIds ?? []).some((id) => Number(id) === Number(item.id_provincia)));
 
     const currentGradientId = `mc-current-${chartId}`;
     const previousGradientId = `mc-previous-${chartId}`;
     const currentGlowId = `mc-current-glow-${chartId}`;
     const previousGlowId = `mc-previous-glow-${chartId}`;
+    const hoverGlowId = `mc-hover-glow-${chartId}`;
 
     const renderXAxisTick = ({ x, y, payload }: any) => (
         <g transform={`translate(${x},${y})`}>
@@ -146,7 +149,7 @@ export default function ProvinceComparisonChart({
                 fontSize={10}
                 fontWeight={400}
             >
-                {payload.value}
+                {shortenProvinceName(payload.value)}
             </text>
         </g>
     );
@@ -174,7 +177,7 @@ export default function ProvinceComparisonChart({
         return (
             <ChartShell
                 title="Evaluados por provincia"
-                subtitle="Top 10 con más personas evaluadas y su comparación con el año anterior"
+                subtitle="Todas las provincias por personas evaluadas y su comparación con el año anterior"
                 headerRight={headerLegend}
                 className={className}
             >
@@ -193,12 +196,13 @@ export default function ProvinceComparisonChart({
     return (
         <ChartShell
             title="Evaluados por provincia"
-            subtitle="Top 10 con más personas evaluadas y su comparación con el año anterior"
+            subtitle="Todas las provincias por personas evaluadas y su comparación con el año anterior"
             headerRight={headerLegend}
             className={className}
         >
-            <div style={{ height }}>
-                <ResponsiveContainer width="100%" height="100%">
+            <div className="overflow-x-auto overflow-y-hidden">
+                <div style={{ minWidth: Math.max(top.length * BAR_SLOT_WIDTH, 480) }}>
+                <ResponsiveContainer width="100%" height={height} debounce={50}>
                     <ComposedChart
                         data={top}
                         margin={{ top: 26, right: 16, left: 0, bottom: 8 }}
@@ -223,6 +227,13 @@ export default function ProvinceComparisonChart({
                             </filter>
                             <filter id={previousGlowId} x="-20%" y="-20%" width="140%" height="140%">
                                 <feGaussianBlur stdDeviation="2.5" result="blur" />
+                                <feMerge>
+                                    <feMergeNode in="blur" />
+                                    <feMergeNode in="SourceGraphic" />
+                                </feMerge>
+                            </filter>
+                            <filter id={hoverGlowId} x="-40%" y="-40%" width="180%" height="180%">
+                                <feGaussianBlur stdDeviation="5" result="blur" />
                                 <feMerge>
                                     <feMergeNode in="blur" />
                                     <feMergeNode in="SourceGraphic" />
@@ -253,7 +264,7 @@ export default function ProvinceComparisonChart({
                             width={40}
                         />
                         <Tooltip
-                            cursor={{ fill: "rgba(56, 189, 248, 0.06)" }}
+                            cursor={false}
                             content={<CustomTooltip />}
                         />
 
@@ -262,12 +273,24 @@ export default function ProvinceComparisonChart({
                             radius={[8, 8, 4, 4]}
                             fill={`url(#${currentGradientId})`}
                             filter={`url(#${currentGlowId})`}
+                            activeBar={{
+                                fill: `url(#${currentGradientId})`,
+                                stroke: "hsl(var(--primary))",
+                                strokeWidth: 1.5,
+                                filter: `url(#${hoverGlowId})`,
+                                radius: 8,
+                            }}
                             isAnimationActive
                             animationDuration={1650}
                             maxBarSize={42}
                         >
-                            {top.map((_, i) => (
-                                <Cell key={i} fill={`url(#${currentGradientId})`} />
+                            {top.map((item, i) => (
+                                <Cell
+                                    key={i}
+                                    fill={`url(#${currentGradientId})`}
+                                    cursor={isClickable(item) ? "pointer" : "default"}
+                                    onClick={isClickable(item) ? () => onProvinceClick?.(item) : undefined}
+                                />
                             ))}
                         </Bar>
 
@@ -295,6 +318,7 @@ export default function ProvinceComparisonChart({
                         />
                     </ComposedChart>
                 </ResponsiveContainer>
+                </div>
             </div>
         </ChartShell>
     );

@@ -83,6 +83,13 @@ export interface ConteoInfraestructura {
   CanchaVoley: number;
   CanchaRugby: number;
   CanchaHockey: number;
+  CanchaPadel: number;
+  CanchaAtletismo: number;
+  CanchaTiroConArco: number;
+  CanchaHandball: number;
+  CanchaFutsal: number;
+  CanchaBochas: number;
+  CanchaMultiples: number;
   Otros: number;
 }
 
@@ -98,4 +105,23 @@ export interface ClubDetalleResponse {
   edadesFrecuencia: EdadFrecuenciaItem[];
   infraestructura?: InfraestructuraItem[];
   conteoInfraestructura?: ConteoInfraestructura;
+}
+
+export interface TipoInfraestructura {
+  id_tipo_infra: number;
+  descripcion: string;
+  categoria: string;
+}
+
+export interface ClubPorInfraestructura {
+  id_club: number;
+  nombre: string;
+  id_provincia: number;
+  nombreProvincia: string;
+  id_municipio: number;
+  nombreMunicipio: string;
+  direccion: string;
+  lat: number | null;
+  lng: number | null;
+  logoUrl: string | null;
 }

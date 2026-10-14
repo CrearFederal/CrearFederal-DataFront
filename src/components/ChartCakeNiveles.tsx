@@ -167,7 +167,7 @@ export default function ChartCakeNiveles({
                 </div>
 
                 <div className="flex-1 min-h-0 w-full">
-                    <ResponsiveContainer width="100%" height="100%">
+                    <ResponsiveContainer width="100%" height="100%" debounce={50}>
                         <PieChart>
                         <defs>
                             <linearGradient id={`pie-center-${chartId}`} x1="0" y1="0" x2="1" y2="1">
@@ -226,7 +226,7 @@ export default function ChartCakeNiveles({
                                                 {centerValue.toLocaleString("es-AR")}
                                             </tspan>
                                             <tspan x={viewBox.cx} y={viewBox.cy + 18} className="fill-muted-foreground text-xs">
-                                                {selectedItem ? selectedItem.nivel_evaluado : "Evaluaciones"}
+                                                {selectedItem ? selectedItem.nivel_evaluado : "Evaluados"}
                                             </tspan>
                                         </text>
                                     );
