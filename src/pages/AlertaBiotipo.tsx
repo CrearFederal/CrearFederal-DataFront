@@ -34,6 +34,7 @@ const APTITUD_COLORS = [
 	"#7c3aed",
 	"#0891b2",
 	"#db2777",
+	"#db4344"
 ];
 
 const EDAD_MIN_LIMITE = 4;
