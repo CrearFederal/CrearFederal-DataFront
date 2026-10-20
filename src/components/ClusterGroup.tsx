@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 import L, { MarkerClusterGroup as LMarkerClusterGroup } from "leaflet";
 import "leaflet.markercluster";
+import { escapeHtml } from "../lib/utils";
 
 // --------- Types
 interface MarkerData {
@@ -37,7 +38,7 @@ function createMarkerIcon(marker: MarkerData) {
   if (marker.logoUrl) {
     return L.divIcon({
       html: `<div class="club-logo-marker">
-              <img src="${marker.logoUrl}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'" />
+              <img src="${escapeHtml(marker.logoUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'" />
             </div>`,
       className: "custom-marker",
       iconSize: L.point(28, 28),
@@ -55,15 +56,15 @@ function createMarkerIcon(marker: MarkerData) {
 
 function createTooltip(marker: MarkerData) {
   const logo = marker.logoUrl
-    ? `<img src="${marker.logoUrl}" class="club-tooltip-logo" />`
+    ? `<img src="${escapeHtml(marker.logoUrl)}" class="club-tooltip-logo" />`
     : "";
   const address = marker.address
-    ? `<br/><span style="color:#64748b;font-size:11px">${marker.address}</span>`
+    ? `<br/><span style="color:#64748b;font-size:11px">${escapeHtml(marker.address)}</span>`
     : "";
   return `
     <div class="club-tooltip-content">
       ${logo}
-      <div><strong style="color:hsl(215,70%,45%)">${marker.name}</strong>${address}</div>
+      <div><strong style="color:hsl(215,70%,45%)">${escapeHtml(marker.name)}</strong>${address}</div>
     </div>
   `;
 }

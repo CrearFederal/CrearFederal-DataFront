@@ -1,6 +1,7 @@
 import * as echarts from "echarts";
 import { useEffect, useRef } from "react";
 import type { TestBiotipoItem, MedianaBiotipoItem } from "../types/Evaluaciones";
+import { escapeHtml } from "../lib/utils";
 
 const C_BLUE_MAIN = "hsl(215, 85%, 52%)";
 const C_AXIS = "hsl(215, 20%, 55%)";
@@ -154,8 +155,8 @@ function RadarBiotipoChart({ tests, medianas, height = 320 }: RadarBiotipoChartP
 					tooltip: test
 						? {
 							formatter: () =>
-								`<div style="font-weight:700;color:${color};margin-bottom:4px;font-size:13px;">${axisName}</div>` +
-								`<div style="font-size:12px;"><b>${test.valor} ${test.unidad_medida}</b></div>`,
+								`<div style="font-weight:700;color:${color};margin-bottom:4px;font-size:13px;">${escapeHtml(axisName)}</div>` +
+								`<div style="font-size:12px;"><b>${test.valor} ${escapeHtml(test.unidad_medida)}</b></div>`,
 						}
 						: undefined,
 				};

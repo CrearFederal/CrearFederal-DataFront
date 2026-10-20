@@ -1284,7 +1284,17 @@ function Dashboard() {
 
         {/* ROW 4 — Province + Gender + Gender per Sport */}
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {roleConfig.role === "municipality" ? (
+          {singleSport ? (
+            <DeporteCoverageChart
+              deportes={deportesAll ?? []}
+              singleDeporte={singleSport}
+              selectedId={selectedDeporteId}
+              provinciasData={deporteProvincias}
+              provinciasLoading={deporteProvinciasLoading}
+              onDeporteClick={handleDeporteClick}
+              onOpenHeatmap={openDeporteHeatmapModal}
+            />
+          ) : roleConfig.role === "municipality" ? (
             <MunicipioRankingChart data={municipiosTop10} />
           ) : (
             <ProvinceRankingChart data={provinciasTop10} onBarClick={handleProvinciaBarClick} />
@@ -1297,15 +1307,17 @@ function Dashboard() {
         </div>
 
         {/* ROW 5 — Cobertura deportiva por provincia */}
-        <DeporteCoverageChart
-          deportes={deportesAll ?? []}
-          singleDeporte={singleSport}
-          selectedId={selectedDeporteId}
-          provinciasData={deporteProvincias}
-          provinciasLoading={deporteProvinciasLoading}
-          onDeporteClick={handleDeporteClick}
-          onOpenHeatmap={openDeporteHeatmapModal}
-        />
+        {!singleSport && (
+          <DeporteCoverageChart
+            deportes={deportesAll ?? []}
+            singleDeporte={singleSport}
+            selectedId={selectedDeporteId}
+            provinciasData={deporteProvincias}
+            provinciasLoading={deporteProvinciasLoading}
+            onDeporteClick={handleDeporteClick}
+            onOpenHeatmap={openDeporteHeatmapModal}
+          />
+        )}
 
       </div>
 

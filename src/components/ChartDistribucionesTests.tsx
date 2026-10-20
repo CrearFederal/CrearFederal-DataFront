@@ -2,6 +2,7 @@ import * as echarts from "echarts";
 import { useEffect, useMemo, useRef } from "react";
 import type { DistribucionTest } from "../types/Evaluaciones";
 import { getAptitudesPorNivel, normalizeAptitudName } from "./RadarAptitudesChart";
+import { escapeHtml } from "../lib/utils";
 
 // Mirrors AXIS_COLOR_PALETTE in RadarAptitudesChart so each aptitude keeps the same
 // color across the radar, the deltas list and these distributions.
@@ -193,8 +194,8 @@ function ChartDistribucionesTests({ distribuciones, selectedDeportistaId, nivel 
 				silent: false,
 				tooltip: {
 					formatter: () =>
-						`<div style="font-weight:700;color:${row.color};margin-bottom:2px;">${row.nombreTest}</div>` +
-						`<div style="font-size:12px;">Distribución del grupo · <b>${row.aptitud}</b></div>`,
+						`<div style="font-weight:700;color:${row.color};margin-bottom:2px;">${escapeHtml(row.nombreTest)}</div>` +
+						`<div style="font-size:12px;">Distribución del grupo · <b>${escapeHtml(row.aptitud)}</b></div>`,
 				},
 				markLine: {
 					silent: false,
@@ -211,8 +212,8 @@ function ChartDistribucionesTests({ distribuciones, selectedDeportistaId, nivel 
 					},
 					tooltip: {
 						formatter: () =>
-							`<div style="font-weight:700;margin-bottom:2px;">${row.nombreTest}</div>` +
-							`<div style="font-size:12px;">Resultado del deportista: <b>${formatValor(row.valorDeportista)}${row.unidad ? ` ${row.unidad}` : ""}</b></div>`,
+							`<div style="font-weight:700;margin-bottom:2px;">${escapeHtml(row.nombreTest)}</div>` +
+							`<div style="font-size:12px;">Resultado del deportista: <b>${formatValor(row.valorDeportista)}${row.unidad ? ` ${escapeHtml(row.unidad)}` : ""}</b></div>`,
 					},
 				},
 			});

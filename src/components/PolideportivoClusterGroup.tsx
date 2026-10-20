@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 import { useMap } from "react-leaflet";
 import L, { MarkerClusterGroup as LMarkerClusterGroup } from "leaflet";
 import "leaflet.markercluster";
+import { escapeHtml } from "../lib/utils";
 
 // Forma minima que necesita este cluster generico. Polideportivo y Federacion
 // (entre otros) son un superset de esta forma, asi que ambos son compatibles.
@@ -47,7 +48,7 @@ function createMarkerIcon(color: string, logoUrl?: string | null) {
         background:white;
         transition:transform 0.2s ease;
       ">
-        <img src="${logoUrl}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'" />
+        <img src="${escapeHtml(logoUrl)}" alt="" style="width:100%;height:100%;object-fit:cover;" onerror="this.style.display='none'" />
       </div>`,
       className: "",
       iconSize: L.point(28, 28),
@@ -115,13 +116,13 @@ function PolideportivoClusterGroup({
       .map((p) => {
         const marker = L.marker([p.lat, p.lng], { icon: createMarkerIcon(color, p.logoUrl) });
         const logo = p.logoUrl
-          ? `<img src="${p.logoUrl}" class="club-tooltip-logo" style="border-color:${color}" />`
+          ? `<img src="${escapeHtml(p.logoUrl)}" class="club-tooltip-logo" style="border-color:${color}" />`
           : "";
         const address = p.direccion
-          ? `<br/><span style="color:#64748b;font-size:11px">${p.direccion}</span>`
+          ? `<br/><span style="color:#64748b;font-size:11px">${escapeHtml(p.direccion)}</span>`
           : "";
         marker.bindTooltip(
-          `<div class="club-tooltip-content">${logo}<div><strong style="color:${colorDark}">${p.nombre}</strong>${address}</div></div>`,
+          `<div class="club-tooltip-content">${logo}<div><strong style="color:${colorDark}">${escapeHtml(p.nombre)}</strong>${address}</div></div>`,
           { direction: "top", offset: L.point(0, -8), className: "club-tooltip" }
         );
         if (onPolideportivoClick) {
