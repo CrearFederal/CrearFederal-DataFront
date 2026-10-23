@@ -1143,6 +1143,7 @@ function Dashboard() {
   const clubDetailHighlight = clubesTotales?.clubConMasDeportistas;
   const totalClubesCount = clubesTotales?.totalClubes ?? 0;
   const topClubesPercent = topClubesDetalle?.porcentaje ?? 0;
+  const isCountryWideView = roleConfig.role === "coa" || isNationalFederation;
 
   // -------- RENDER --------
 
@@ -1520,15 +1521,26 @@ function Dashboard() {
                           }`}
                       >
                         <div className="space-y-1 mb-4 text-sm text-foreground">
+                          {isCountryWideView ? (
                             <p>
-                            La provincia de <span className="font-semibold text-primary">{topProvinciasDeportistas[0].nombre}</span> concentra el
-                            <span className="inline-flex items-center rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-1 font-semibold text-primary text-xs mx-1">
-                              {topProvinciasDeportistas[0].porcentaje}%
-                            </span>
-                            del total, siendo la provincia con mas deportistas. Le siguen:
-                          </p>
+                              La provincia de <span className="font-semibold text-primary">{topProvinciasDeportistas[0].nombre}</span> concentra el
+                              <span className="inline-flex items-center rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-1 font-semibold text-primary text-xs mx-1">
+                                {topProvinciasDeportistas[0].porcentaje}%
+                              </span>
+                              del total, siendo la provincia con mas deportistas. Le siguen:
+                            </p>
+                          ) : (
+                            <p>
+                              La provincia de <span className="font-semibold text-primary">{topProvinciasDeportistas[0].nombre}</span> concentra el
+                              <span className="inline-flex items-center rounded-lg border border-primary/20 bg-primary/10 px-2.5 py-1 font-semibold text-primary text-xs mx-1">
+                                {topProvinciasDeportistas[0].porcentaje}%
+                              </span>
+                              del total de deportistas del país.
+                            </p>
+                          )}
 
-                          {(topProvinciasDeportistas.slice(1, 3).length > 0
+                          {/* Provincias 2 y 3: solo para vistas de todo el país (COA y Federación Nacional) */}
+                          {isCountryWideView && (topProvinciasDeportistas.slice(1, 3).length > 0
                             ? topProvinciasDeportistas.slice(1, 3)
                             : [
                                 { nombre: "Provincia ejemplo", porcentaje: 0 },
@@ -1764,7 +1776,7 @@ function Dashboard() {
                         </p>
                         {deporteLiderStats && (
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            <span className="font-bold text-sm text-foreground">{deporteLiderStats.pctDelTotal}%</span> del total nacional
+                            <span className="font-bold text-sm text-foreground">{deporteLiderStats.pctDelTotal}%</span> {roleConfig.role === "province" ? "del total provincial" : "del total nacional"}
                           </p>
                         )}
                       </div>
@@ -1890,7 +1902,7 @@ function Dashboard() {
                       <p className="text-2xl font-bold text-primary font-mono">{deporteProvincias.totalProvincias.toLocaleString("es-AR")}</p>
                     </div>
                     <div className="rounded-xl border border-border bg-background/70 p-3">
-                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Total de deportistas</p>
+                      <p className="text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">Deportistas con club y provincia</p>
                       <p className="text-2xl font-bold text-primary font-mono">{deporteProvincias.totalDeportistas.toLocaleString("es-AR")}</p>
                     </div>
                   </div>
